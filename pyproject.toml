@@ -12,6 +12,8 @@ dependencies = [
     "aiohttp>=3.11.18",
     "playwright>=1.52.0",
     "fastmcp>=2.5.1",
+    "fastapi>=0.110.2",
+    "uvicorn>=0.29.0",
 ]
 
 [project.scripts]

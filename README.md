@@ -20,6 +20,16 @@ Bu proje, çeşitli Türk hukuk kaynaklarına (Yargıtay, Danıştay, Emsal Kara
 * Karar metinlerinin daha kolay işlenebilmesi için Markdown formatına çevrilmesi.
 * Claude Desktop uygulaması ile `fastmcp install` komutu kullanılarak kolay entegrasyon.
 
+### FastAPI Sunucusu
+
+Araçlara doğrudan HTTP üzerinden erişmek için `fastapi_server.py` dosyasını çalıştırabilirsiniz:
+
+```bash
+uvicorn fastapi_server:app --reload
+```
+
+Bu sunucu, MCP araçlarını RESTful endpoint'ler olarak sunar. Örneğin Yargıtay karar araması için `/yargitay/search/detailed` adresine POST isteği gönderebilirsiniz.
+
 ---
 📋 **Ön Gereksinimler**
 
