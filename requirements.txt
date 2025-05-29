@@ -4,4 +4,6 @@ beautifulsoup4
 markitdown
 pydantic
 aiohttp
-playwright 
+playwright
+fastapi
+uvicorn
