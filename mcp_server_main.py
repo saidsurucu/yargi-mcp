@@ -73,6 +73,14 @@ from kik_mcp_module.models import (
     KikDocumentMarkdown 
 )
 
+from rekabet_mcp_module.client import RekabetKurumuApiClient
+from rekabet_mcp_module.models import (
+    RekabetKurumuSearchRequest,
+    RekabetSearchResult,
+    RekabetDocument,
+    RekabetKararTuruGuidEnum
+)
+
 
 app = FastMCP(
     name="YargiMCP",
@@ -88,6 +96,17 @@ uyusmazlik_client_instance = UyusmazlikApiClient()
 anayasa_norm_client_instance = AnayasaMahkemesiApiClient()
 anayasa_bireysel_client_instance = AnayasaBireyselBasvuruApiClient()
 kik_client_instance = KikApiClient()
+rekabet_client_instance = RekabetKurumuApiClient()
+
+
+KARAR_TURU_ADI_TO_GUID_ENUM_MAP = {
+    "": RekabetKararTuruGuidEnum.TUMU, 
+    "Birleşme ve Devralma": RekabetKararTuruGuidEnum.BIRLESME_DEVRALMA,
+    "Diğer": RekabetKararTuruGuidEnum.DIGER,
+    "Menfi Tespit ve Muafiyet": RekabetKararTuruGuidEnum.MENFI_TESPIT_MUAFIYET,
+    "Özelleştirme": RekabetKararTuruGuidEnum.OZELLESTIRME,
+    "Rekabet İhlali": RekabetKararTuruGuidEnum.REKABET_IHLALI,
+}
 
 # --- MCP Tools for Yargitay ---
 @app.tool()
@@ -664,6 +683,78 @@ async def get_kik_document_markdown(
             total_pages=1, 
             is_paginated=False
         )
+@app.tool()
+async def search_rekabet_kurumu_decisions(
+    sayfaAdi: Optional[str] = Field(None, description="Search in decision title (Başlık)."),
+    YayinlanmaTarihi: Optional[str] = Field(None, description="Publication date (Yayım Tarihi), e.g., DD.MM.YYYY."),
+    PdfText: Optional[str] = Field(
+        None,
+        description='Search in decision text (Metin). For an exact phrase match, enclose the phrase in double quotes (e.g., "\\"vertical agreement\\" competition). The website indicates that using "" provides more precise results for phrases.'
+    ),
+    KararTuru: Literal[ 
+        "", 
+        "Birleşme ve Devralma",
+        "Diğer",
+        "Menfi Tespit ve Muafiyet",
+        "Özelleştirme",
+        "Rekabet İhlali"
+    ] = Field("", description="Decision type (Karar Türü). Leave empty for 'All'. Options: '', 'Birleşme ve Devralma', 'Diğer', 'Menfi Tespit ve Muafiyet', 'Özelleştirme', 'Rekabet İhlali'."),
+    KararSayisi: Optional[str] = Field(None, description="Decision number (Karar Sayısı)."),
+    KararTarihi: Optional[str] = Field(None, description="Decision date (Karar Tarihi), e.g., DD.MM.YYYY."),
+    page: int = Field(1, ge=1, description="Page number to fetch for the results list.")
+) -> RekabetSearchResult:
+    """
+    Searches decisions of the Turkish Competition Authority (Rekabet Kurumu).
+    For an exact phrase search in the 'PdfText' field, enclose the phrase in double quotes.
+    Example for PdfText: "\\"tender process\\" consultancy"
+    """
+    
+    karar_turu_guid_enum = KARAR_TURU_ADI_TO_GUID_ENUM_MAP.get(KararTuru)
+
+    try:
+        if karar_turu_guid_enum is None: 
+            logger.warning(f"Invalid user-provided KararTuru: '{KararTuru}'. Defaulting to TUMU (all).")
+            karar_turu_guid_enum = RekabetKararTuruGuidEnum.TUMU
+    except Exception as e_map: 
+        logger.error(f"Error mapping KararTuru '{KararTuru}': {e_map}. Defaulting to TUMU.")
+        karar_turu_guid_enum = RekabetKararTuruGuidEnum.TUMU
+
+    search_query = RekabetKurumuSearchRequest(
+        sayfaAdi=sayfaAdi,
+        YayinlanmaTarihi=YayinlanmaTarihi,
+        PdfText=PdfText,
+        KararTuruID=karar_turu_guid_enum, 
+        KararSayisi=KararSayisi,
+        KararTarihi=KararTarihi,
+        page=page
+    )
+    logger.info(f"Tool 'search_rekabet_kurumu_decisions' called. Query: {search_query.model_dump_json(exclude_none=True, indent=2)}")
+    try:
+       
+        return await rekabet_client_instance.search_decisions(search_query)
+    except Exception as e:
+        logger.exception("Error in tool 'search_rekabet_kurumu_decisions'.")
+        return RekabetSearchResult(decisions=[], retrieved_page_number=page, total_records_found=0, total_pages=0)
+
+@app.tool()
+async def get_rekabet_kurumu_document(
+    karar_id: str = Field(..., description="GUID (kararId) of the Rekabet Kurumu decision. This ID is obtained from search results."),
+    page_number: Optional[int] = Field(1, ge=1, description="Requested page number for the Markdown content converted from PDF (1-indexed). Default is 1.")
+) -> RekabetDocument:
+    """
+    Retrieves information for a specific Turkish Competition Authority (Rekabet Kurumu) decision
+    (landing page metadata, PDF link) and its PDF content converted to paginated Markdown.
+    """
+    logger.info(f"Tool 'get_rekabet_kurumu_document' called. Karar ID: {karar_id}, Markdown Page: {page_number}")
+    
+    current_page_to_fetch = page_number if page_number is not None and page_number >= 1 else 1
+    
+    try:
+      
+        return await rekabet_client_instance.get_decision_document(karar_id, page_number=current_page_to_fetch)
+    except Exception as e:
+        logger.exception(f"Error in tool 'get_rekabet_kurumu_document'. Karar ID: {karar_id}")
+        raise 
 
 # --- Application Shutdown Handling ---
 def perform_cleanup():
@@ -683,7 +774,8 @@ def perform_cleanup():
         globals().get('uyusmazlik_client_instance'),
         globals().get('anayasa_norm_client_instance'),
         globals().get('anayasa_bireysel_client_instance'),
-        globals().get('kik_client_instance') 
+        globals().get('kik_client_instance'),
+        globals().get('rekabet_client_instance')
     ]
     async def close_all_clients_async():
         tasks = []

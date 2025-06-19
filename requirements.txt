@@ -1,9 +1,9 @@
 fastmcp
 httpx
 beautifulsoup4
-markitdown
+markitdown[pdf]
 pydantic
 aiohttp
 playwright
-fastapi
-uvicorn
+pypdf
+
