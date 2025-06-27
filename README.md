@@ -78,6 +78,50 @@ Bu bölüm, Yargı MCP aracını 5ire gibi Claude Desktop dışındaki MCP istem
     ```
 4.  Claude Desktop'ı kapatıp yeniden başlatın.
 
+---
+🌟 **Gemini CLI ile Kullanım**
+
+Yargı MCP'yi Gemini CLI ile kullanmak için:
+
+1. **Ön Gereksinimler:** Python, `uv`, (Windows için) Microsoft Visual C++ Redistributable'ın sisteminizde kurulu olduğundan emin olun. Detaylı bilgi için yukarıdaki "5ire için Kurulum" bölümündeki ilgili adımlara bakabilirsiniz.
+
+2. **Gemini CLI ayarlarını yapılandırın:**
+   
+   Gemini CLI'ın ayar dosyasını düzenleyin:
+   - **macOS/Linux:** `~/.gemini/settings.json`
+   - **Windows:** `%USERPROFILE%\.gemini\settings.json`
+   
+   Aşağıdaki `mcpServers` bloğunu ekleyin:
+   ```json
+   {
+     "theme": "Default",
+     "selectedAuthType": "###",
+     "mcpServers": {
+       "yargi_mcp": {
+         "command": "uvx",
+         "args": [
+           "--from",
+           "git+https://github.com/saidsurucu/yargi-mcp",
+           "yargi-mcp"
+         ]
+       }
+     }
+   }
+   ```
+   
+   **Yapılandırma açıklamaları:**
+   - `"yargi_mcp"`: Sunucunuz için yerel bir isim
+   - `"command"`: `uvx` komutu (uv'nin paket çalıştırma aracı)
+   - `"args"`: GitHub'dan doğrudan Yargı MCP'yi çalıştırmak için gerekli argümanlar
+
+3. **Kullanım:**
+   - Gemini CLI'ı başlatın
+   - Yargı MCP araçları otomatik olarak kullanılabilir olacaktır
+   - Örnek komutlar:
+     - "Yargıtay'ın mülkiyet hakkı ile ilgili son kararlarını ara"
+     - "Danıştay'ın imar planı iptaline ilişkin kararlarını bul"
+     - "Anayasa Mahkemesi'nin ifade özgürlüğü kararlarını getir"
+
 🛠️ **Kullanılabilir Araçlar (MCP Tools)**
 
 Bu FastMCP sunucusu aşağıdaki temel araçları sunar:
