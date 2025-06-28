@@ -38,6 +38,12 @@ app = FastAPI(
     
     Features complete coverage of 33 MCP tools with enhanced documentation,
     typed request models, and comprehensive legal context.
+    
+    Tool Properties (from MCP annotations):
+    • Read-only: All tools are read-only and do not modify system state
+    • Idempotent: Same inputs produce same outputs for reliable research
+    • Open-world search: Search tools explore comprehensive legal databases
+    • Deterministic document retrieval: Document tools return consistent content
     """,
     version="1.0.0",
     lifespan=mcp_asgi_app.lifespan
@@ -105,19 +111,20 @@ class YargitaySearchRequest(BaseModel):
     """
     arananKelime: str = Field(
         ..., 
-        description="""Advanced search operators supported:
-        • Words with spaces: OR search (property share finds ANY words)
-        • "Quotes": Exact phrase search ("property share" finds exact phrase)  
-        • Plus (+): AND search (property+share requires both)
-        • Asterisk (*): Wildcard (construct* matches variations)
-        • Minus (-): Exclude terms (avoid unwanted results)
+        description="""Keyword to search for with advanced operators:
+        • Space between words = OR logic (arsa payı → "arsa" OR "payı")
+        • "exact phrase" = Exact match ("arsa payı" → exact phrase)
+        • word1+word2 = AND logic (arsa+payı → both words required)
+        • word* = Wildcard (bozma* → bozma, bozması, bozmanın, etc.)
+        • +"phrase1" +"phrase2" = Multiple required phrases
+        • +"required" -"excluded" = Include and exclude
         
-        Examples:
-        • Simple OR: property share (~523K results)
-        • Exact phrase: "property share" (~22K results)  
-        • Multiple AND: +"property share" +"annulment reason" (~234 results)
-        • Wildcard: construct* (construction, constructive, etc.)
-        • Exclude: +"property share" -"construction contract"
+        Turkish Examples:
+        • Simple OR: arsa payı (~523K results)
+        • Exact phrase: "arsa payı" (~22K results)
+        • Multiple AND: +"arsa payı" +"bozma sebebi" (~234 results)
+        • Wildcard: bozma* (bozma, bozması, bozmanın, etc.)
+        • Exclude: +"arsa payı" -"kira sözleşmesi"
         """,
         example='+"mülkiyet hakkı" +"iptal"'
     )
@@ -144,27 +151,62 @@ class YargitayBedestenSearchRequest(BaseModel):
     """
     phrase: str = Field(
         ..., 
-        description="""Search phrase with exact matching support:
-        • Regular: "mülkiyet hakkı" - individual words separately
-        • Exact: "\"mülkiyet hakkı\"" - exact phrase as unit
+        description="""Aranacak kavram/kelime. İki farklı arama türü desteklenir:
+        • Normal arama: "mülkiyet hakkı" - kelimeler ayrı ayrı aranır
+        • Tam cümle arama: "\"mülkiyet hakkı\"" - tırnak içindeki ifade aynen aranır
+        Tam cümle aramalar daha kesin sonuçlar verir.
         
-        Exact phrase search provides more precise results.
+        Search phrase with exact matching support:
+        • Regular search: "mülkiyet hakkı" - searches individual words separately
+        • Exact phrase search: "\"mülkiyet hakkı\"" - searches for exact phrase as unit
+        Exact phrase search provides more precise results with fewer false positives.
         """,
         example="\"mülkiyet hakkı\""
     )
     birimAdi: Optional[str] = Field(
         None, 
-        description="Chamber filtering (52 options, same as primary API). Use None for all chambers.",
+        description="""Daire/Kurul seçimi (52 seçenek - ana API ile aynı):
+        • Hukuk daireleri: 1. Hukuk Dairesi - 23. Hukuk Dairesi
+        • Ceza daireleri: 1. Ceza Dairesi - 23. Ceza Dairesi
+        • Genel kurullar: Hukuk Genel Kurulu, Ceza Genel Kurulu
+        • Özel kurullar: Hukuk/Ceza Daireleri Başkanlar Kurulu, Büyük Genel Kurulu
+        
+        Chamber filtering (52 options - same as primary API):
+        • Civil chambers: 1. Hukuk Dairesi through 23. Hukuk Dairesi
+        • Criminal chambers: 1. Ceza Dairesi through 23. Ceza Dairesi
+        • General assemblies: Hukuk Genel Kurulu, Ceza Genel Kurulu
+        • Special boards: Hukuk/Ceza Daireleri Başkanlar Kurulu, Büyük Genel Kurulu
+        
+        Use None for ALL chambers, or specify exact chamber name.
+        """,
         example="1. Hukuk Dairesi"
     )
     kararTarihiStart: Optional[str] = Field(
         None, 
-        description="Start date (ISO 8601): YYYY-MM-DDTHH:MM:SS.000Z",
+        description="""Karar başlangıç tarihi (ISO 8601 formatı):
+        Format: YYYY-MM-DDTHH:MM:SS.000Z
+        Örnek: "2024-01-01T00:00:00.000Z" - 1 Ocak 2024'ten itibaren kararlar
+        kararTarihiEnd ile birlikte tarih aralığı filtrelemesi için kullanılır.
+        
+        Decision start date filter (ISO 8601 format):
+        Format: YYYY-MM-DDTHH:MM:SS.000Z
+        Example: "2024-01-01T00:00:00.000Z" for decisions from Jan 1, 2024
+        Use with kararTarihiEnd for date range filtering.
+        """,
         example="2024-01-01T00:00:00.000Z"
     )
     kararTarihiEnd: Optional[str] = Field(
         None, 
-        description="End date (ISO 8601): YYYY-MM-DDTHH:MM:SS.000Z", 
+        description="""Karar bitiş tarihi (ISO 8601 formatı):
+        Format: YYYY-MM-DDTHH:MM:SS.000Z
+        Örnek: "2024-12-31T23:59:59.999Z" - 31 Aralık 2024'e kadar kararlar
+        kararTarihiStart ile birlikte tarih aralığı filtrelemesi için kullanılır.
+        
+        Decision end date filter (ISO 8601 format):
+        Format: YYYY-MM-DDTHH:MM:SS.000Z
+        Example: "2024-12-31T23:59:59.999Z" for decisions until Dec 31, 2024
+        Use with kararTarihiStart for date range filtering.
+        """,
         example="2024-12-31T23:59:59.999Z"
     )
     pageSize: int = Field(20, description="Results per page (1-100)", ge=1, le=100)
@@ -408,7 +450,45 @@ Search Examples:
 Use for supreme court precedent research and legal principle analysis."""
 )
 async def search_yargitay(request: YargitaySearchRequest):
-    """Search Court of Cassation decisions using primary official API with advanced search operators."""
+    """
+    Searches Court of Cassation (Yargıtay) decisions using the primary official API.
+
+    The Court of Cassation (Yargıtay) is Turkey's highest court for civil and criminal matters,
+    equivalent to a Supreme Court. This tool provides access to the most comprehensive database
+    of supreme court precedents with advanced search capabilities and filtering options.
+
+    Key Features:
+    • Advanced search operators (AND, OR, wildcards, exclusions)
+    • Chamber filtering: 52 options (23 Civil (Hukuk) + 23 Criminal (Ceza) + General Assemblies (Genel Kurullar))
+    • Date range filtering with DD.MM.YYYY format
+    • Case number filtering (Case No (Esas No) and Decision No (Karar No))
+    • Pagination support (1-100 results per page)
+    • Multiple sorting options (by case number, decision number, date)
+
+    SEARCH SYNTAX GUIDE:
+    • Words with spaces: OR search ("property share" finds ANY of the words)
+    • "Quotes": Exact phrase search ("property share" finds exact phrase)
+    • Plus sign (+): AND search (property+share requires both words)
+    • Asterisk (*): Wildcard (construct* matches variations)
+    • Minus sign (-): Exclude terms (avoid unwanted results)
+
+    Common Search Patterns:
+    • Simple OR: property share (finds ~523K results)
+    • Exact phrase: "property share" (finds ~22K results)
+    • Multiple required: +"property share" +"annulment reason (bozma sebebi)" (finds ~234 results)
+    • Wildcard expansion: construct* (matches construction, constructive, etc.)
+    • Exclude unwanted: +"property share" -"construction contract"
+
+    Use cases:
+    • Research supreme court precedents and legal principles
+    • Find decisions from specific chambers (Civil (Hukuk) vs Criminal (Ceza))
+    • Search for interpretations of specific legal concepts
+    • Analyze court reasoning on complex legal issues
+    • Track legal developments over time periods
+
+    Returns structured search results with decision metadata. Use get_yargitay_document_markdown()
+    to retrieve full decision texts for detailed analysis.
+    """
     args = {
         "arananKelime": request.arananKelime,
         "birimYrgKurulDaire": request.birimYrgKurulDaire, 
@@ -503,7 +583,41 @@ Examples:
 Perfect for administrative law research and government action reviews."""
 )
 async def search_danistay_keyword(request: DanistayKeywordSearchRequest):
-    """Search Council of State using Boolean keyword logic for administrative law research."""
+    """
+    Searches Council of State (Danıştay) decisions using keyword-based logic.
+
+    The Council of State (Danıştay) is Turkey's highest administrative court, responsible for
+    reviewing administrative actions and providing administrative law precedents. This tool
+    provides flexible keyword-based searching with Boolean logic operators.
+
+    Key Features:
+    • Boolean logic operators: AND, OR, NOT combinations
+    • Multiple keyword lists for complex search strategies
+    • Pagination support (1-100 results per page)
+    • Administrative law focus (permits, licenses, public administration)
+    • Complement to search_danistay_detailed for comprehensive coverage
+
+    Keyword Logic:
+    • andKelimeler: ALL keywords must be present (AND logic)
+    • orKelimeler: ANY keyword can be present (OR logic)
+    • notAndKelimeler: EXCLUDE if ALL keywords present (NOT AND)
+    • notOrKelimeler: EXCLUDE if ANY keyword present (NOT OR)
+
+    Administrative Law Use Cases:
+    • Research administrative court precedents
+    • Find decisions on specific government agencies
+    • Search for rulings on permits (ruhsat) and licenses (izin)
+    • Analyze administrative procedure interpretations
+    • Study public administration legal principles
+
+    Examples:
+    • Simple AND: andKelimeler=["administrative act (idari işlem)", "annulment (iptal)"]
+    • OR search: orKelimeler=["permit (ruhsat)", "permission (izin)", "license (lisans)"]
+    • Complex: andKelimeler=["municipality (belediye)"], notOrKelimeler=["tax (vergi)"]
+
+    Returns structured search results. Use get_danistay_document_markdown() for full texts.
+    For comprehensive Council of State (Danıştay) research, also use search_danistay_detailed and search_danistay_bedesten.
+    """
     args = {"andKelimeler": request.andKelimeler, "pageSize": request.pageSize}
     if request.orKelimeler:
         args["orKelimeler"] = request.orKelimeler
