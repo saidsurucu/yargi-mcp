@@ -9,7 +9,7 @@ from yargitay_mcp_module.models import YargitayBirimEnum
 
 # Danıştay Chamber/Board Options
 DanistayBirimEnum = Literal[
-    "",  # Empty string for "All" chambers
+    "ALL",  # "ALL" for all chambers
     # Main Councils
     "Büyük Gen.Kur.",  # Grand General Assembly
     "İdare Dava Daireleri Kurulu",  # Administrative Cases Chambers Council

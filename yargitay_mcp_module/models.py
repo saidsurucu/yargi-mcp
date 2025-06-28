@@ -5,7 +5,7 @@ from typing import List, Optional, Dict, Any, Literal
 
 # Yargıtay Chamber/Board Options
 YargitayBirimEnum = Literal[
-    "",  # Empty string for "All" chambers
+    "ALL",  # "ALL" for all chambers
     # Hukuk (Civil) Chambers
     "Hukuk Genel Kurulu",
     "1. Hukuk Dairesi", "2. Hukuk Dairesi", "3. Hukuk Dairesi", "4. Hukuk Dairesi",
@@ -43,13 +43,13 @@ class YargitayDetailedSearchRequest(BaseModel):
         • Exclusion: '+"arsa payı" -"inşaat sözleşmesi"'
         Examples: arsa payı | "arsa payı" | +"mülkiyet hakkı" +"bozma sebebi" | hukuk*""")
     # Department/Board selection - Complete Court of Cassation chamber hierarchy
-    birimYrgKurulDaire: YargitayBirimEnum = Field("", description="""
+    birimYrgKurulDaire: YargitayBirimEnum = Field("ALL", description="""
         Court of Cassation (Yargıtay) chamber/board selection. Options include:
-        - Empty string ('') for ALL chambers
+        - 'ALL' for all chambers
         - Civil: 'Civil General Assembly (Hukuk Genel Kurulu)', '1st Civil Chamber (1. Hukuk Dairesi)' through '23rd Civil Chamber (23. Hukuk Dairesi)', 'Civil Chambers Presidents Board (Hukuk Daireleri Başkanlar Kurulu)'
         - Criminal: 'Criminal General Assembly (Ceza Genel Kurulu)', '1st Criminal Chamber (1. Ceza Dairesi)' through '23rd Criminal Chamber (23. Ceza Dairesi)', 'Criminal Chambers Presidents Board (Ceza Daireleri Başkanlar Kurulu)'
         - General: 'Grand General Assembly (Büyük Genel Kurulu)'
-        Total: 52 possible values (including empty string for all chambers)
+        Total: 52 possible values (including 'ALL' for all chambers)
     """)
     birimYrgHukukDaire: Optional[str] = Field("", description="Legacy field - use birimYrgKurulDaire instead for chamber selection")
     birimYrgCezaDaire: Optional[str] = Field("", description="Legacy field - use birimYrgKurulDaire instead for chamber selection")

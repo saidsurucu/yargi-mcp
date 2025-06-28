@@ -107,7 +107,8 @@ bedesten_client_instance = BedestenApiClient()
 
 
 KARAR_TURU_ADI_TO_GUID_ENUM_MAP = {
-    "": RekabetKararTuruGuidEnum.TUMU, 
+    "": RekabetKararTuruGuidEnum.TUMU,  # Keep for backward compatibility
+    "ALL": RekabetKararTuruGuidEnum.TUMU,  # Map "ALL" to TUMU
     "Birleşme ve Devralma": RekabetKararTuruGuidEnum.BIRLESME_DEVRALMA,
     "Diğer": RekabetKararTuruGuidEnum.DIGER,
     "Menfi Tespit ve Muafiyet": RekabetKararTuruGuidEnum.MENFI_TESPIT_MUAFIYET,
@@ -134,9 +135,9 @@ async def search_yargitay_detailed(
     • +"phrase1" +"phrase2" = Multiple required phrases
     • +"required" -"excluded" = Include and exclude
     Examples: arsa payı | "arsa payı" | +"arsa payı" +"bozma sebebi" | bozma*"""),
-    birimYrgKurulDaire: YargitayBirimEnum = Field("", description="""
+    birimYrgKurulDaire: YargitayBirimEnum = Field("ALL", description="""
         Yargıtay chamber/board selection. Available options:
-        • Empty string ('') for ALL chambers
+        • 'ALL' for all chambers
         • Hukuk Genel Kurulu (Civil General Assembly)
         • 1. Hukuk Dairesi through 23. Hukuk Dairesi (Civil Chambers 1-23)
         • Hukuk Daireleri Başkanlar Kurulu (Civil Chambers Presidents Board)
@@ -661,8 +662,8 @@ async def get_emsal_document_markdown(id: str) -> EmsalDocumentMarkdown:
 )
 async def search_uyusmazlik_decisions(
     icerik: str = Field("", description="Keyword or content for main text search."),
-    bolum: Literal["", "Ceza Bölümü", "Genel Kurul Kararları", "Hukuk Bölümü"] = Field("", description="Select the department (Bölüm)."),
-    uyusmazlik_turu: Literal["", "Görev Uyuşmazlığı", "Hüküm Uyuşmazlığı"] = Field("", description="Select the type of dispute."),
+    bolum: Literal["ALL", "Ceza Bölümü", "Genel Kurul Kararları", "Hukuk Bölümü"] = Field("ALL", description="Select the department (Bölüm). Use 'ALL' for all departments."),
+    uyusmazlik_turu: Literal["ALL", "Görev Uyuşmazlığı", "Hüküm Uyuşmazlığı"] = Field("ALL", description="Select the type of dispute. Use 'ALL' for all types."),
     karar_sonuclari: List[Literal["Hüküm Uyuşmazlığı Olmadığına Dair", "Hüküm Uyuşmazlığı Olduğuna Dair"]] = Field(default_factory=list, description="List of desired 'Karar Sonucu' types."),
     esas_yil: str = Field("", description="Case year ('Esas Yılı')."),
     esas_sayisi: str = Field("", description="Case number ('Esas Sayısı')."),
@@ -722,8 +723,16 @@ async def search_uyusmazlik_decisions(
     """
     
     # Convert string literals to enums
-    bolum_enum = UyusmazlikBolumEnum(bolum) if bolum else UyusmazlikBolumEnum.TUMU
-    uyusmazlik_turu_enum = UyusmazlikTuruEnum(uyusmazlik_turu) if uyusmazlik_turu else UyusmazlikTuruEnum.TUMU
+    # Map "ALL" to TUMU for backward compatibility
+    if bolum == "ALL":
+        bolum_enum = UyusmazlikBolumEnum.TUMU
+    else:
+        bolum_enum = UyusmazlikBolumEnum(bolum) if bolum else UyusmazlikBolumEnum.TUMU
+    
+    if uyusmazlik_turu == "ALL":
+        uyusmazlik_turu_enum = UyusmazlikTuruEnum.TUMU
+    else:
+        uyusmazlik_turu_enum = UyusmazlikTuruEnum(uyusmazlik_turu) if uyusmazlik_turu else UyusmazlikTuruEnum.TUMU
     karar_sonuclari_enums = [UyusmazlikKararSonucuEnum(ks) for ks in karar_sonuclari]
     
     search_params = UyusmazlikSearchRequest(
@@ -761,7 +770,9 @@ async def search_uyusmazlik_decisions(
         "idempotentHint": True
     }
 )
-async def get_uyusmazlik_document_markdown_from_url(document_url: HttpUrl) -> UyusmazlikDocumentMarkdown:
+async def get_uyusmazlik_document_markdown_from_url(
+    document_url: str = Field(..., description="Full URL to the Uyuşmazlık Mahkemesi decision document from search results")
+) -> UyusmazlikDocumentMarkdown:
     """
     Retrieves the full text of a specific Uyuşmazlık Mahkemesi decision from its URL in Markdown format.
     
@@ -1294,13 +1305,13 @@ async def search_rekabet_kurumu_decisions(
         description='Search in decision text (Metin). For an exact phrase match, enclose the phrase in double quotes (e.g., "\\"vertical agreement\\" competition). The website indicates that using "" provides more precise results for phrases.'
     ),
     KararTuru: Literal[ 
-        "", 
+        "ALL", 
         "Birleşme ve Devralma",
         "Diğer",
         "Menfi Tespit ve Muafiyet",
         "Özelleştirme",
         "Rekabet İhlali"
-    ] = Field("", description="Decision type (Karar Türü). Leave empty for 'All'. Options: '', 'Birleşme ve Devralma', 'Diğer', 'Menfi Tespit ve Muafiyet', 'Özelleştirme', 'Rekabet İhlali'."),
+    ] = Field("ALL", description="Decision type (Karar Türü). Use 'ALL' for all types. Options: 'ALL', 'Birleşme ve Devralma', 'Diğer', 'Menfi Tespit ve Muafiyet', 'Özelleştirme', 'Rekabet İhlali'."),
     KararSayisi: Optional[str] = Field(None, description="Decision number (Karar Sayısı)."),
     KararTarihi: Optional[str] = Field(None, description="Decision date (Karar Tarihi), e.g., DD.MM.YYYY."),
     page: int = Field(1, ge=1, description="Page number to fetch for the results list.")

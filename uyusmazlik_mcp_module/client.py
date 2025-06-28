@@ -31,13 +31,15 @@ BOLUM_ENUM_TO_ID_MAP = {
     UyusmazlikBolumEnum.CEZA_BOLUMU: "f6b74320-f2d7-4209-ad6e-c6df180d4e7c",
     UyusmazlikBolumEnum.GENEL_KURUL_KARARLARI: "e4ca658d-a75a-4719-b866-b2d2f1c3b1d9",
     UyusmazlikBolumEnum.HUKUK_BOLUMU: "96b26fc4-ef8e-4a4f-a9cc-a3de89952aa1",
-    UyusmazlikBolumEnum.TUMU: "" # Represents "...Seçiniz..." or all - empty string for API
+    UyusmazlikBolumEnum.TUMU: "", # Represents "...Seçiniz..." or all - empty string for API
+    "ALL": "" # Also map the new "ALL" literal to empty string for backward compatibility
 }
 
 UYUSMAZLIK_TURU_ENUM_TO_ID_MAP = {
     UyusmazlikTuruEnum.GOREV_UYUSMAZLIGI: "7b1e2cd3-8f09-418a-921c-bbe501e1740c",
     UyusmazlikTuruEnum.HUKUM_UYUSMAZLIGI: "19b88402-172b-4c1d-8339-595c942a89f5",
-    UyusmazlikTuruEnum.TUMU: "" # Represents "...Seçiniz..." or all - empty string for API
+    UyusmazlikTuruEnum.TUMU: "", # Represents "...Seçiniz..." or all - empty string for API
+    "ALL": "" # Also map the new "ALL" literal to empty string for backward compatibility
 }
 
 KARAR_SONUCU_ENUM_TO_ID_MAP = {
