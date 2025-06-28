@@ -563,9 +563,6 @@ class SayistayApiClient:
         """
         Retrieve full text of a Sayıştay decision and convert to Markdown.
         
-        Note: This is a placeholder implementation. The actual document endpoints
-        would need to be discovered through further analysis of the website.
-        
         Args:
             decision_id: Unique decision identifier
             decision_type: Type of decision ('genel_kurul', 'temyiz_kurulu', 'daire')
@@ -575,17 +572,117 @@ class SayistayApiClient:
         """
         logger.info(f"Retrieving document for {decision_type} decision ID: {decision_id}")
         
-        # Document retrieval endpoints would need to be implemented based on 
-        # actual website behavior - this would require analyzing the JavaScript
-        # or finding direct document links
+        # Validate decision_id
+        if not decision_id or not decision_id.strip():
+            return SayistayDocumentMarkdown(
+                decision_id=decision_id,
+                decision_type=decision_type,
+                source_url="",
+                markdown_content=None,
+                error_message="Decision ID cannot be empty"
+            )
         
-        return SayistayDocumentMarkdown(
-            decision_id=decision_id,
-            decision_type=decision_type,
-            source_url=f"{self.BASE_URL}/document/{decision_id}",
-            markdown_content=None,
-            error_message="Document retrieval endpoint not yet implemented. Further analysis of the website's document access mechanism is required."
-        )
+        # Map decision type to URL path
+        url_path_mapping = {
+            'genel_kurul': 'KararlarGenelKurul',
+            'temyiz_kurulu': 'KararlarTemyiz',
+            'daire': 'KararlarDaire'
+        }
+        
+        if decision_type not in url_path_mapping:
+            return SayistayDocumentMarkdown(
+                decision_id=decision_id,
+                decision_type=decision_type,
+                source_url="",
+                markdown_content=None,
+                error_message=f"Invalid decision type: {decision_type}. Must be one of: {list(url_path_mapping.keys())}"
+            )
+        
+        # Build document URL
+        url_path = url_path_mapping[decision_type]
+        document_url = f"{self.BASE_URL}/{url_path}/Detay/{decision_id}/"
+        
+        try:
+            # Make HTTP GET request to document URL
+            headers = {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "same-origin"
+            }
+            
+            # Include session cookies if available
+            if self.session_cookies:
+                cookie_header = "; ".join([f"{k}={v}" for k, v in self.session_cookies.items()])
+                headers["Cookie"] = cookie_header
+            
+            response = await self.http_client.get(document_url, headers=headers)
+            response.raise_for_status()
+            html_content = response.text
+            
+            if not html_content or not html_content.strip():
+                logger.warning(f"Received empty HTML content from {document_url}")
+                return SayistayDocumentMarkdown(
+                    decision_id=decision_id,
+                    decision_type=decision_type,
+                    source_url=document_url,
+                    markdown_content=None,
+                    error_message="Document content is empty"
+                )
+            
+            # Convert HTML to Markdown using existing method
+            markdown_content = self._convert_html_to_markdown(html_content)
+            
+            if markdown_content and "Error converting HTML content" not in markdown_content:
+                logger.info(f"Successfully retrieved and converted document {decision_id} to Markdown")
+                return SayistayDocumentMarkdown(
+                    decision_id=decision_id,
+                    decision_type=decision_type,
+                    source_url=document_url,
+                    markdown_content=markdown_content,
+                    retrieval_date=None  # Could add datetime.now().isoformat() if needed
+                )
+            else:
+                return SayistayDocumentMarkdown(
+                    decision_id=decision_id,
+                    decision_type=decision_type,
+                    source_url=document_url,
+                    markdown_content=None,
+                    error_message=f"Failed to convert HTML to Markdown: {markdown_content}"
+                )
+                
+        except httpx.HTTPStatusError as e:
+            error_msg = f"HTTP error {e.response.status_code} when fetching document: {e}"
+            logger.error(f"HTTP error fetching document {decision_id}: {error_msg}")
+            return SayistayDocumentMarkdown(
+                decision_id=decision_id,
+                decision_type=decision_type,
+                source_url=document_url,
+                markdown_content=None,
+                error_message=error_msg
+            )
+        except httpx.RequestError as e:
+            error_msg = f"Network error when fetching document: {e}"
+            logger.error(f"Network error fetching document {decision_id}: {error_msg}")
+            return SayistayDocumentMarkdown(
+                decision_id=decision_id,
+                decision_type=decision_type,
+                source_url=document_url,
+                markdown_content=None,
+                error_message=error_msg
+            )
+        except Exception as e:
+            error_msg = f"Unexpected error when fetching document: {e}"
+            logger.error(f"Unexpected error fetching document {decision_id}: {error_msg}")
+            return SayistayDocumentMarkdown(
+                decision_id=decision_id,
+                decision_type=decision_type,
+                source_url=document_url,
+                markdown_content=None,
+                error_message=error_msg
+            )
 
     async def close_client_session(self):
         """Close HTTP client session."""
