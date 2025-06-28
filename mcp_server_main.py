@@ -87,10 +87,19 @@ from rekabet_mcp_module.models import (
     RekabetKararTuruGuidEnum
 )
 
+from sayistay_mcp_module.client import SayistayApiClient
+from sayistay_mcp_module.models import (
+    GenelKurulSearchRequest, GenelKurulSearchResponse,
+    TemyizKuruluSearchRequest, TemyizKuruluSearchResponse,
+    DaireSearchRequest, DaireSearchResponse,
+    SayistayDocumentMarkdown
+)
+from sayistay_mcp_module.enums import DaireEnum, KamuIdaresiTuruEnum, WebKararKonusuEnum
+
 
 app = FastMCP(
     name="YargiMCP",
-    instructions="MCP server for TR legal databases (Yargitay, Danistay, Emsal, Uyusmazlik, Anayasa-Norm, Anayasa-Bireysel, KIK).",
+    instructions="MCP server for TR legal databases (Yargitay, Danistay, Emsal, Uyusmazlik, Anayasa-Norm, Anayasa-Bireysel, KIK, Sayistay).",
     dependencies=["httpx", "beautifulsoup4", "markitdown", "pydantic", "aiohttp", "playwright"]
 )
 
@@ -104,6 +113,7 @@ anayasa_bireysel_client_instance = AnayasaBireyselBasvuruApiClient()
 kik_client_instance = KikApiClient()
 rekabet_client_instance = RekabetKurumuApiClient()
 bedesten_client_instance = BedestenApiClient()
+sayistay_client_instance = SayistayApiClient()
 
 
 KARAR_TURU_ADI_TO_GUID_ENUM_MAP = {
@@ -1995,6 +2005,397 @@ async def get_kyb_bedesten_document_markdown(
         logger.exception("Error in tool 'get_kyb_bedesten_document_markdown'")
         raise
 
+# --- MCP Tools for Sayıştay (Turkish Court of Accounts) ---
+
+@app.tool(
+    description="Search Sayıştay Genel Kurul (General Assembly) decisions - precedent-setting interpretive rulings by the Turkish Court of Accounts on audit and accountability regulations",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": True,
+        "idempotentHint": True
+    }
+)
+async def search_sayistay_genel_kurul(
+    karar_no: Optional[str] = Field(None, description="Decision number to search for (e.g., '5415')"),
+    karar_ek: Optional[str] = Field(None, description="Decision appendix number (max 99, e.g., '1')"),
+    karar_tarih_baslangic: Optional[str] = Field(None, description="""
+        Decision start year for date range filtering.
+        Available years: 2006-2024. Format: 'YYYY' (e.g., '2020')
+        Use with karar_tarih_bitis for date range filtering.
+    """),
+    karar_tarih_bitis: Optional[str] = Field(None, description="""
+        Decision end year for date range filtering.
+        Available years: 2006-2024. Format: 'YYYY' (e.g., '2024')
+        Use with karar_tarih_baslangic for date range filtering.
+    """),
+    karar_tamami: Optional[str] = Field(None, description="""
+        Content/text search within decision summaries (max 400 characters).
+        Searches in decision abstracts and main content.
+        Example: 'belediye taşınmaz tahsis'
+    """),
+    start: int = Field(0, description="Starting record for pagination (0-based)"),
+    length: int = Field(10, description="Number of records per page (1-100)")
+) -> GenelKurulSearchResponse:
+    """
+    Searches Sayıştay Genel Kurul (General Assembly) decisions.
+    
+    Genel Kurul decisions are the highest-level interpretive rulings from Turkey's
+    Court of Accounts, providing authoritative guidance on public audit standards,
+    accountability principles, and financial management regulations.
+    
+    Key Features:
+    • Decision number and appendix filtering
+    • Year-based date range filtering (2006-2024)
+    • Full-text content search in decision summaries
+    • Pagination support for large result sets
+    
+    Use Cases:
+    • Research audit precedents and interpretive guidance
+    • Find decisions on specific financial regulations
+    • Study evolution of public accountability standards
+    • Analyze Court of Accounts' institutional positions
+    """
+    logger.info(f"Tool 'search_sayistay_genel_kurul' called with params: karar_no={karar_no}, karar_ek={karar_ek}, date_range={karar_tarih_baslangic}-{karar_tarih_bitis}, content={karar_tamami}")
+    
+    try:
+        search_request = GenelKurulSearchRequest(
+            karar_no=karar_no,
+            karar_ek=karar_ek,
+            karar_tarih_baslangic=karar_tarih_baslangic,
+            karar_tarih_bitis=karar_tarih_bitis,
+            karar_tamami=karar_tamami,
+            start=start,
+            length=length
+        )
+        return await sayistay_client_instance.search_genel_kurul_decisions(search_request)
+    except Exception as e:
+        logger.exception("Error in tool 'search_sayistay_genel_kurul'")
+        raise
+
+@app.tool(
+    description="Search Sayıştay Temyiz Kurulu (Appeals Board) decisions - higher-level review of audit chamber findings and sanctions with chamber filtering (1-8), date filtering, and comprehensive search criteria",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": True,
+        "idempotentHint": True
+    }
+)
+async def search_sayistay_temyiz_kurulu(
+    ilam_dairesi: DaireEnum = Field("ALL", description="""
+        Chamber/Department filter for appeals board decisions.
+        • ALL: All chambers (default)
+        • 1-8: Specific chamber number (1. Daire through 8. Daire)
+        Each chamber specializes in different types of public institutions.
+    """),
+    yili: Optional[str] = Field(None, description="""
+        Account year filter (Hesap Yılı).
+        Available years: 1993-2022. Format: 'YYYY' (e.g., '2020')
+        Refers to the fiscal year being audited, not decision date.
+    """),
+    karar_tarih_baslangic: Optional[str] = Field(None, description="""
+        Decision start year for date range filtering.
+        Available years: 2000, 2006-2024. Format: 'YYYY' (e.g., '2020')
+        Use with karar_tarih_bitis for date range filtering.
+    """),
+    karar_tarih_bitis: Optional[str] = Field(None, description="""
+        Decision end year for date range filtering.
+        Available years: 2000, 2006-2024. Format: 'YYYY' (e.g., '2024')
+        Use with karar_tarih_baslangic for date range filtering.
+    """),
+    kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="""
+        Public administration type filter:
+        • ALL: All institutions (default)
+        • Genel Bütçe Kapsamındaki İdareler: General budget administrations
+        • Yüksek Öğretim Kurumları: Higher education institutions
+        • Belediyeler ve Bağlı İdareler: Municipalities and affiliates
+        • Other specific institution types
+    """),
+    ilam_no: Optional[str] = Field(None, description="Audit report number (İlam No, max 50 chars)"),
+    dosya_no: Optional[str] = Field(None, description="File number for the case"),
+    temyiz_tutanak_no: Optional[str] = Field(None, description="Appeals board meeting minutes number"),
+    temyiz_karar: Optional[str] = Field(None, description="""
+        Content search within appeals decisions.
+        Searches decision text and reasoning.
+        Example: 'araç kiralama kasko'
+    """),
+    web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="""
+        Decision subject category filter:
+        • ALL: All subjects (default)
+        • İhale Mevzuatı ile İlgili Kararlar: Procurement legislation
+        • Personel Mevzuatı ile İlgili Kararlar: Personnel legislation
+        • Harcırah Mevzuatı ile İlgili Kararlar: Travel allowance legislation
+        • Other specialized legal areas
+    """),
+    start: int = Field(0, description="Starting record for pagination (0-based)"),
+    length: int = Field(10, description="Number of records per page (1-100)")
+) -> TemyizKuruluSearchResponse:
+    """
+    Searches Sayıştay Temyiz Kurulu (Appeals Board) decisions.
+    
+    Temyiz Kurulu provides second-level review of audit chamber decisions,
+    examining appeals against sanctions and audit findings. These decisions
+    clarify audit standards and provide guidance on liability determinations.
+    
+    Key Features:
+    • Chamber-specific filtering (8 specialized audit chambers)
+    • Account year and decision date filtering (1993-2024)
+    • Public administration type categorization
+    • Subject matter classification and content search
+    • Case documentation tracking (ilam, dosya, tutanak numbers)
+    
+    Use Cases:
+    • Research appeals against specific audit findings
+    • Study chamber specialization patterns
+    • Analyze evolution of audit liability standards
+    • Find precedents for specific types of public institutions
+    """
+    logger.info(f"Tool 'search_sayistay_temyiz_kurulu' called with params: chamber={ilam_dairesi}, year={yili}, admin_type={kamu_idaresi_turu}, subject={web_karar_konusu}")
+    
+    try:
+        search_request = TemyizKuruluSearchRequest(
+            ilam_dairesi=ilam_dairesi,
+            yili=yili,
+            karar_tarih_baslangic=karar_tarih_baslangic,
+            karar_tarih_bitis=karar_tarih_bitis,
+            kamu_idaresi_turu=kamu_idaresi_turu,
+            ilam_no=ilam_no,
+            dosya_no=dosya_no,
+            temyiz_tutanak_no=temyiz_tutanak_no,
+            temyiz_karar=temyiz_karar,
+            web_karar_konusu=web_karar_konusu,
+            start=start,
+            length=length
+        )
+        return await sayistay_client_instance.search_temyiz_kurulu_decisions(search_request)
+    except Exception as e:
+        logger.exception("Error in tool 'search_sayistay_temyiz_kurulu'")
+        raise
+
+@app.tool(
+    description="Search Sayıştay Daire (Chamber) decisions - first-instance audit findings and sanctions from individual audit chambers with comprehensive filtering and subject categorization",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": True,
+        "idempotentHint": True
+    }
+)
+async def search_sayistay_daire(
+    yargilama_dairesi: DaireEnum = Field("ALL", description="""
+        Audit chamber filter:
+        • ALL: All chambers (default)
+        • 1-8: Specific chamber number (1. Daire through 8. Daire)
+        Each chamber audits different types of public institutions.
+    """),
+    karar_tarih_baslangic: Optional[str] = Field(None, description="""
+        Decision start year for date range filtering.
+        Available years: 2012-2025. Format: 'YYYY' (e.g., '2020')
+        Use with karar_tarih_bitis for date range filtering.
+    """),
+    karar_tarih_bitis: Optional[str] = Field(None, description="""
+        Decision end year for date range filtering.
+        Available years: 2012-2025. Format: 'YYYY' (e.g., '2024')
+        Use with karar_tarih_baslangic for date range filtering.
+    """),
+    ilam_no: Optional[str] = Field(None, description="Audit report number (İlam No, max 50 chars)"),
+    kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="""
+        Public administration type filter:
+        • ALL: All institutions (default)
+        • Genel Bütçe Kapsamındaki İdareler: General budget administrations
+        • Yüksek Öğretim Kurumları: Higher education institutions
+        • Belediyeler ve Bağlı İdareler: Municipalities and affiliates
+        • Other specific institution types
+    """),
+    hesap_yili: Optional[str] = Field(None, description="""
+        Account year filter (Hesap Yılı).
+        Available years: 2005, 2008-2023. Format: 'YYYY' (e.g., '2020')
+        Refers to the fiscal year being audited, not decision date.
+    """),
+    web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="""
+        Decision subject category filter:
+        • ALL: All subjects (default)
+        • İhale Mevzuatı ile İlgili Kararlar: Procurement legislation
+        • Personel Mevzuatı ile İlgili Kararlar: Personnel legislation
+        • Vergi Resmi Harç ve Diğer Gelirlerle İlgili Kararlar: Tax and fee legislation
+        • Other specialized legal areas
+    """),
+    web_karar_metni: Optional[str] = Field(None, description="""
+        Content search within chamber decisions.
+        Searches decision text and audit findings.
+        Example: 'birim fiyat revize edilmemesi'
+    """),
+    start: int = Field(0, description="Starting record for pagination (0-based)"),
+    length: int = Field(10, description="Number of records per page (1-100)")
+) -> DaireSearchResponse:
+    """
+    Searches Sayıştay Daire (Chamber) decisions.
+    
+    Chamber decisions represent first-instance audit findings, sanctions, and
+    liability determinations issued by specialized audit chambers. These form
+    the foundation of Turkey's public financial accountability system.
+    
+    Key Features:
+    • Chamber-specific filtering (8 specialized audit chambers)
+    • Decision and account year filtering (2012-2025)
+    • Public administration type categorization
+    • Subject matter classification and full-text search
+    • Audit report tracking and institutional analysis
+    
+    Use Cases:
+    • Research specific audit findings and sanctions
+    • Study chamber specialization and jurisdiction
+    • Analyze audit patterns by institution type
+    • Find precedents for financial irregularities
+    • Track audit evolution across fiscal years
+    """
+    logger.info(f"Tool 'search_sayistay_daire' called with params: chamber={yargilama_dairesi}, admin_type={kamu_idaresi_turu}, subject={web_karar_konusu}, content={web_karar_metni}")
+    
+    try:
+        search_request = DaireSearchRequest(
+            yargilama_dairesi=yargilama_dairesi,
+            karar_tarih_baslangic=karar_tarih_baslangic,
+            karar_tarih_bitis=karar_tarih_bitis,
+            ilam_no=ilam_no,
+            kamu_idaresi_turu=kamu_idaresi_turu,
+            hesap_yili=hesap_yili,
+            web_karar_konusu=web_karar_konusu,
+            web_karar_metni=web_karar_metni,
+            start=start,
+            length=length
+        )
+        return await sayistay_client_instance.search_daire_decisions(search_request)
+    except Exception as e:
+        logger.exception("Error in tool 'search_sayistay_daire'")
+        raise
+
+@app.tool(
+    description="Retrieve the full text of a Sayıştay Genel Kurul decision document in Markdown format for detailed analysis",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": False,
+        "idempotentHint": True
+    }
+)
+async def get_sayistay_genel_kurul_document_markdown(
+    decision_id: str = Field(..., description="Decision ID from search_sayistay_genel_kurul results")
+) -> SayistayDocumentMarkdown:
+    """
+    Retrieves the full text of a Sayıştay Genel Kurul decision in Markdown format.
+    
+    This tool converts the original General Assembly decision document into clean,
+    readable Markdown format suitable for legal analysis and research.
+    
+    Input Requirements:
+    • decision_id: Use the ID from search_sayistay_genel_kurul results
+    • Decision ID must be non-empty string
+    
+    Output Format:
+    • Clean Markdown text with legal formatting preserved
+    • Structured content with reasoning and conclusions
+    • Removes technical artifacts from source documents
+    
+    Use for:
+    • Detailed analysis of audit precedents
+    • Research on public accountability standards
+    • Citation and reference building
+    • Legal interpretation and case study development
+    """
+    logger.info(f"Tool 'get_sayistay_genel_kurul_document_markdown' called for ID: {decision_id}")
+    
+    if not decision_id or not decision_id.strip():
+        raise ValueError("Decision ID must be a non-empty string.")
+    
+    try:
+        return await sayistay_client_instance.get_document_as_markdown(decision_id, "genel_kurul")
+    except Exception as e:
+        logger.exception("Error in tool 'get_sayistay_genel_kurul_document_markdown'")
+        raise
+
+@app.tool(
+    description="Retrieve the full text of a Sayıştay Temyiz Kurulu decision document in Markdown format for detailed appeals analysis",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": False,
+        "idempotentHint": True
+    }
+)
+async def get_sayistay_temyiz_kurulu_document_markdown(
+    decision_id: str = Field(..., description="Decision ID from search_sayistay_temyiz_kurulu results")
+) -> SayistayDocumentMarkdown:
+    """
+    Retrieves the full text of a Sayıştay Temyiz Kurulu decision in Markdown format.
+    
+    This tool converts the original Appeals Board decision document into clean,
+    readable Markdown format for analysis of appellate reasoning and standards.
+    
+    Input Requirements:
+    • decision_id: Use the ID from search_sayistay_temyiz_kurulu results
+    • Decision ID must be non-empty string
+    
+    Output Format:
+    • Clean Markdown text with appellate reasoning preserved
+    • Structured content with original findings and appeals analysis
+    • Removes technical artifacts from source documents
+    
+    Use for:
+    • Analysis of appeals board reasoning and standards
+    • Research on audit liability determination evolution
+    • Understanding chamber decision review criteria
+    • Precedent analysis for audit appeal cases
+    """
+    logger.info(f"Tool 'get_sayistay_temyiz_kurulu_document_markdown' called for ID: {decision_id}")
+    
+    if not decision_id or not decision_id.strip():
+        raise ValueError("Decision ID must be a non-empty string.")
+    
+    try:
+        return await sayistay_client_instance.get_document_as_markdown(decision_id, "temyiz_kurulu")
+    except Exception as e:
+        logger.exception("Error in tool 'get_sayistay_temyiz_kurulu_document_markdown'")
+        raise
+
+@app.tool(
+    description="Retrieve the full text of a Sayıştay Daire decision document in Markdown format for detailed audit findings analysis",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": False,
+        "idempotentHint": True
+    }
+)
+async def get_sayistay_daire_document_markdown(
+    decision_id: str = Field(..., description="Decision ID from search_sayistay_daire results")
+) -> SayistayDocumentMarkdown:
+    """
+    Retrieves the full text of a Sayıştay Daire decision in Markdown format.
+    
+    This tool converts the original chamber decision document into clean,
+    readable Markdown format for analysis of first-instance audit findings.
+    
+    Input Requirements:
+    • decision_id: Use the ID from search_sayistay_daire results  
+    • Decision ID must be non-empty string
+    
+    Output Format:
+    • Clean Markdown text with audit findings preserved
+    • Structured content with violations and sanctions
+    • Removes technical artifacts from source documents
+    
+    Use for:
+    • Detailed analysis of audit findings and methodology
+    • Research on specific types of financial irregularities
+    • Understanding chamber jurisdiction and specialization
+    • Case study development for audit training and compliance
+    """
+    logger.info(f"Tool 'get_sayistay_daire_document_markdown' called for ID: {decision_id}")
+    
+    if not decision_id or not decision_id.strip():
+        raise ValueError("Decision ID must be a non-empty string.")
+    
+    try:
+        return await sayistay_client_instance.get_document_as_markdown(decision_id, "daire")
+    except Exception as e:
+        logger.exception("Error in tool 'get_sayistay_daire_document_markdown'")
+        raise
+
 # --- Application Shutdown Handling ---
 def perform_cleanup():
     logger.info("MCP Server performing cleanup...")
@@ -2015,7 +2416,8 @@ def perform_cleanup():
         globals().get('anayasa_bireysel_client_instance'),
         globals().get('kik_client_instance'),
         globals().get('rekabet_client_instance'),
-        globals().get('bedesten_client_instance')
+        globals().get('bedesten_client_instance'),
+        globals().get('sayistay_client_instance')
     ]
     async def close_all_clients_async():
         tasks = []

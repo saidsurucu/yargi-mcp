@@ -2,7 +2,7 @@
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/yargi-mcp&type=Date)](https://www.star-history.com/#saidsurucu/yargi-mcp&Date)
 
-Bu proje, çeşitli Türk hukuk kaynaklarına (Yargıtay, Danıştay, Emsal Kararlar, Uyuşmazlık Mahkemesi, Anayasa Mahkemesi - Norm Denetimi ile Bireysel Başvuru Kararları, Kamu İhale Kurulu Kararları ve Rekabet Kurumu Kararları) erişimi kolaylaştıran bir [FastMCP](https://gofastmcp.com/) sunucusu oluşturur. Bu sayede, bu kaynaklardan veri arama ve belge getirme işlemleri, Model Context Protocol (MCP) destekleyen LLM (Büyük Dil Modeli) uygulamaları (örneğin Claude Desktop veya [5ire](https://5ire.app)) ve diğer istemciler tarafından araç (tool) olarak kullanılabilir hale gelir.
+Bu proje, çeşitli Türk hukuk kaynaklarına (Yargıtay, Danıştay, Emsal Kararlar, Uyuşmazlık Mahkemesi, Anayasa Mahkemesi - Norm Denetimi ile Bireysel Başvuru Kararları, Kamu İhale Kurulu Kararları, Rekabet Kurumu Kararları ve Sayıştay Kararları) erişimi kolaylaştıran bir [FastMCP](https://gofastmcp.com/) sunucusu oluşturur. Bu sayede, bu kaynaklardan veri arama ve belge getirme işlemleri, Model Context Protocol (MCP) destekleyen LLM (Büyük Dil Modeli) uygulamaları (örneğin Claude Desktop veya [5ire](https://5ire.app)) ve diğer istemciler tarafından araç (tool) olarak kullanılabilir hale gelir.
 
 ![örnek](./ornek.png)
 
@@ -25,6 +25,7 @@ Bu proje, çeşitli Türk hukuk kaynaklarına (Yargıtay, Danıştay, Emsal Kara
     * **Anayasa Mahkemesi (Bireysel Başvuru):** Kapsamlı kriterlerle bireysel başvuru "Karar Arama Raporu" oluşturma ve listedeki kararların metinlerini (5.000 karakterlik) sayfalanmış Markdown formatında getirme.
     * **KİK (Kamu İhale Kurulu):** Çeşitli kriterlerle Kurul kararlarını arama; uzun karar metinlerini (varsayılan 5.000 karakterlik) sayfalanmış Markdown formatında getirme.
     * **Rekabet Kurumu:** Çeşitli kriterlerle Kurul kararlarını arama; karar metinlerini Markdown formatında getirme.
+    * **Sayıştay:** 3 karar türü ile kapsamlı denetim kararlarına erişim + **8 Daire Filtreleme** + **Tarih Aralığı & İçerik Arama** (Genel Kurul yorumlayıcı kararları, Temyiz Kurulu itiraz kararları, Daire ilk derece denetim kararları)
 
 * Karar metinlerinin daha kolay işlenebilmesi için Markdown formatına çevrilmesi.
 * Claude Desktop uygulaması ile `fastmcp install` komutu kullanılarak kolay entegrasyon.
@@ -180,10 +181,21 @@ Bu FastMCP sunucusu aşağıdaki temel araçları sunar:
 
 ---
 
+* **Sayıştay Araçları (3 Karar Türü + 8 Daire Filtreleme):**
+    * `search_sayistay_genel_kurul(karar_no, karar_tarih_baslangic, karar_tamami, ...)`: Sayıştay Genel Kurul (yorumlayıcı) kararlarını arar. **Tarih aralığı** (2006-2024) + **İçerik arama** (400 karakter)
+    * `search_sayistay_temyiz_kurulu(ilam_dairesi, kamu_idaresi_turu, temyiz_karar, ...)`: Temyiz Kurulu (itiraz) kararlarını arar. **8 Daire filtreleme** + **Kurum türü** + **Konu sınıflandırması**
+    * `search_sayistay_daire(yargilama_dairesi, web_karar_metni, hesap_yili, ...)`: Daire (ilk derece denetim) kararlarını arar. **8 Daire filtreleme** + **Hesap yılı** + **İçerik arama**
+    * `get_sayistay_genel_kurul_document_markdown(decision_id: str)`: Genel Kurul kararının tam metnini Markdown formatında getirir
+    * `get_sayistay_temyiz_kurulu_document_markdown(decision_id: str)`: Temyiz Kurulu kararının tam metnini Markdown formatında getirir  
+    * `get_sayistay_daire_document_markdown(decision_id: str)`: Daire kararının tam metnini Markdown formatında getirir
+
+
+---
+
 ### **📊 Kapsamlı İstatistikler**
-- **Toplam Mahkeme/Kurum:** 11 farklı hukuki kurum
-- **Toplam MCP Tool:** 30+ arama ve belge getirme aracı  
-- **Daire/Kurul Filtreleme:** 79 farklı seçenek (52 Yargıtay + 27 Danıştay)
+- **Toplam Mahkeme/Kurum:** 12 farklı hukuki kurum
+- **Toplam MCP Tool:** 36+ arama ve belge getirme aracı  
+- **Daire/Kurul Filtreleme:** 87 farklı seçenek (52 Yargıtay + 27 Danıştay + 8 Sayıştay)
 - **Tarih Filtreleme:** 5 Bedesten API aracında ISO 8601 formatında tam tarih aralığı desteği
 - **Kesin Cümle Arama:** 5 Bedesten API aracında çift tırnak ile tam cümle arama (`"\"mülkiyet kararı\""` formatı)
 - **API Kaynağı:** Dual/Triple API desteği ile maksimum kapsama
