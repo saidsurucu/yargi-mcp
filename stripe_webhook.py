@@ -22,3 +22,4 @@ async def stripe_hook(req: Request):
         clerk.users.update_user_metadata(                   # merge into unsafe_metadata
             userID, unsafe_metadata={"plan": plan})
     return {"ok": True}
+    
