@@ -13,10 +13,14 @@ WORKDIR /app
 
 # Gereksinimler
 COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Uygulama dosyaları
 COPY . .
+
+# Python path ayarı (import sorunlarını önler)
+ENV PYTHONPATH=/app
 
 # Playwright tarayıcılarını kur
 RUN playwright install chromium

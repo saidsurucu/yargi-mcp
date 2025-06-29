@@ -15,7 +15,6 @@ import json
 
 # Import the main MCP app
 from mcp_server_main import app as mcp_server
-from asgi_app import custom_middleware
 
 # Create MCP ASGI app
 mcp_asgi_app = mcp_server.http_app(path="/mcp")
@@ -1085,21 +1084,133 @@ async def get_anayasa_norm_document(document_url: str, page_number: int = 1):
 
 @app.post("/api/anayasa/search-bireysel", tags=["Anayasa"], summary="Search Constitutional Court (Individual Applications)")
 async def search_anayasa_bireysel(request: AnayasaBireyselSearchRequest):
-    """Search Constitutional Court individual application (human rights) decisions."""
+    """
+    Search Constitutional Court individual application (Bireysel Başvuru) decisions for human rights violation reports with keyword filtering.
+    
+    Individual applications allow citizens to petition the Constitutional Court directly for
+    violations of fundamental rights and freedoms. This tool generates decision search reports
+    that help identify relevant human rights violation cases.
+    
+    Key Features:
+    • Keyword-based search with AND logic
+    • Human rights violation case identification
+    • Individual petition decision analysis
+    • Fundamental rights and freedoms research
+    • Pagination support for large result sets
+    
+    Individual Application System:
+    • Direct citizen access to Constitutional Court
+    • Human rights and fundamental freedoms protection
+    • Alternative to European Court of Human Rights
+    • Domestic remedy for constitutional violations
+    • Individual justice and rights enforcement
+    
+    Human Rights Categories:
+    • Right to life and personal liberty
+    • Right to fair trial and due process
+    • Freedom of expression and press
+    • Freedom of religion and conscience
+    • Property rights and economic freedoms
+    • Right to privacy and family life
+    • Political rights and democratic participation
+    
+    Use cases:
+    • Human rights violation research
+    • Individual petition precedent analysis
+    • Constitutional rights interpretation study
+    • Legal remedies for rights violations
+    • Academic human rights law research
+    • Civil society and NGO legal research
+    
+    Returns search report with case summaries and violation categories.
+    Use get_anayasa_bireysel_document for full decision texts.
+    """
     return await call_mcp_tool("search_anayasa_bireysel_basvuru_report", {
         "keywords": request.keywords, "page_to_fetch": request.page_to_fetch
     })
 
 @app.get("/api/anayasa/bireysel-document", tags=["Anayasa"])
 async def get_anayasa_bireysel_document(document_url: str, page_number: int = 1):
-    """Get Constitutional Court individual application decision in paginated Markdown format."""
+    """
+    Retrieve the full text of a Constitutional Court individual application decision in paginated Markdown format.
+    
+    This tool fetches complete human rights violation decisions from individual applications
+    and converts them to clean, readable Markdown format. Content is paginated into
+    5,000-character chunks for easier processing.
+    
+    Input Requirements:
+    • document_url: URL path (e.g., /BB/YYYY/NNNN) from search results
+    • page_number: Page number for pagination (1-indexed, default: 1)
+    
+    Output Format:
+    • Clean Markdown text with human rights case structure preserved
+    • Organized sections: applicant info, violation claims, court analysis, ruling
+    • Proper formatting for human rights law citations and references
+    • Paginated content with navigation information
+    
+    Individual Application Decision Content:
+    • Complete human rights violation analysis
+    • Detailed examination of fundamental rights claims
+    • Citation of constitutional articles and international human rights law
+    • Final determination on rights violations with remedies
+    • Analysis of domestic court proceedings and their adequacy
+    • Individual remedy recommendations and compensation
+    
+    Use for:
+    • Reading full human rights violation decisions
+    • Human rights law research and precedent analysis
+    • Understanding constitutional rights protection standards
+    • Individual petition strategy development
+    • Academic human rights and constitutional law study
+    • Civil society monitoring of rights violations
+    """
     return await call_mcp_tool("get_anayasa_bireysel_basvuru_document_markdown", {
         "document_url": document_url, "page_number": page_number
     })
 
 @app.post("/api/kik/search", tags=["KİK"], summary="Search Public Procurement Authority")
 async def search_kik(request: KikSearchRequest):
-    """Search Public Procurement Authority decisions on government contracting disputes."""
+    """
+    Search Public Procurement Authority (Kamu İhale Kurulu - KIK) decisions with comprehensive filtering for public procurement law and administrative dispute research.
+    
+    The Public Procurement Authority (KIK) is Turkey's procurement oversight body, responsible for
+    regulating public procurement processes, resolving procurement disputes, and issuing interpretive
+    decisions on public contracting laws. This tool provides access to official procurement decisions
+    and regulatory guidance.
+    
+    Key Features:
+    • Decision type filtering (Disputes, Regulatory, Court decisions)
+    • Decision date range filtering for temporal analysis
+    • Applicant and procuring entity filtering
+    • Tender subject and content-based search
+    • Decision number and reference tracking
+    • Comprehensive metadata extraction
+    
+    Public Procurement Decision Types:
+    • Uyuşmazlık Kararları: Dispute resolution decisions
+    • Düzenleyici Kararlar: Regulatory and interpretive decisions
+    • Mahkeme Kararları: Court decisions and judicial precedents
+    
+    Procurement Law Areas:
+    • Tender procedure compliance and violations
+    • Bid evaluation and award criteria disputes
+    • Contractor qualification and eligibility
+    • Contract modification and scope changes
+    • Performance guarantees and penalty applications
+    • Public procurement ethics and transparency
+    • Emergency procurement and exceptional procedures
+    
+    Use cases:
+    • Public procurement law research and compliance guidance
+    • Tender dispute resolution precedent analysis
+    • Government contracting risk assessment
+    • Procurement policy and regulatory interpretation
+    • Academic public administration and law study
+    • Legal strategy development for procurement disputes
+    
+    Returns structured procurement authority data with comprehensive case metadata.
+    Use get_kik_document for full decision texts with detailed reasoning.
+    """
     args = {}
     for field in ["karar_tipi", "karar_metni", "basvuru_konusu_ihale", "karar_tarihi_baslangic"]:
         if getattr(request, field):
@@ -1108,12 +1219,93 @@ async def search_kik(request: KikSearchRequest):
 
 @app.get("/api/kik/document/{decision_id}", tags=["KİK"])
 async def get_kik_document(decision_id: str):
-    """Get Public Procurement Authority decision in paginated Markdown format."""
+    """
+    Retrieve the full text of a Public Procurement Authority (KIK) decision in paginated Markdown format.
+    
+    This tool fetches complete public procurement decisions and converts them from PDF to clean,
+    readable Markdown format. Content is paginated into manageable chunks for processing lengthy
+    procurement law decisions and regulatory interpretations.
+    
+    Input Requirements:
+    • decision_id: KIK decision ID (base64 encoded karar_id) from search results
+    • Decision ID must be non-empty string
+    
+    Output Format:
+    • Clean Markdown text converted from original PDF documents
+    • Organized sections: case summary, legal analysis, regulatory interpretation, decision
+    • Proper formatting for procurement law citations and regulatory references
+    • Paginated content with navigation information
+    • Metadata including PDF source link and document information
+    
+    Public Procurement Decision Content:
+    • Complete procurement dispute analysis and resolution
+    • Detailed examination of tender procedures and compliance
+    • Citation of procurement laws, regulations, and precedents
+    • Final determination on procurement violations with corrective measures
+    • Regulatory guidance and policy interpretations
+    • Contractor liability and penalty determinations
+    
+    Use for:
+    • Reading full public procurement authority decisions
+    • Procurement law research and precedent analysis
+    • Government contracting compliance and risk assessment
+    • Tender dispute resolution strategy development
+    • Academic public administration and procurement law study
+    • Policy analysis and regulatory interpretation
+    """
     return await call_mcp_tool("get_kik_document_markdown", {"decision_id": decision_id})
 
 @app.post("/api/rekabet/search", tags=["Rekabet"], summary="Search Competition Authority")
 async def search_rekabet(request: RekabetSearchRequest):
-    """Search Competition Authority decisions on antitrust and merger control."""
+    """
+    Search Competition Authority (Rekabet Kurumu) decisions with comprehensive filtering for competition law and antitrust research.
+    
+    The Competition Authority (Rekabet Kurumu) is Turkey's competition authority, responsible for enforcing antitrust laws,
+    preventing anti-competitive practices, and regulating mergers and acquisitions. This tool
+    provides access to official competition law decisions and regulatory interpretations.
+    
+    Key Features:
+    • Decision type filtering (Mergers, Violations, Exemptions, etc.)
+    • Title and content-based text search with exact phrase matching
+    • Publication date filtering
+    • Case year and decision number filtering
+    • Pagination support for large result sets
+    
+    Competition Law Decision Types:
+    • Birleşme ve Devralma: Merger and acquisition approvals
+    • Rekabet İhlali: Competition violation investigations
+    • Muafiyet: Exemption and negative clearance decisions
+    • Geçici Tedbir: Interim measures and emergency orders
+    • Sektör İncelemesi: Sector inquiry and market studies
+    • Diğer: Other regulatory and interpretive decisions
+    
+    Competition Law Areas:
+    • Anti-competitive agreements and cartels
+    • Abuse of dominant market position
+    • Merger control and market concentration
+    • Vertical agreements and distribution restrictions
+    • Unfair competition and consumer protection
+    • Market definition and economic analysis
+    
+    Advanced Search:
+    • Exact phrase matching with double quotes for precise legal terms
+    • Content search across full decision texts (PdfText parameter)
+    • Title search for specific case names or topics
+    • Date range filtering for temporal analysis
+    
+    Example for exact phrase search: PdfText=\"tender process\" consultancy
+    
+    Use cases:
+    • Competition law research and precedent analysis
+    • Merger and acquisition due diligence
+    • Antitrust compliance and risk assessment
+    • Market analysis and competitive intelligence
+    • Academic competition economics study
+    • Legal strategy development for competition cases
+    
+    Returns structured competition authority data with comprehensive metadata.
+    Use get_rekabet_document for full decision texts (paginated PDF conversion).
+    """
     args = {"page": request.page}
     for field in ["KararTuru", "PdfText", "YayinlanmaTarihi"]:
         if getattr(request, field):
@@ -1122,7 +1314,40 @@ async def search_rekabet(request: RekabetSearchRequest):
 
 @app.get("/api/rekabet/document/{karar_id}", tags=["Rekabet"])
 async def get_rekabet_document(karar_id: str, page_number: int = 1):
-    """Get Competition Authority decision in paginated Markdown format converted from PDF."""
+    """
+    Retrieve the full text of a Competition Authority (Rekabet Kurumu) decision in paginated Markdown format converted from PDF.
+    
+    This tool fetches complete competition authority decisions and converts them from PDF to clean,
+    readable Markdown format. Content is paginated for easier processing of lengthy competition law decisions.
+    
+    Input Requirements:
+    • karar_id: GUID (kararId) from search_rekabet_kurumu_decisions results
+    • page_number: Page number for pagination (1-indexed, default: 1)
+    
+    Output Format:
+    • Clean Markdown text converted from original PDF documents
+    • Organized sections: case summary, market analysis, legal reasoning, decision
+    • Proper formatting for competition law citations and references
+    • Paginated content with navigation information
+    • Metadata including PDF source link and document information
+    
+    Competition Authority Decision Content:
+    • Complete competition law analysis and market assessment
+    • Detailed examination of anti-competitive practices
+    • Economic analysis and market definition studies
+    • Citation of competition laws, regulations, and precedents
+    • Final determination on competition violations with remedies
+    • Merger and acquisition approval conditions
+    • Regulatory guidance and policy interpretations
+    
+    Use for:
+    • Reading full competition authority decisions
+    • Competition law research and precedent analysis
+    • Market analysis and economic impact assessment
+    • Antitrust compliance and risk evaluation
+    • Academic competition economics and law study
+    • Legal strategy development for competition cases
+    """
     return await call_mcp_tool("get_rekabet_kurumu_document", {
         "karar_id": karar_id, "page_number": page_number
     })
@@ -1133,42 +1358,205 @@ async def get_rekabet_document(karar_id: str, page_number: int = 1):
 
 @app.post("/api/sayistay/search-genel-kurul", tags=["Sayıştay"], summary="Search Court of Accounts (General Assembly)")
 async def search_sayistay_genel_kurul(request: SayistaySearchRequest):
-    """Search Sayıştay General Assembly - highest-level audit interpretive rulings."""
+    """
+    Search Sayıştay Genel Kurul (General Assembly) decisions - highest-level audit precedents and interpretive rulings with keyword-based filtering.
+    
+    The General Assembly represents the highest decision-making body of Turkey's Court of Accounts,
+    issuing authoritative interpretations of audit laws, precedential rulings on complex accountability
+    issues, and binding guidance for audit practice. These decisions establish fundamental principles
+    for public financial oversight and accountability standards.
+    
+    Key Features:
+    • Keyword-based search with AND logic for precise case finding
+    • Highest-level audit precedent identification
+    • Interpretive ruling analysis and legal guidance extraction
+    • Complex accountability issue resolution tracking
+    • Pagination support for comprehensive result sets
+    
+    General Assembly Decision Authority:
+    • Ultimate audit law interpretation and clarification
+    • Precedential rulings binding on all audit chambers
+    • Complex inter-chamber jurisdiction dispute resolution
+    • Policy guidance for audit methodology and standards
+    • Final determination on constitutional audit questions
+    
+    Public Audit Areas:
+    • Government budget execution and compliance
+    • Public institution financial management
+    • State-owned enterprise oversight and accountability
+    • Local government and municipal audit standards
+    • Public procurement oversight and compliance monitoring
+    • Performance audit methodology and effectiveness standards
+    • Public revenue collection and tax administration audit
+    
+    Use Cases:
+    • Research authoritative audit law interpretations
+    • Find binding precedents for complex audit questions
+    • Study evolution of public accountability standards
+    • Analyze audit methodology development and refinement
+    • Academic public administration and audit research
+    • Government policy and accountability framework analysis
+    
+    Returns structured General Assembly data with comprehensive legal precedent metadata.
+    Use get_sayistay_genel_kurul_document for full decision texts with detailed reasoning.
+    """
     return await call_mcp_tool("search_sayistay_genel_kurul", {
         "keywords": request.keywords, "page_to_fetch": request.page_to_fetch
     })
 
 @app.get("/api/sayistay/genel-kurul-document", tags=["Sayıştay"])
 async def get_sayistay_genel_kurul_document(document_url: str, page_number: int = 1):
-    """Get Sayıştay General Assembly decision in Markdown format."""
+    """
+    Retrieve the full text of a Sayıştay Genel Kurul decision document in Markdown format for detailed analysis.
+    
+    This tool converts the original General Assembly decision document into clean,
+    readable Markdown format suitable for legal analysis and research.
+    
+    Input Requirements:
+    • decision_id: Use the ID from search_sayistay_genel_kurul results
+    • Decision ID must be non-empty string
+    
+    Output Format:
+    • Clean Markdown text with legal formatting preserved
+    • Structured content with reasoning and conclusions
+    • Removes technical artifacts from source documents
+    
+    Use for:
+    • Detailed analysis of audit precedents
+    • Research on public accountability standards
+    • Citation and reference building
+    • Legal interpretation and case study development
+    """
     return await call_mcp_tool("get_sayistay_genel_kurul_document_markdown", {
         "document_url": document_url, "page_number": page_number
     })
 
 @app.post("/api/sayistay/search-temyiz-kurulu", tags=["Sayıştay"], summary="Search Court of Accounts (Appeals Board)")
 async def search_sayistay_temyiz_kurulu(request: SayistaySearchRequest):
-    """Search Sayıştay Appeals Board - second-level review of audit chamber decisions."""
+    """
+    Search Sayıştay Temyiz Kurulu (Appeals Board) decisions - appellate review of audit chamber findings with advanced filtering and institutional analysis.
+    
+    The Appeals Board serves as the intermediate appellate authority in Turkey's audit system,
+    reviewing first-instance chamber decisions on audit findings, liability determinations,
+    and sanctions. Appeals Board decisions refine audit standards and ensure consistency
+    across different audit chambers.
+    
+    Key Features:
+    • Chamber-specific filtering for targeted appeals analysis
+    • Institutional type categorization for audit pattern analysis
+    • Decision and account year filtering for temporal trends
+    • Audit subject matter classification and content search
+    • Appeal outcome tracking and precedent identification
+    • Pagination support for comprehensive coverage
+    
+    Appeals Board Authority:
+    • Review and modification of chamber audit findings
+    • Standardization of audit liability determinations
+    • Consistency enforcement across audit chambers
+    • Intermediate precedent development for audit practice
+    • Quality control for first-instance audit decisions
+    
+    Audit Review Areas:
+    • Government agency financial accountability appeals
+    • Municipality and local government audit review
+    • State enterprise oversight and performance audit appeals
+    • Educational institution audit finding review
+    • Healthcare system financial accountability appeals
+    • Public procurement oversight and compliance review
+    • Tax administration and revenue audit appeals
+    
+    Use Cases:
+    • Research audit appeals patterns and outcomes
+    • Study chamber decision consistency and standards
+    • Analyze audit liability determination evolution
+    • Find precedents for specific audit finding types
+    • Track institutional audit patterns and compliance
+    • Academic public accountability and audit law research
+    
+    Returns structured Appeals Board data with comprehensive appellate analysis metadata.
+    Use get_sayistay_temyiz_kurulu_document for full appeals decisions with detailed reasoning.
+    """
     return await call_mcp_tool("search_sayistay_temyiz_kurulu", {
         "keywords": request.keywords, "page_to_fetch": request.page_to_fetch
     })
 
 @app.get("/api/sayistay/temyiz-kurulu-document", tags=["Sayıştay"])
 async def get_sayistay_temyiz_kurulu_document(document_url: str, page_number: int = 1):
-    """Get Sayıştay Appeals Board decision in Markdown format."""
+    """
+    Retrieve the full text of a Sayıştay Temyiz Kurulu decision document in Markdown format for detailed appeals analysis.
+    
+    This tool converts the original Appeals Board decision document into clean,
+    readable Markdown format for analysis of appellate reasoning and standards.
+    
+    Input Requirements:
+    • decision_id: Use the ID from search_sayistay_temyiz_kurulu results
+    • Decision ID must be non-empty string
+    
+    Output Format:
+    • Clean Markdown text with appellate reasoning preserved
+    • Structured content with original findings and appeals analysis
+    • Removes technical artifacts from source documents
+    
+    Use for:
+    • Analysis of appeals board reasoning and standards
+    • Research on audit liability determination evolution
+    • Understanding chamber decision review criteria
+    • Precedent analysis for audit appeal cases
+    """
     return await call_mcp_tool("get_sayistay_temyiz_kurulu_document_markdown", {
         "document_url": document_url, "page_number": page_number
     })
 
 @app.post("/api/sayistay/search-daire", tags=["Sayıştay"], summary="Search Court of Accounts (Chambers)")
 async def search_sayistay_daire(request: SayistaySearchRequest):
-    """Search Sayıştay Chambers - first-instance audit findings and sanctions."""
+    """
+    Search Sayıştay Daire (Chamber) decisions - first-instance audit findings and sanctions from individual audit chambers with comprehensive filtering and subject categorization.
+    
+    Chamber decisions represent first-instance audit findings, sanctions, and
+    liability determinations issued by specialized audit chambers. These form
+    the foundation of Turkey's public financial accountability system.
+    
+    Key Features:
+    • Chamber-specific filtering (8 specialized audit chambers)
+    • Decision and account year filtering (2012-2025)
+    • Public administration type categorization
+    • Subject matter classification and full-text search
+    • Audit report tracking and institutional analysis
+    
+    Use Cases:
+    • Research specific audit findings and sanctions
+    • Study chamber specialization and jurisdiction
+    • Analyze audit patterns by institution type
+    • Find precedents for financial irregularities
+    • Track audit evolution across fiscal years
+    """
     return await call_mcp_tool("search_sayistay_daire", {
         "keywords": request.keywords, "page_to_fetch": request.page_to_fetch
     })
 
 @app.get("/api/sayistay/daire-document", tags=["Sayıştay"])
 async def get_sayistay_daire_document(document_url: str, page_number: int = 1):
-    """Get Sayıştay Chamber decision in Markdown format."""
+    """
+    Retrieve the full text of a Sayıştay Daire decision document in Markdown format for detailed audit findings analysis.
+    
+    This tool converts the original chamber decision document into clean,
+    readable Markdown format for analysis of first-instance audit findings.
+    
+    Input Requirements:
+    • decision_id: Use the ID from search_sayistay_daire results  
+    • Decision ID must be non-empty string
+    
+    Output Format:
+    • Clean Markdown text with audit findings preserved
+    • Structured content with violations and sanctions
+    • Removes technical artifacts from source documents
+    
+    Use for:
+    • Detailed analysis of audit findings and methodology
+    • Research on specific types of financial irregularities
+    • Understanding chamber jurisdiction and specialization
+    • Case study development for audit training and compliance
+    """
     return await call_mcp_tool("get_sayistay_daire_document_markdown", {
         "document_url": document_url, "page_number": page_number
     })
