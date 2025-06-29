@@ -49,7 +49,7 @@ app.include_router(stripe_router, prefix="/api")
 
 # Create MCP Starlette sub-application
 mcp_app = mcp_server.http_app(
-    path="/mcp",
+    path="/",
     middleware=custom_middleware
 )
 
