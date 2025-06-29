@@ -13,13 +13,21 @@ def create_app() -> FastMCP:
             dependencies=["httpx", "beautifulsoup4", "markitdown", "pydantic", "aiohttp", "playwright"]
         )
 
-    issuer = os.environ["CLERK_ISSUER"]                     # e.g. https://cool-app.clerk.accounts.dev
-    auth = BearerAuthProvider(
-        jwks_uri=f"{issuer}/.well-known/jwks.json",         # Clerk JWKS pattern
-        issuer=issuer,
-        audience=os.environ["CLERK_PUBLISHABLE_KEY"],       # PK appears in aud claim
-        required_scopes=["yargi.read"],
-    )
+    # Public key'i environment variable'dan al, yoksa None
+    public_key_pem = os.environ.get("CLERK_PUBLIC_KEY")
+    
+    if public_key_pem:
+        # Eğer public key varsa, onu kullan (production)
+        auth = BearerAuthProvider(
+            public_key=public_key_pem,
+            # issuer, audience ve required_scopes kontrollerini yapmıyoruz
+        )
+    else:
+        # Public key yoksa JWKS endpoint kullan (development/fallback)
+        clerk_issuer = os.environ.get("CLERK_ISSUER", "https://clerk.accounts.dev")
+        auth = BearerAuthProvider(
+            jwks_uri=f"{clerk_issuer}/.well-known/jwks.json",
+        )
     return FastMCP(
         name="Yargı MCP – PROD", 
         auth=auth,

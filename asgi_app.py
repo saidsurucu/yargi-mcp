@@ -15,14 +15,11 @@ from fastapi.responses import JSONResponse
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
-# Import the main MCP app
-from mcp_factory import create_app
+# Import the fully configured MCP app with all tools
+from mcp_server_main import app as mcp_server
 
 # Import Stripe webhook router
 from stripe_webhook import router as stripe_router
-
-# Create MCP server instance
-mcp_server = create_app()
 
 # Configure CORS middleware
 cors_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
@@ -36,22 +33,23 @@ custom_middleware = [
     ),
 ]
 
-# Create FastAPI wrapper application
-app = FastAPI(
-    title="Yargı MCP Server",
-    description="MCP server for Turkish legal databases with JWT authentication",
-    version="0.1.0",
-    middleware=custom_middleware
-)
-
-# Add Stripe webhook router to FastAPI
-app.include_router(stripe_router, prefix="/api")
-
-# Create MCP Starlette sub-application
+# Create MCP Starlette sub-application first
 mcp_app = mcp_server.http_app(
     path="/",
     middleware=custom_middleware
 )
+
+# Create FastAPI wrapper application with MCP app's lifespan
+app = FastAPI(
+    title="Yargı MCP Server",
+    description="MCP server for Turkish legal databases with JWT authentication",
+    version="0.1.0",
+    middleware=custom_middleware,
+    lifespan=mcp_app.lifespan  # Critical: Get lifespan from mcp_app, not mcp_server
+)
+
+# Add Stripe webhook router to FastAPI
+app.include_router(stripe_router, prefix="/api")
 
 # Mount MCP app as sub-application
 app.mount("/mcp", mcp_app)
