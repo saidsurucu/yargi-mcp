@@ -185,3 +185,4 @@ Dockerfile
 fly.toml
 .github/workflows/fly-deploy.yml
 Dockerfile
+GEMINI.md

@@ -29,6 +29,10 @@ production = [
     "gunicorn>=22.0.0",
     "uvicorn[standard]>=0.30.0",
 ]
+saas = [
+    "clerk-python-sdk>=1.0.0a4",
+    "stripe>=9.1.0",
+]
 
 [project.scripts]
 yargi-mcp = "mcp_server_main:main"
