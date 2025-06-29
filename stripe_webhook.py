@@ -1,10 +1,10 @@
 import os, stripe
-from clerk import ClerkClient                               # Clerk backend SDK
+from clerk_backend_api import Clerk                         # Clerk backend SDK
 from fastapi import APIRouter, Request, HTTPException
 
 router = APIRouter()
 stripe.api_key = os.getenv("STRIPE_SECRET")
-clerk         = ClerkClient(secret_key=os.getenv("CLERK_SECRET_KEY"))
+clerk         = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
 
 @router.post("/stripe/webhook")
 async def stripe_hook(req: Request):

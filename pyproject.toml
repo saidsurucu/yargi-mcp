@@ -30,7 +30,7 @@ production = [
     "uvicorn[standard]>=0.30.0",
 ]
 saas = [
-    "clerk-python-sdk>=1.0.0a4",
+    "clerk-backend-api>=1.0.0",
     "stripe>=9.1.0",
 ]
 
