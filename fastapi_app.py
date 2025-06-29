@@ -714,7 +714,24 @@ Only available tool for local court decisions. Supports exact phrase search
 and date filtering for precise legal research."""
 )
 async def search_yerel_hukuk(request: BedestenSearchRequest):
-    """Search Local Civil Courts (first instance). Only available tool for local court decisions."""
+    """
+    Searches Yerel Hukuk Mahkemesi (Local Civil Court) decisions using Bedesten API.
+    
+    This provides access to local court decisions that are not available through other APIs.
+    Currently the only available tool for searching Yerel Hukuk Mahkemesi decisions.
+    Local civil courts represent the first instance of civil litigation in Turkey.
+
+    Local Civil Courts handle:
+    • Contract disputes and commercial litigation
+    • Property rights and real estate disputes
+    • Family law matters (divorce, custody, inheritance)
+    • Tort claims and compensation cases
+    • Consumer protection issues
+    • Employment disputes
+    
+    Returns structured search results with decision metadata. Use get_yerel_hukuk_bedesten_document_markdown()
+    to retrieve full decision texts for detailed analysis.
+    """
     args = {"phrase": request.phrase, "pageSize": request.pageSize}
     for field in ["kararTarihiStart", "kararTarihiEnd"]:
         if getattr(request, field):
@@ -723,7 +740,15 @@ async def search_yerel_hukuk(request: BedestenSearchRequest):
 
 @app.get("/api/yerel-hukuk/document/{document_id}", tags=["Yerel Hukuk"])
 async def get_yerel_hukuk_document(document_id: str):
-    """Get Local Civil Court decision in Markdown format."""
+    """
+    Retrieves a Yerel Hukuk Mahkemesi decision document from Bedesten API and converts to Markdown.
+    
+    This tool fetches complete local court decision texts using documentId from search results.
+    Perfect for detailed analysis of first-instance civil court rulings.
+    
+    Supports both HTML and PDF content types, automatically converting to clean Markdown format.
+    Use documentId from search_yerel_hukuk_bedesten results.
+    """
     return await call_mcp_tool("get_yerel_hukuk_bedesten_document_markdown", {"documentId": document_id})
 
 @app.post(
@@ -736,7 +761,28 @@ async def get_yerel_hukuk_document(document_id: str):
 before cases reach the Court of Cassation. Only available tool for İstinaf decisions."""
 )
 async def search_istinaf_hukuk(request: BedestenSearchRequest):
-    """Search Civil Courts of Appeals (intermediate appellate level)."""
+    """
+    Searches İstinaf Hukuk Mahkemesi (Civil Court of Appeals) decisions using Bedesten API.
+
+    İstinaf courts are intermediate appellate courts in the Turkish judicial system that handle
+    appeals from local civil courts before cases reach Yargıtay (Court of Cassation).
+    This is the only available tool for accessing İstinaf Hukuk Mahkemesi decisions.
+
+    Key Features:
+    • Date range filtering with ISO 8601 format (YYYY-MM-DDTHH:MM:SS.000Z)
+    • Exact phrase search using double quotes: "\"legal term\"" 
+    • Regular search for individual keywords
+    • Pagination support (1-100 results per page)
+
+    Use cases:
+    • Research appellate court precedents
+    • Track appeals from specific lower courts
+    • Find decisions on specific legal issues at appellate level
+    • Analyze intermediate court reasoning before supreme court review
+
+    Returns structured data with decision metadata including dates, case numbers, and summaries.
+    Use get_istinaf_hukuk_bedesten_document_markdown() to retrieve full decision texts.
+    """
     args = {"phrase": request.phrase, "pageSize": request.pageSize}
     for field in ["kararTarihiStart", "kararTarihiEnd"]:
         if getattr(request, field):
@@ -745,7 +791,27 @@ async def search_istinaf_hukuk(request: BedestenSearchRequest):
 
 @app.get("/api/istinaf-hukuk/document/{document_id}", tags=["İstinaf Hukuk"])
 async def get_istinaf_hukuk_document(document_id: str):
-    """Get Civil Court of Appeals decision in Markdown format."""
+    """
+    Retrieves the full text of an İstinaf Hukuk Mahkemesi decision document in Markdown format.
+
+    This tool converts the original decision document (HTML or PDF) from Bedesten API
+    into clean, readable Markdown format suitable for analysis and processing.
+
+    Input Requirements:
+    • documentId: Use the ID from search_istinaf_hukuk_bedesten results
+    • Document ID must be non-empty string
+
+    Output Format:
+    • Clean Markdown text with proper formatting
+    • Preserves legal structure (headers, paragraphs, citations)
+    • Removes extraneous HTML/PDF artifacts
+
+    Use for:
+    • Reading full appellate court decision texts
+    • Legal analysis of İstinaf court reasoning
+    • Citation extraction and reference building
+    • Content analysis and summarization
+    """
     return await call_mcp_tool("get_istinaf_hukuk_bedesten_document_markdown", {"documentId": document_id})
 
 @app.post(
@@ -759,7 +825,35 @@ review of finalized decisions in favor of law and defendants. Very rare but impo
 legal precedents. Only available tool for KYB decisions."""
 )
 async def search_kyb(request: BedestenSearchRequest):
-    """Search Extraordinary Appeal (KYB) decisions. Rare but important legal precedents."""
+    """
+    Searches Kanun Yararına Bozma (KYB - Extraordinary Appeal) decisions using Bedesten API.
+
+    KYB is an extraordinary legal remedy in the Turkish judicial system where the
+    Public Prosecutor's Office can request review of finalized decisions in favor of
+    the law and defendants. This is the only available tool for accessing KYB decisions.
+
+    Key Features:
+    • Date range filtering with ISO 8601 format (YYYY-MM-DDTHH:MM:SS.000Z)
+    • Exact phrase search using double quotes: "\"extraordinary appeal\""
+    • Regular search for individual keywords
+    • Pagination support (1-100 results per page)
+
+    Legal Significance:
+    • Extraordinary remedy beyond regular appeals
+    • Initiated by Public Prosecutor's Office
+    • Reviews finalized decisions for legal errors
+    • Can benefit defendants retroactively
+    • Rare but important legal precedents
+
+    Use cases:
+    • Research extraordinary appeal precedents
+    • Study prosecutorial challenges to final decisions
+    • Analyze legal errors in finalized cases
+    • Track KYB success rates and patterns
+
+    Returns structured data with decision metadata. Use get_kyb_bedesten_document_markdown()
+    to retrieve full decision texts for detailed analysis.
+    """
     args = {"phrase": request.phrase, "pageSize": request.pageSize}
     for field in ["kararTarihiStart", "kararTarihiEnd"]:
         if getattr(request, field):
@@ -768,7 +862,33 @@ async def search_kyb(request: BedestenSearchRequest):
 
 @app.get("/api/kyb/document/{document_id}", tags=["KYB"])
 async def get_kyb_document(document_id: str):
-    """Get Extraordinary Appeal (KYB) decision in Markdown format."""
+    """
+    Retrieves the full text of a Kanun Yararına Bozma (KYB) decision document in Markdown format.
+
+    This tool converts the original extraordinary appeal decision document (HTML or PDF)
+    from Bedesten API into clean, readable Markdown format for analysis.
+
+    Input Requirements:
+    • documentId: Use the ID from search_kyb_bedesten results
+    • Document ID must be non-empty string
+
+    Output Format:
+    • Clean Markdown text with legal formatting preserved
+    • Structured content with headers and citations
+    • Removes technical artifacts from source documents
+
+    Special Value for KYB Documents:
+    • Contains rare extraordinary appeal reasoning
+    • Shows prosecutorial arguments for legal review
+    • Documents correction of finalized legal errors
+    • Provides precedent for similar extraordinary circumstances
+
+    Use for:
+    • Analyzing extraordinary appeal legal reasoning
+    • Understanding prosecutorial review criteria
+    • Research on legal error correction mechanisms
+    • Studying retroactive benefit applications
+    """
     return await call_mcp_tool("get_kyb_bedesten_document_markdown", {"documentId": document_id})
 
 # ============================================================================
@@ -777,7 +897,37 @@ async def get_kyb_document(document_id: str):
 
 @app.post("/api/emsal/search", tags=["Emsal"], summary="Search UYAP Precedents")
 async def search_emsal(request: EmsalSearchRequest):
-    """Search precedent decisions across multiple court levels via UYAP system."""
+    """
+    Searches for Precedent (Emsal) decisions using detailed criteria.
+
+    The Precedent (Emsal) database contains precedent decisions from various Turkish courts
+    integrated through the UYAP (National Judiciary Informatics System). This tool provides
+    access to a comprehensive collection of court decisions that serve as legal precedents.
+
+    Key Features:
+    • Multi-court coverage (BAM, Civil courts, Regional chambers)
+    • Keyword-based search across decision texts
+    • Court-specific filtering for targeted research
+    • Case number filtering (Case No (Esas No) and Decision No (Karar No) with ranges)
+    • Date range filtering with DD.MM.YYYY format
+    • Multiple sorting options and pagination support
+
+    Court Selection Options:
+    • BAM Civil Courts: Higher regional civil courts
+    • Civil Courts: Local and first-instance civil courts
+    • Regional Civil Chambers: Specialized civil court departments
+
+    Precedent Research Use Cases:
+    • Find precedent (emsal) decisions across multiple court levels
+    • Research court interpretations of specific legal concepts
+    • Analyze consistent legal reasoning patterns
+    • Study regional variations in legal decisions
+    • Track precedent development over time
+    • Compare decisions from different court types
+
+    Returns structured precedent data with court information and decision metadata.
+    Use get_emsal_document_markdown() to retrieve full precedent decision texts.
+    """
     args = {"keyword": request.keyword, "results_per_page": request.results_per_page}
     if request.decision_year_karar:
         args["decision_year_karar"] = request.decision_year_karar
@@ -785,12 +935,68 @@ async def search_emsal(request: EmsalSearchRequest):
 
 @app.get("/api/emsal/document/{decision_id}", tags=["Emsal"])
 async def get_emsal_document(decision_id: str):
-    """Get UYAP precedent decision in Markdown format."""
+    """
+    Retrieves the full text of a specific Emsal (UYAP Precedent) decision in Markdown format.
+
+    This tool fetches complete precedent decision documents from the UYAP system and converts
+    them to clean, readable Markdown format suitable for legal precedent analysis.
+
+    Input Requirements:
+    • decision_id: Decision ID from search_emsal_detailed_decisions results
+    • ID must be non-empty string from UYAP Emsal database
+
+    Output Format:
+    • Clean Markdown text with legal precedent structure preserved
+    • Organized sections: court info, case facts, legal reasoning, conclusion
+    • Proper formatting for legal citations and cross-references
+    • Removes technical artifacts from source documents
+
+    Precedent Decision Content:
+    • Complete court reasoning and legal analysis
+    • Detailed examination of legal principles applied
+    • Citation of relevant laws, regulations, and prior precedents
+    • Final ruling with precedent-setting reasoning
+    • Court-specific interpretations and legal standards
+
+    Use for legal precedent research, citation building, and comparative legal analysis.
+    """
     return await call_mcp_tool("get_emsal_document_markdown", {"decision_id": decision_id})
 
 @app.post("/api/uyusmazlik/search", tags=["Uyuşmazlık"], summary="Search Jurisdictional Disputes")
 async def search_uyusmazlik(request: UyusmazlikSearchRequest):
-    """Search Court of Jurisdictional Disputes decisions."""
+    """
+    Searches for Court of Jurisdictional Disputes (Uyuşmazlık Mahkemesi) decisions.
+
+    The Court of Jurisdictional Disputes (Uyuşmazlık Mahkemesi) resolves jurisdictional disputes between different court systems
+    in Turkey, determining which court has jurisdiction over specific cases. This specialized
+    court handles conflicts between civil, criminal, and administrative jurisdictions.
+
+    Key Features:
+    • Department filtering (Criminal, Civil, General Assembly decisions)
+    • Dispute type classification (Jurisdiction vs Judgment disputes)
+    • Decision outcome filtering (dispute resolution results)
+    • Case number and date range filtering
+    • Advanced text search with Boolean logic operators
+    • Official Gazette reference search
+
+    Dispute Types:
+    • Jurisdictional Disputes (Görev Uyuşmazlığı): Which court has authority
+    • Judgment Disputes (Hüküm Uyuşmazlığı): Conflicting final decisions
+
+    Departments:
+    • Criminal Section (Ceza Bölümü): Criminal section decisions
+    • Civil Section (Hukuk Bölümü): Civil section decisions  
+    • General Assembly Decisions (Genel Kurul Kararları): General Assembly decisions
+
+    Use cases:
+    • Research jurisdictional precedents
+    • Understand court system boundaries
+    • Analyze dispute resolution patterns
+    • Study inter-court conflict resolution
+    • Legal procedure and jurisdiction research
+
+    Returns structured search results with dispute resolution information.
+    """
     return await call_mcp_tool("search_uyusmazlik_decisions", {
         "keywords": request.keywords,
         "page_to_fetch": request.page_to_fetch
@@ -798,12 +1004,72 @@ async def search_uyusmazlik(request: UyusmazlikSearchRequest):
 
 @app.get("/api/uyusmazlik/document", tags=["Uyuşmazlık"])
 async def get_uyusmazlik_document(document_url: str):
-    """Get Jurisdictional Disputes decision by URL in Markdown format."""
+    """
+    Retrieves the full text of a specific Uyuşmazlık Mahkemesi decision from its URL in Markdown format.
+
+    This tool fetches complete jurisdictional dispute resolution decisions and converts them
+    to clean, readable Markdown format suitable for legal analysis of inter-court disputes.
+
+    Input Requirements:
+    • document_url: Full URL to the decision document from search_uyusmazlik_decisions results
+    • URL must be valid HttpUrl format from official Uyuşmazlık Mahkemesi database
+
+    Output Format:
+    • Clean Markdown text with jurisdictional dispute structure preserved
+    • Organized sections: dispute facts, jurisdictional analysis, resolution ruling
+    • Proper formatting for legal citations and court system references
+    • Removes technical artifacts from source documents
+
+    Jurisdictional Dispute Decision Content:
+    • Complete analysis of jurisdictional conflicts between court systems
+    • Detailed examination of applicable jurisdictional rules
+    • Citation of relevant procedural laws and court organization statutes
+    • Final resolution determining proper court jurisdiction
+    • Reasoning for jurisdictional boundaries and court authority
+
+    Use for understanding court system boundaries, analyzing jurisdictional precedents,
+    and legal practice guidance on proper court selection.
+    """
     return await call_mcp_tool("get_uyusmazlik_document_markdown_from_url", {"document_url": document_url})
 
 @app.post("/api/anayasa/search-norm", tags=["Anayasa"], summary="Search Constitutional Court (Norm Control)")
 async def search_anayasa_norm(request: AnayasaNormSearchRequest):
-    """Search Constitutional Court norm control (judicial review) decisions."""
+    """
+    Searches Constitutional Court (Anayasa Mahkemesi) norm control decisions with comprehensive filtering.
+
+    The Constitutional Court is Turkey's highest constitutional authority, responsible for judicial
+    review of laws, regulations, and constitutional amendments. Norm control (Norm Denetimi) is the
+    court's power to review the constitutionality of legal norms.
+
+    Key Features:
+    • Boolean keyword search (AND, OR, NOT logic)
+    • Constitutional period filtering (1961 vs 1982 Constitution)
+    • Case and decision number filtering
+    • Date range filtering for review and decision dates
+    • Application type classification (İptal, İtiraz, etc.)
+    • Applicant filtering (government entities, opposition parties)
+    • Official Gazette publication filtering
+    • Judicial opinion analysis (dissents, different reasoning)
+    • Court member and rapporteur filtering
+    • Norm type classification (laws, regulations, decrees)
+    • Review outcome filtering (constitutionality determinations)
+    • Constitutional basis article referencing
+
+    Constitutional Review Types:
+    • Abstract review: Ex ante constitutional control
+    • Concrete review: Constitutional questions during litigation
+    • Legislative review: Parliamentary acts and government decrees
+    • Regulatory review: Administrative regulations and bylaws
+
+    Use cases:
+    • Constitutional law research and analysis
+    • Legislative drafting constitutional compliance
+    • Academic constitutional law study
+    • Legal precedent analysis for constitutional questions
+    • Government policy constitutional assessment
+
+    Returns structured constitutional court data with comprehensive metadata.
+    """
     args = {"keywords_all": request.keywords_all, "results_per_page": request.results_per_page}
     for field in ["period", "application_type"]:
         if getattr(request, field):
