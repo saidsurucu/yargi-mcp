@@ -1,0 +1,32 @@
+# fly.toml app configuration file generated for yargi-mcp on 2025-06-29T00:23:47+03:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'yargi-mcp'
+primary_region = 'fra'
+
+[env]
+ENABLE_AUTH = "true"
+PORT        = "8000"
+
+[build]
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+[checks.http_health]             # keep MCP /health live
+  type     = "http"
+  interval = "30s"
+  timeout  = "10s"
+  path     = "/health"

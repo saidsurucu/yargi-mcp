@@ -31,7 +31,7 @@ root_logger.addHandler(console_handler)
 logger = logging.getLogger(__name__)
 # --- Logging Configuration End ---
 
-from fastmcp import FastMCP
+from mcp_factory import create_app
 
 # --- Module Imports ---
 from yargitay_mcp_module.client import YargitayOfficialApiClient
@@ -97,11 +97,7 @@ from sayistay_mcp_module.models import (
 from sayistay_mcp_module.enums import DaireEnum, KamuIdaresiTuruEnum, WebKararKonusuEnum
 
 
-app = FastMCP(
-    name="YargiMCP",
-    instructions="MCP server for TR legal databases (Yargitay, Danistay, Emsal, Uyusmazlik, Anayasa-Norm, Anayasa-Bireysel, KIK, Sayistay).",
-    dependencies=["httpx", "beautifulsoup4", "markitdown", "pydantic", "aiohttp", "playwright"]
-)
+app = create_app()
 
 # --- API Client Instances ---
 yargitay_client_instance = YargitayOfficialApiClient()

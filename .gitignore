@@ -180,9 +180,10 @@ redis-data/
 
 # Production logs
 logs/*.log.*
-Dockerfile
-Dockerfile
-fly.toml
-.github/workflows/fly-deploy.yml
-Dockerfile
+
+# Remove these lines - we need deployment files in git:
+# Dockerfile - NEEDED for SaaS deployment
+# fly.toml - NEEDED for Fly.io deployment  
+# .github/workflows/fly-deploy.yml - NEEDED for GitHub Actions
+
 GEMINI.md

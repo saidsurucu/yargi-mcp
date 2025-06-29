@@ -18,7 +18,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
 
 # Import the main MCP app
-from mcp_server_main import app as mcp_server
+from mcp_factory import create_app
+
+mcp_server = create_app()
 
 # Add a health check endpoint
 @mcp_server.custom_route("/health", methods=["GET"])
@@ -83,6 +85,9 @@ custom_middleware = [
     ),
 ]
 
+# Import Stripe webhook router
+from stripe_webhook import router as stripe_router
+
 # Create ASGI apps with different transports
 
 # Recommended: Streamable HTTP transport
@@ -90,6 +95,9 @@ app = mcp_server.http_app(
     path="/mcp",
     middleware=custom_middleware
 )
+
+# Add Stripe webhook router
+app.include_router(stripe_router, prefix="/api")
 
 # Alternative: SSE transport (for compatibility)
 sse_app = mcp_server.http_app(
