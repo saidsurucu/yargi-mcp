@@ -21,11 +21,7 @@ ENV PORT=8000
 
 # -------- Health check -----------------------------------------------------
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD python - <<'PY'
-import httpx, os, sys; \
-r=httpx.get(f"http://localhost:{os.getenv('PORT','8000')}/health"); \
-sys.exit(0 if r.status_code==200 else 1)
-PY
+  CMD python -c "import httpx, os, sys; r=httpx.get(f'http://localhost:{os.getenv(\"PORT\",\"8000\")}/health'); sys.exit(0 if r.status_code==200 else 1)"
 
 EXPOSE 8000
 
