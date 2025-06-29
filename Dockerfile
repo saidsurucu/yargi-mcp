@@ -1,5 +1,5 @@
 # -------- BASE IMAGE (includes Chromium & deps) ----------------------------
-FROM mcr.microsoft.com/playwright/python:v1.52.0-jammy        # Playwright docs
+FROM mcr.microsoft.com/playwright/python:v1.52.0-jammy
 
 # -------- Runtime setup ----------------------------------------------------
 WORKDIR /app
@@ -9,14 +9,14 @@ COPY pyproject.toml poetry.lock* requirements*.txt* ./
 
 # Fast, deterministic install with `uv`
 RUN pip install --no-cache-dir uv && \
-    uv pip install --system --no-cache-dir .[asgi]             # installs FastMCP, FastAPI
+    uv pip install --system --no-cache-dir .[asgi]
 
 # Copy application source
 COPY . .
 
 # -------- Environment ------------------------------------------------------
 ENV PYTHONUNBUFFERED=1
-ENV ENABLE_AUTH=true        # Clerk JWT validation ON by default
+ENV ENABLE_AUTH=true
 ENV PORT=8000
 
 # -------- Health check -----------------------------------------------------
