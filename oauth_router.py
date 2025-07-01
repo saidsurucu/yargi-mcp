@@ -95,7 +95,17 @@ async def oauth_login(request: Request, redirect_uri: Optional[str] = None):
         domain = os.getenv("CLERK_DOMAIN", "localhost")
     
     # Production Clerk hosted sign-in URL
-    clerk_sign_in_url = f"https://{domain}.accounts.dev/sign-in"
+    # Check if domain already includes full URL or just subdomain
+    if domain.startswith('http'):
+        # Full URL provided
+        clerk_sign_in_url = f"{domain}/sign-in"
+    elif '.' in domain and not domain.endswith('.accounts.dev'):
+        # Custom domain like clerk.yargimcp.com
+        clerk_sign_in_url = f"https://{domain}/sign-in"
+    else:
+        # Standard Clerk subdomain
+        clerk_sign_in_url = f"https://{domain}.accounts.dev/sign-in"
+    
     oauth_url = f"{clerk_sign_in_url}?{urlencode(clerk_oauth_params)}"
     
     logger.info(f"Redirecting to Clerk OAuth: {oauth_url}")
@@ -383,7 +393,16 @@ async def google_oauth_login(request: Request):
         domain = os.getenv("CLERK_DOMAIN", "localhost")
     
     # Build Clerk sign-in URL with Google as the provider
-    google_oauth_url = f"https://{domain}.accounts.dev/sign-in#/?strategy=oauth_google"
+    # Check if domain already includes full URL or just subdomain
+    if domain.startswith('http'):
+        # Full URL provided
+        google_oauth_url = f"{domain}/sign-in#/?strategy=oauth_google"
+    elif '.' in domain and not domain.endswith('.accounts.dev'):
+        # Custom domain like clerk.yargimcp.com
+        google_oauth_url = f"https://{domain}/sign-in#/?strategy=oauth_google"
+    else:
+        # Standard Clerk subdomain
+        google_oauth_url = f"https://{domain}.accounts.dev/sign-in#/?strategy=oauth_google"
     
     return RedirectResponse(url=google_oauth_url)
 
