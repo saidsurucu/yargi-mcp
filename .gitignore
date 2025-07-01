@@ -187,3 +187,6 @@ logs/*.log.*
 # .github/workflows/fly-deploy.yml - NEEDED for GitHub Actions
 
 GEMINI.md
+fly.toml
+scripts/deploy-flyio.sh
+docs/DEPLOYMENT_FLYIO.md
