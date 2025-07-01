@@ -32,7 +32,7 @@ router = APIRouter(prefix="/auth")
 clerk_secret = os.getenv("CLERK_SECRET_KEY")
 clerk_publishable = os.getenv("CLERK_PUBLISHABLE_KEY")
 clerk_domain = os.getenv("CLERK_DOMAIN")  # e.g., "artistic-swan-81"
-clerk_issuer = os.getenv("CLERK_ISSUER", f"https://{clerk_domain}.clerk.accounts.dev" if clerk_domain else "https://artistic-swan-81.clerk.accounts.dev")
+clerk_issuer = os.getenv("CLERK_ISSUER", f"https://{clerk_domain}.accounts.dev" if clerk_domain else None)
 base_url = os.getenv("BASE_URL", "https://yargi-mcp.fly.dev")
 clerk_frontend_url = os.getenv("CLERK_FRONTEND_URL", "http://localhost:3000")
 redirect_url = os.getenv("CLERK_OAUTH_REDIRECT_URL", f"{base_url}/auth/callback")
@@ -95,7 +95,7 @@ async def oauth_login(request: Request, redirect_uri: Optional[str] = None):
         domain = os.getenv("CLERK_DOMAIN", "localhost")
     
     # Production Clerk hosted sign-in URL
-    clerk_sign_in_url = f"https://{domain}.clerk.accounts.dev/sign-in"
+    clerk_sign_in_url = f"https://{domain}.accounts.dev/sign-in"
     oauth_url = f"{clerk_sign_in_url}?{urlencode(clerk_oauth_params)}"
     
     logger.info(f"Redirecting to Clerk OAuth: {oauth_url}")
@@ -389,7 +389,7 @@ async def google_oauth_login(request: Request):
         domain = os.getenv("CLERK_DOMAIN", "localhost")
     
     # Build Clerk sign-in URL with Google as the provider
-    google_oauth_url = f"https://{domain}.clerk.accounts.dev/sign-in#/?strategy=oauth_google"
+    google_oauth_url = f"https://{domain}.accounts.dev/sign-in#/?strategy=oauth_google"
     
     return RedirectResponse(url=google_oauth_url)
 
