@@ -24,12 +24,17 @@ class ClerkOAuthMiddleware(Middleware):
     
     def __init__(self):
         """Initialize the middleware with Clerk client."""
-        self.clerk_secret = os.getenv("CLERK_SECRET_KEY")
-        if not self.clerk_secret:
-            raise ValueError("CLERK_SECRET_KEY environment variable is required")
-            
-        self.clerk = Clerk(bearer_auth=self.clerk_secret)
         self.enable_auth = os.getenv("ENABLE_AUTH", "false").lower() == "true"
+        self.clerk_secret = os.getenv("CLERK_SECRET_KEY")
+        
+        # Only require Clerk credentials if auth is enabled
+        if self.enable_auth and not self.clerk_secret:
+            raise ValueError("CLERK_SECRET_KEY environment variable is required when ENABLE_AUTH=true")
+            
+        # Initialize Clerk client only if auth is enabled
+        self.clerk = None
+        if self.enable_auth and self.clerk_secret:
+            self.clerk = Clerk(bearer_auth=self.clerk_secret)
         
     async def on_request(self, context: MiddlewareContext, call_next):
         """
@@ -65,6 +70,12 @@ class ClerkOAuthMiddleware(Middleware):
             ))
         
         # Validate token and get user info using Clerk SDK
+        if not self.clerk:
+            raise McpError(ErrorData(
+                code=-32001,
+                message="Authentication service not available"
+            ))
+            
         user_info = self._validate_oauth_token(request)
         if not user_info:
             raise McpError(ErrorData(
