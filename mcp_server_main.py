@@ -2482,6 +2482,12 @@ async def search(
     IMPORTANT: This tool is specifically designed for ChatGPT Deep Research. 
     Do NOT use for regular questions - use specific court tools instead.
 
+    SEARCH LANGUAGE REQUIREMENT:
+    • Keywords MUST be in Turkish language only
+    • Turkish legal documents require Turkish search terms
+    • English terms will return no results - always translate to Turkish first
+    • Examples: "property rights" → "mülkiyet hakkı", "contract violation" → "sözleşme ihlali"
+
     Bedesten API Search Operators:
     • Regular search: "mülkiyet kararı" - searches words separately (OR logic)
     • Exact phrase: "\"mülkiyet kararı\"" - searches exact phrase (more precise)
