@@ -141,7 +141,7 @@ async def search_yargitay_detailed(
     • +"phrase1" +"phrase2" = Multiple required phrases
     • +"required" -"excluded" = Include and exclude
     Examples: arsa payı | "arsa payı" | +"arsa payı" +"bozma sebebi" | bozma*"""),
-    birimYrgKurulDaire: YargitayBirimEnum = Field("ALL", description="""
+    birimYrgKurulDaire: str = Field("ALL", description="""
         Yargıtay chamber/board selection. Available options:
         • 'ALL' for all chambers
         • Hukuk Genel Kurulu (Civil General Assembly)
@@ -207,6 +207,10 @@ async def search_yargitay_detailed(
     Returns structured search results with decision metadata. Use get_yargitay_document_markdown()
     to retrieve full decision texts for detailed analysis.
     """
+    
+    # Convert "ALL" to empty string for API compatibility
+    if birimYrgKurulDaire == "ALL":
+        birimYrgKurulDaire = ""
     
     search_query = YargitayDetailedSearchRequest(
         arananKelime=arananKelime,

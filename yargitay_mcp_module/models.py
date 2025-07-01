@@ -43,7 +43,7 @@ class YargitayDetailedSearchRequest(BaseModel):
         • Exclusion: '+"arsa payı" -"inşaat sözleşmesi"'
         Examples: arsa payı | "arsa payı" | +"mülkiyet hakkı" +"bozma sebebi" | hukuk*""")
     # Department/Board selection - Complete Court of Cassation chamber hierarchy
-    birimYrgKurulDaire: YargitayBirimEnum = Field("ALL", description="""
+    birimYrgKurulDaire: Optional[str] = Field("ALL", description="""
         Court of Cassation (Yargıtay) chamber/board selection. Options include:
         - 'ALL' for all chambers
         - Civil: 'Civil General Assembly (Hukuk Genel Kurulu)', '1st Civil Chamber (1. Hukuk Dairesi)' through '23rd Civil Chamber (23. Hukuk Dairesi)', 'Civil Chambers Presidents Board (Hukuk Daireleri Başkanlar Kurulu)'
