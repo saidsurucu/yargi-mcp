@@ -21,6 +21,9 @@ from mcp_server_main import app as mcp_server
 # Import Stripe webhook router
 from stripe_webhook import router as stripe_router
 
+# Import OAuth router
+from oauth_router import router as oauth_router
+
 # Configure CORS middleware
 cors_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 custom_middleware = [
@@ -42,7 +45,7 @@ mcp_app = mcp_server.http_app(
 # Create FastAPI wrapper application with MCP app's lifespan
 app = FastAPI(
     title="Yargı MCP Server",
-    description="MCP server for Turkish legal databases with JWT authentication",
+    description="MCP server for Turkish legal databases with OAuth authentication",
     version="0.1.0",
     middleware=custom_middleware,
     lifespan=mcp_app.lifespan  # Critical: Get lifespan from mcp_app, not mcp_server
@@ -50,6 +53,9 @@ app = FastAPI(
 
 # Add Stripe webhook router to FastAPI
 app.include_router(stripe_router, prefix="/api")
+
+# Add OAuth router to FastAPI
+app.include_router(oauth_router)
 
 # Mount MCP app as sub-application
 app.mount("/mcp", mcp_app)
@@ -72,12 +78,16 @@ async def root():
     """Root endpoint with service information"""
     return JSONResponse({
         "service": "Yargı MCP Server",
-        "description": "MCP server for Turkish legal databases with JWT authentication",
+        "description": "MCP server for Turkish legal databases with OAuth authentication",
         "endpoints": {
             "mcp": "/mcp/",
             "health": "/health",
             "status": "/status",
-            "stripe_webhook": "/api/stripe/webhook"
+            "stripe_webhook": "/api/stripe/webhook",
+            "oauth_login": "/auth/login",
+            "oauth_callback": "/auth/callback",
+            "oauth_google": "/auth/google/login",
+            "user_info": "/auth/user"
         },
         "supported_databases": [
             "Yargıtay (Court of Cassation)",
@@ -92,9 +102,10 @@ async def root():
         ],
         "authentication": {
             "enabled": os.getenv("ENABLE_AUTH", "false").lower() == "true",
-            "type": "JWT Bearer Token",
+            "type": "OAuth 2.0 via Clerk",
             "issuer": os.getenv("CLERK_ISSUER", "https://clerk.accounts.dev"),
-            "required_scopes": ["yargi.read"]
+            "providers": ["google"],
+            "flow": "authorization_code"
         }
     })
 
