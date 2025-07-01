@@ -238,21 +238,15 @@ async def oauth_callback(
                 "scope": "read search"
             })
         
-        # Check if this is a ChatGPT callback
+        # Always redirect back to the original redirect URL if provided
         original_redirect = redirect_uri or redirect_url
-        if "chatgpt.com" in (original_redirect or ""):
-            # For ChatGPT, we need to redirect back with the authorization code
-            # ChatGPT expects the authorization code to continue the OAuth flow
+        if original_redirect:
+            # Redirect back with the authorization code and state
             return RedirectResponse(
                 url=f"{original_redirect}?code={code}&state={state or ''}"
             )
         
-        # Return the session token to the client for other clients
-        # In a real app, you might:
-        # 1. Set this as an HTTP-only cookie
-        # 2. Redirect to the frontend with the token
-        # 3. Store in a secure session store
-        
+        # If no redirect URL provided, return JSON response with session token
         response = JSONResponse(content={
             "status": "success",
             "message": "Authentication successful",
