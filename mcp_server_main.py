@@ -1470,10 +1470,13 @@ async def get_rekabet_kurumu_document(
 )
 async def search_yargitay_bedesten(
     phrase: str = Field(..., description="""
-        Aranacak kavram/kelime. İki farklı arama türü desteklenir:
-        • Normal arama: "mülkiyet kararı" - kelimeler ayrı ayrı aranır
-        • Tam cümle arama: "\"mülkiyet kararı\"" - tırnak içindeki ifade aynen aranır
-        Tam cümle aramalar daha kesin sonuçlar verir.
+        Aranacak kavram/kelime. Gelişmiş arama operatörleri desteklenir:
+        • Space between words = OR logic (mülkiyet hakkı → "mülkiyet" OR "hakkı")
+        • "exact phrase" = Exact match ("mülkiyet hakkı" → exact phrase)
+        • word1+word2 = AND logic (+mülkiyet +hakkı → both words required)
+        • +"phrase1" +"phrase2" = Multiple required phrases
+        • +"required" -"excluded" = Include and exclude
+        Examples: mülkiyet hakkı | "mülkiyet hakkı" | +mülkiyet +hakkı | +"mülkiyet hakkı" +"anayasa" | +mülkiyet -"kira"
     """),
     pageSize: int = Field(10, ge=1, le=100, description="Sayfa başına sonuç sayısı"),
     pageNumber: int = Field(1, ge=1, description="Sayfa numarası"),
@@ -1573,10 +1576,13 @@ async def get_yargitay_bedesten_document_markdown(
 )
 async def search_danistay_bedesten(
     phrase: str = Field(..., description="""
-        Aranacak kavram/kelime. İki farklı arama türü desteklenir:
-        • Normal arama: "mülkiyet kararı" - kelimeler ayrı ayrı aranır
-        • Tam cümle arama: "\"mülkiyet kararı\"" - tırnak içindeki ifade aynen aranır
-        Tam cümle aramalar daha kesin sonuçlar verir.
+        Aranacak kavram/kelime. Gelişmiş arama operatörleri desteklenir:
+        • Space between words = OR logic (mülkiyet hakkı → "mülkiyet" OR "hakkı")
+        • "exact phrase" = Exact match ("mülkiyet hakkı" → exact phrase)
+        • word1+word2 = AND logic (+mülkiyet +hakkı → both words required)
+        • +"phrase1" +"phrase2" = Multiple required phrases
+        • +"required" -"excluded" = Include and exclude
+        Examples: mülkiyet hakkı | "mülkiyet hakkı" | +mülkiyet +hakkı | +"mülkiyet hakkı" +"anayasa" | +mülkiyet -"kira"
     """),
     pageSize: int = Field(10, ge=1, le=100, description="Sayfa başına sonuç sayısı"),
     pageNumber: int = Field(1, ge=1, description="Sayfa numarası"),
@@ -1673,10 +1679,13 @@ async def get_danistay_bedesten_document_markdown(
 )
 async def search_yerel_hukuk_bedesten(
     phrase: str = Field(..., description="""
-        Aranacak kavram/kelime. İki farklı arama türü desteklenir:
-        • Normal arama: "mülkiyet kararı" - kelimeler ayrı ayrı aranır
-        • Tam cümle arama: "\"mülkiyet kararı\"" - tırnak içindeki ifade aynen aranır
-        Tam cümle aramalar daha kesin sonuçlar verir.
+        Aranacak kavram/kelime. Gelişmiş arama operatörleri desteklenir:
+        • Space between words = OR logic (mülkiyet hakkı → "mülkiyet" OR "hakkı")
+        • "exact phrase" = Exact match ("mülkiyet hakkı" → exact phrase)
+        • word1+word2 = AND logic (+mülkiyet +hakkı → both words required)
+        • +"phrase1" +"phrase2" = Multiple required phrases
+        • +"required" -"excluded" = Include and exclude
+        Examples: mülkiyet hakkı | "mülkiyet hakkı" | +mülkiyet +hakkı | +"mülkiyet hakkı" +"anayasa" | +mülkiyet -"kira"
     """),
     pageSize: int = Field(10, ge=1, le=100, description="Sayfa başına sonuç sayısı"),
     pageNumber: int = Field(1, ge=1, description="Sayfa numarası"),
@@ -1763,10 +1772,13 @@ async def get_yerel_hukuk_bedesten_document_markdown(
 )
 async def search_istinaf_hukuk_bedesten(
     phrase: str = Field(..., description="""
-        Aranacak kavram/kelime. İki farklı arama türü desteklenir:
-        • Normal arama: "mülkiyet kararı" - kelimeler ayrı ayrı aranır
-        • Tam cümle arama: "\"mülkiyet kararı\"" - tırnak içindeki ifade aynen aranır
-        Tam cümle aramalar daha kesin sonuçlar verir.
+        Aranacak kavram/kelime. Gelişmiş arama operatörleri desteklenir:
+        • Space between words = OR logic (mülkiyet hakkı → "mülkiyet" OR "hakkı")
+        • "exact phrase" = Exact match ("mülkiyet hakkı" → exact phrase)
+        • word1+word2 = AND logic (+mülkiyet +hakkı → both words required)
+        • +"phrase1" +"phrase2" = Multiple required phrases
+        • +"required" -"excluded" = Include and exclude
+        Examples: mülkiyet hakkı | "mülkiyet hakkı" | +mülkiyet +hakkı | +"mülkiyet hakkı" +"anayasa" | +mülkiyet -"kira"
     """),
     pageSize: int = Field(10, ge=1, le=100, description="Sayfa başına sonuç sayısı"),
     pageNumber: int = Field(1, ge=1, description="Sayfa numarası"),
@@ -1883,10 +1895,13 @@ async def get_istinaf_hukuk_bedesten_document_markdown(
 )
 async def search_kyb_bedesten(
     phrase: str = Field(..., description="""
-        Aranacak kavram/kelime. İki farklı arama türü desteklenir:
-        • Normal arama: "mülkiyet kararı" - kelimeler ayrı ayrı aranır
-        • Tam cümle arama: "\"mülkiyet kararı\"" - tırnak içindeki ifade aynen aranır
-        Tam cümle aramalar daha kesin sonuçlar verir.
+        Aranacak kavram/kelime. Gelişmiş arama operatörleri desteklenir:
+        • Space between words = OR logic (mülkiyet hakkı → "mülkiyet" OR "hakkı")
+        • "exact phrase" = Exact match ("mülkiyet hakkı" → exact phrase)
+        • word1+word2 = AND logic (+mülkiyet +hakkı → both words required)
+        • +"phrase1" +"phrase2" = Multiple required phrases
+        • +"required" -"excluded" = Include and exclude
+        Examples: mülkiyet hakkı | "mülkiyet hakkı" | +mülkiyet +hakkı | +"mülkiyet hakkı" +"anayasa" | +mülkiyet -"kira"
     """),
     pageSize: int = Field(10, ge=1, le=100, description="Sayfa başına sonuç sayısı"),
     pageNumber: int = Field(1, ge=1, description="Sayfa numarası"),

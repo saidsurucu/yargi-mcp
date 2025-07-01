@@ -108,16 +108,16 @@ class BedestenDecisionEntry(BaseModel):
     itemType: BedestenItemType
     birimId: Optional[str] = None
     birimAdi: Optional[str]
-    esasNoYil: int
-    esasNoSira: int
-    kararNoYil: int
-    kararNoSira: int
+    esasNoYil: Optional[int] = None
+    esasNoSira: Optional[int] = None
+    kararNoYil: Optional[int] = None
+    kararNoSira: Optional[int] = None
     kararTuru: Optional[str] = None
     kararTarihi: str
     kararTarihiStr: str
     kesinlesmeDurumu: Optional[str] = None
-    kararNo: str
-    esasNo: str
+    kararNo: Optional[str] = None
+    esasNo: Optional[str] = None
 
 class BedestenSearchDataResponse(BaseModel):
     emsalKararList: List[BedestenDecisionEntry]
