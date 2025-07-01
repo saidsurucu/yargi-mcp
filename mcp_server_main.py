@@ -2469,7 +2469,7 @@ atexit.register(perform_cleanup)
 # --- ChatGPT Deep Research Compatible Tools ---
 
 @app.tool(
-    description="ChatGPT Deep Research search for Turkish legal databases via Bedesten API - supports advanced search operators and multiple court types",
+    description="ChatGPT Deep Research search for Turkish legal databases via Bedesten API - returns numeric document IDs and supports advanced search operators",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -2507,7 +2507,7 @@ async def search(
     For regular legal research, use specific court tools like search_yargitay_bedesten.
     
     Returns:
-    Array of search result objects with id, title, text snippet, and url fields
+    Array of search result objects with numeric id, title, text snippet, and mevzuat.adalet.gov.tr url fields
     as required by ChatGPT Deep Research specification.
     """
     logger.info(f"ChatGPT Deep Research search tool called with query: {query}")
@@ -2540,10 +2540,19 @@ async def search(
                 # Add results from this court type (limit to top 5 per court)
                 for decision in search_results.data.emsalKararList[:5]:
                     results.append({
-                        "id": f"{id_prefix}_{decision.documentId}",
+                        "id": decision.documentId,
                         "title": f"{court_name} - {decision.birimAdi or 'Bilinmeyen Daire'} - {decision.esasNo or ''}/{decision.kararNo or ''}",
                         "text": f"{court_name} decision on '{query}' - Date: {decision.kararTarihi} - Court: {decision.birimAdi or 'Unknown'}",
-                        "url": f"https://yargi-mcp.fly.dev/documents/{id_prefix}/{decision.documentId}"
+                        "url": f"https://mevzuat.adalet.gov.tr/ictihat/{decision.documentId}",
+                        "birimAdi": decision.birimAdi,
+                        "esasNoYil": decision.esasNoYil,
+                        "esasNoSira": decision.esasNoSira,
+                        "kararNoYil": decision.kararNoYil,
+                        "kararNoSira": decision.kararNoSira,
+                        "kararTarihiStr": decision.kararTarihiStr,
+                        "kesinlesmeDurumu": decision.kesinlesmeDurumu,
+                        "kararNo": decision.kararNo,
+                        "esasNo": decision.esasNo
                     })
                     
                 logger.info(f"Found {len(search_results.data.emsalKararList)} results from {court_name}")
@@ -2577,7 +2586,7 @@ async def search(
         raise
 
 @app.tool(
-    description="ChatGPT Deep Research fetch for Turkish legal documents via Bedesten API - retrieves complete document text in Markdown format",
+    description="ChatGPT Deep Research fetch for Turkish legal documents via Bedesten API - accepts numeric document IDs and retrieves complete text in Markdown format",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": False,  # Retrieves specific documents, not exploring
@@ -2585,17 +2594,15 @@ async def search(
     }
 )
 async def fetch(
-    id: str = Field(..., description="""Document identifier from search results via Bedesten API.
+    id: str = Field(..., description="""Document identifier from search results (numeric only).
 
     IMPORTANT: This tool is specifically designed for ChatGPT Deep Research.
     Do NOT use for regular questions - use specific court document tools instead.
 
-    Supported ID formats from Bedesten API:
-    • yargitay_bedesten_{documentId} - Court of Cassation decisions
-    • danistay_bedesten_{documentId} - Council of State decisions  
-    • yerel_hukuk_bedesten_{documentId} - Local Civil Court decisions
-    • istinaf_hukuk_bedesten_{documentId} - Civil Appeals Court decisions
-    • kyb_bedesten_{documentId} - Extraordinary Appeal decisions""")
+    Expected ID format:
+    • Numeric document ID only (e.g., "730113500", "71370900")
+    • IDs are obtained from the search tool results
+    • Works for all Turkish court types via unified Bedesten API""")
 ) -> Dict[str, str]:
     """
     Bedesten API fetch tool for ChatGPT Deep Research compatibility.
@@ -2607,11 +2614,10 @@ async def fetch(
     For regular legal research, use specific court document tools.
     
     Input Format:
-    • id: Document identifier from Bedesten API search results 
-      (e.g., "yargitay_bedesten_ABC123", "danistay_bedesten_XYZ789")
+    • id: Numeric document identifier from search results (e.g., "730113500", "71370900")
     
     Returns:
-    Single object with id, title, text (full Markdown content), url, and metadata fields
+    Single object with numeric id, title, text (full Markdown content), mevzuat.adalet.gov.tr url, and metadata fields
     as required by ChatGPT Deep Research specification.
     """
     logger.info(f"ChatGPT Deep Research fetch tool called for document ID: {id}")
@@ -2620,69 +2626,22 @@ async def fetch(
         raise ValueError("Document ID must be a non-empty string")
     
     try:
-        # Parse the document ID to determine court type and document identifier
-        if "_" not in id:
-            raise ValueError("Invalid document ID format. Expected: courttype_bedesten_documentid")
-        
-        # Map of supported Bedesten API court types
-        court_mappings = {
-            "yargitay_bedesten_": {
-                "name": "Yargıtay (Court of Cassation)",
-                "level": "Supreme Court", 
-                "jurisdiction": "Civil and Criminal Law"
-            },
-            "danistay_bedesten_": {
-                "name": "Danıştay (Council of State)",
-                "level": "Administrative Supreme Court",
-                "jurisdiction": "Administrative Law"
-            },
-            "yerel_hukuk_bedesten_": {
-                "name": "Yerel Hukuk Mahkemesi (Local Civil Court)",
-                "level": "First Instance Court",
-                "jurisdiction": "Civil Law"
-            },
-            "istinaf_hukuk_bedesten_": {
-                "name": "İstinaf Hukuk Mahkemesi (Civil Appeals Court)",
-                "level": "Appellate Court",
-                "jurisdiction": "Civil Law Appeals"
-            },
-            "kyb_bedesten_": {
-                "name": "Kanun Yararına Bozma (Extraordinary Appeal)",
-                "level": "Extraordinary Appeal",
-                "jurisdiction": "Extraordinary Legal Remedies"
-            }
-        }
-        
-        # Find matching court type
-        court_info = None
-        doc_id = None
-        prefix = None
-        
-        for court_prefix, info in court_mappings.items():
-            if id.startswith(court_prefix):
-                court_info = info
-                doc_id = id.replace(court_prefix, "")
-                prefix = court_prefix.rstrip("_")
-                break
-        
-        if not court_info or not doc_id:
-            raise ValueError(f"Unsupported document ID format for ChatGPT Deep Research: {id}")
-        
-        # Fetch document via Bedesten API
-        doc = await bedesten_client_instance.get_document_as_markdown(doc_id)
+        # Use the numeric ID directly with Bedesten API
+        doc = await bedesten_client_instance.get_document_as_markdown(id)
         
         return {
             "id": id,
-            "title": f"{court_info['name']} - Document {doc_id}",
+            "title": f"Turkish Legal Database - Document {id}",
             "text": doc.markdown_content,
-            "url": f"https://yargi-mcp.fly.dev/documents/{prefix}/{doc_id}",
+            "url": f"https://mevzuat.adalet.gov.tr/ictihat/{id}",
             "metadata": {
-                "database": f"{court_info['name']} via Bedesten API",
-                "court_level": court_info['level'],
-                "jurisdiction": court_info['jurisdiction'],
-                "document_id": doc_id,
+                "database": "Turkish Legal Database via Bedesten API",
+                "document_id": id,
+                "source_url": doc.source_url,
+                "mime_type": doc.mime_type,
                 "api_source": "Bedesten Unified API",
-                "chatgpt_deep_research": True
+                "chatgpt_deep_research": True,
+                "note": "For detailed metadata (birimAdi, esasNo, kararNo, etc.), use the search tool results"
             }
         }
         
