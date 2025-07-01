@@ -7,7 +7,16 @@ import os
 import logging
 from typing import Optional, Dict, Any
 from fastmcp.server.middleware import Middleware, MiddlewareContext
-from clerk_backend_api import Clerk, SDKError, authenticate_request, AuthenticateRequestOptions
+try:
+    from clerk_backend_api import Clerk, SDKError, authenticate_request, AuthenticateRequestOptions
+    CLERK_AVAILABLE = True
+except ImportError:
+    # Clerk SDK not available - OAuth features will be disabled
+    CLERK_AVAILABLE = False
+    Clerk = None
+    SDKError = Exception
+    authenticate_request = None
+    AuthenticateRequestOptions = None
 from mcp import McpError
 from mcp.types import ErrorData
 from starlette.responses import Response
@@ -28,13 +37,17 @@ class ClerkOAuthMiddleware(Middleware):
         self.enable_auth = os.getenv("ENABLE_AUTH", "false").lower() == "true"
         self.clerk_secret = os.getenv("CLERK_SECRET_KEY")
         
+        # Check if Clerk SDK is available
+        if self.enable_auth and not CLERK_AVAILABLE:
+            raise ValueError("Clerk SDK not available. Install with: uv pip install .[saas]")
+        
         # Only require Clerk credentials if auth is enabled
         if self.enable_auth and not self.clerk_secret:
             raise ValueError("CLERK_SECRET_KEY environment variable is required when ENABLE_AUTH=true")
             
-        # Initialize Clerk client only if auth is enabled
+        # Initialize Clerk client only if auth is enabled and available
         self.clerk = None
-        if self.enable_auth and self.clerk_secret:
+        if self.enable_auth and self.clerk_secret and CLERK_AVAILABLE:
             self.clerk = Clerk(bearer_auth=self.clerk_secret)
         
     async def on_request(self, context: MiddlewareContext, call_next):

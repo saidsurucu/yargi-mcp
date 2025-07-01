@@ -13,7 +13,16 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Request, Response, HTTPException, Query
 from fastapi.responses import RedirectResponse, JSONResponse
 from starlette.responses import Response as StarletteResponse
-from clerk_backend_api import Clerk, SDKError, authenticate_request, AuthenticateRequestOptions
+try:
+    from clerk_backend_api import Clerk, SDKError, authenticate_request, AuthenticateRequestOptions
+    CLERK_AVAILABLE = True
+except ImportError:
+    # Clerk SDK not available - OAuth features will be disabled
+    CLERK_AVAILABLE = False
+    Clerk = None
+    SDKError = Exception
+    authenticate_request = None
+    AuthenticateRequestOptions = None
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +38,17 @@ clerk_frontend_url = os.getenv("CLERK_FRONTEND_URL", "http://localhost:3000")
 redirect_url = os.getenv("CLERK_OAUTH_REDIRECT_URL", f"{base_url}/auth/callback")
 enable_auth = os.getenv("ENABLE_AUTH", "false").lower() == "true"
 
+# Check if Clerk SDK is available when auth is enabled
+if enable_auth and not CLERK_AVAILABLE:
+    raise ValueError("Clerk SDK not available. Install with: uv pip install .[saas]")
+
 # Only require Clerk credentials if auth is enabled
 if enable_auth and not clerk_secret:
     raise ValueError("CLERK_SECRET_KEY environment variable is required when ENABLE_AUTH=true")
 
-# Initialize Clerk client only if auth is enabled
+# Initialize Clerk client only if auth is enabled and available
 clerk = None
-if enable_auth and clerk_secret:
+if enable_auth and clerk_secret and CLERK_AVAILABLE:
     clerk = Clerk(bearer_auth=clerk_secret)
 
 
