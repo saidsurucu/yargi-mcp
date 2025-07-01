@@ -12,25 +12,27 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request, Response, HTTPException, Query
 from fastapi.responses import RedirectResponse, JSONResponse
-from clerk_backend_api import Clerk
-from clerk_backend_api.errors import SDKError
-from clerk_backend_api.security import authenticate_request
-from clerk_backend_api.security.types import AuthenticateRequestOptions
+from clerk_backend_api import Clerk, SDKError, authenticate_request, AuthenticateRequestOptions
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth")
 
-# Initialize Clerk client
+# Initialize Clerk client conditionally
 clerk_secret = os.getenv("CLERK_SECRET_KEY")
 clerk_publishable = os.getenv("CLERK_PUBLISHABLE_KEY")
 clerk_frontend_url = os.getenv("CLERK_FRONTEND_URL", "http://localhost:3000")
 redirect_url = os.getenv("CLERK_OAUTH_REDIRECT_URL", "http://localhost:8000/auth/callback")
+enable_auth = os.getenv("ENABLE_AUTH", "false").lower() == "true"
 
-if not clerk_secret:
-    raise ValueError("CLERK_SECRET_KEY environment variable is required")
+# Only require Clerk credentials if auth is enabled
+if enable_auth and not clerk_secret:
+    raise ValueError("CLERK_SECRET_KEY environment variable is required when ENABLE_AUTH=true")
 
-clerk = Clerk(bearer_auth=clerk_secret)
+# Initialize Clerk client only if auth is enabled
+clerk = None
+if enable_auth and clerk_secret:
+    clerk = Clerk(bearer_auth=clerk_secret)
 
 
 @router.get("/login")
@@ -156,6 +158,21 @@ async def get_current_user(request: Request):
     
     This endpoint validates the token and returns user info using authenticate_request.
     """
+    # Check if auth is disabled
+    if not enable_auth:
+        return JSONResponse(content={
+            "auth_disabled": True,
+            "message": "Authentication is disabled (ENABLE_AUTH=false)",
+            "id": "dev_user",
+            "email": "dev@example.com",
+            "authenticated": False,
+            "development_mode": True
+        })
+        
+    # Check if Clerk is not initialized
+    if not clerk:
+        raise HTTPException(status_code=500, detail="Authentication service not available")
+    
     # Check for Authorization header
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):

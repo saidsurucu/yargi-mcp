@@ -7,10 +7,7 @@ import os
 import logging
 from typing import Optional, Dict, Any
 from fastmcp.server.middleware import Middleware, MiddlewareContext
-from clerk_backend_api import Clerk
-from clerk_backend_api.errors import SDKError
-from clerk_backend_api.security import authenticate_request
-from clerk_backend_api.security.types import AuthenticateRequestOptions
+from clerk_backend_api import Clerk, SDKError, authenticate_request, AuthenticateRequestOptions
 from mcp import McpError
 from mcp.types import ErrorData
 
