@@ -14,6 +14,7 @@ dependencies = [
     "fastmcp>=2.9.2",
     "pypdf>=5.5.0",
     "fastapi>=0.115.14",
+    "PyJWT>=2.8.0",
 ]
 
 [project.optional-dependencies]
@@ -38,7 +39,7 @@ saas = [
 yargi-mcp = "mcp_server_main:main"
 
 [tool.setuptools]
-py-modules = ["mcp_server_main", "mcp_factory", "asgi_app", "fastapi_app", "starlette_app", "run_asgi", "oauth_middleware", "oauth_router", "stripe_webhook"]
+py-modules = ["mcp_server_main", "mcp_factory", "mcp_auth_factory", "asgi_app", "fastapi_app", "starlette_app", "run_asgi", "oauth_middleware", "oauth_router", "stripe_webhook"]
 
 [tool.setuptools.packages.find]
-include = ["*_mcp_module"]
+include = ["*_mcp_module", "mcp_auth"]

@@ -151,7 +151,8 @@ async def oauth_callback(
     error: Optional[str] = Query(None),
     error_description: Optional[str] = Query(None),
     grant_type: Optional[str] = Query(None),
-    redirect_uri: Optional[str] = Query(None)
+    redirect_uri: Optional[str] = Query(None),
+    redirect_url: Optional[str] = Query(None)
 ):
     """
     Handle OAuth callback from Clerk.
@@ -251,10 +252,16 @@ async def oauth_callback(
         # Always redirect back to the original redirect URL if provided
         original_redirect = redirect_uri or redirect_url
         if original_redirect:
-            # Redirect back with the authorization code and state
-            return RedirectResponse(
-                url=f"{original_redirect}?code={code}&state={state or ''}"
-            )
+            # For Claude.ai, redirect with access token
+            if "claude.ai" in original_redirect:
+                return RedirectResponse(
+                    url=f"{original_redirect}?access_token={session_token}&token_type=Bearer"
+                )
+            else:
+                # For other clients, redirect with authorization code
+                return RedirectResponse(
+                    url=f"{original_redirect}?code={code}&state={state or ''}"
+                )
         
         # If no redirect URL provided, return JSON response with session token
         response = JSONResponse(content={
