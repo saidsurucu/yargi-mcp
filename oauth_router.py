@@ -12,6 +12,7 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request, Response, HTTPException, Query
 from fastapi.responses import RedirectResponse, JSONResponse
+from starlette.responses import Response as StarletteResponse
 from clerk_backend_api import Clerk, SDKError, authenticate_request, AuthenticateRequestOptions
 
 logger = logging.getLogger(__name__)
@@ -22,8 +23,10 @@ router = APIRouter(prefix="/auth")
 clerk_secret = os.getenv("CLERK_SECRET_KEY")
 clerk_publishable = os.getenv("CLERK_PUBLISHABLE_KEY")
 clerk_domain = os.getenv("CLERK_DOMAIN")  # e.g., "artistic-swan-81"
+clerk_issuer = os.getenv("CLERK_ISSUER", f"https://{clerk_domain}.clerk.accounts.dev" if clerk_domain else "https://artistic-swan-81.clerk.accounts.dev")
+base_url = os.getenv("BASE_URL", "https://yargi-mcp.fly.dev")
 clerk_frontend_url = os.getenv("CLERK_FRONTEND_URL", "http://localhost:3000")
-redirect_url = os.getenv("CLERK_OAUTH_REDIRECT_URL", "http://localhost:8000/auth/callback")
+redirect_url = os.getenv("CLERK_OAUTH_REDIRECT_URL", f"{base_url}/auth/callback")
 enable_auth = os.getenv("ENABLE_AUTH", "false").lower() == "true"
 
 # Only require Clerk credentials if auth is enabled
@@ -49,31 +52,75 @@ async def oauth_login(request: Request, redirect_uri: Optional[str] = None):
     
     # Build Clerk OAuth URL
     # Note: Clerk handles the OAuth flow internally, we just need to redirect to Clerk's sign-in
+    final_redirect = redirect_uri or redirect_url
+    
+    # For ChatGPT, ensure the redirect URL is properly encoded
+    if "chatgpt.com" in (final_redirect or ""):
+        final_redirect = "https://chatgpt.com/connector_platform_oauth_redirect"
+    
     clerk_oauth_params = {
-        "redirect_url": redirect_uri or redirect_url,
+        "redirect_url": final_redirect,
     }
     
-    # For Clerk, we typically use their hosted sign-in page
-    # or the Clerk.js frontend SDK
-    # Use explicit domain if provided, otherwise extract from publishable key
-    domain = clerk_domain or clerk_publishable.split('_')[1] if clerk_publishable else "localhost"
-    clerk_sign_in_url = f"https://{domain}.clerk.accounts.dev/sign-in"
+    # For Clerk test environment, redirect to our own OAuth endpoint
+    # which will handle the Clerk OAuth flow properly
     
-    # Add redirect URL as a query parameter
-    oauth_url = f"{clerk_sign_in_url}?{urlencode(clerk_oauth_params)}"
+    # Check if this is a development/test environment
+    is_test_env = clerk_publishable and clerk_publishable.startswith('pk_test_')
+    
+    if is_test_env:
+        # Use our server's OAuth flow for test environment
+        oauth_url = f"{base_url}/auth/clerk-oauth?{urlencode(clerk_oauth_params)}"
+    else:
+        # Production Clerk hosted sign-in
+        domain = clerk_domain or clerk_publishable.split('_')[1] if clerk_publishable else "localhost"
+        clerk_sign_in_url = f"https://{domain}.clerk.accounts.dev/sign-in"
+        oauth_url = f"{clerk_sign_in_url}?{urlencode(clerk_oauth_params)}"
     
     logger.info(f"Redirecting to Clerk OAuth: {oauth_url}")
     
     return RedirectResponse(url=oauth_url)
 
 
+@router.get("/clerk-oauth")
+async def clerk_oauth_handler(request: Request, redirect_url: Optional[str] = None):
+    """
+    Handle Clerk OAuth flow for test environment.
+    
+    This endpoint creates a mock OAuth flow that simulates Clerk's behavior
+    but works around the 404 issues in test environment.
+    """
+    # For development/testing, create a simulated OAuth flow
+    # In production, this would integrate with Clerk's actual OAuth endpoints
+    
+    # Generate a mock authorization code
+    auth_code = secrets.token_urlsafe(32)
+    state = secrets.token_urlsafe(16)
+    
+    # For ChatGPT, redirect back with the authorization code
+    if redirect_url and "chatgpt.com" in redirect_url:
+        callback_url = f"{redirect_url}?code={auth_code}&state={state}"
+        return RedirectResponse(url=callback_url)
+    
+    # For other clients, show a simple OAuth consent page
+    return JSONResponse({
+        "message": "OAuth Authorization Required",
+        "authorization_url": f"/auth/callback?code={auth_code}&state={state}",
+        "redirect_url": redirect_url or "http://localhost:3000",
+        "note": "This is a development OAuth flow. In production, use Clerk's hosted OAuth."
+    })
+
+
 @router.get("/callback")
+@router.post("/callback")
 async def oauth_callback(
     request: Request,
-    code: Optional[str] = None,
-    state: Optional[str] = None,
-    error: Optional[str] = None,
-    error_description: Optional[str] = None
+    code: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
+    error: Optional[str] = Query(None),
+    error_description: Optional[str] = Query(None),
+    grant_type: Optional[str] = Query(None),
+    redirect_uri: Optional[str] = Query(None)
 ):
     """
     Handle OAuth callback from Clerk.
@@ -81,6 +128,17 @@ async def oauth_callback(
     This endpoint receives the authorization code from Clerk
     and exchanges it for an access token.
     """
+    # Handle POST requests with form data
+    if request.method == "POST":
+        try:
+            form_data = await request.form()
+            code = code or form_data.get("code")
+            grant_type = grant_type or form_data.get("grant_type")
+            redirect_uri = redirect_uri or form_data.get("redirect_uri")
+            state = state or form_data.get("state")
+        except Exception:
+            pass  # Continue with query parameters
+    
     if error:
         logger.error(f"OAuth error: {error} - {error_description}")
         return JSONResponse(
@@ -92,22 +150,53 @@ async def oauth_callback(
         raise HTTPException(status_code=400, detail="Missing authorization code")
         
     try:
-        # In a typical OAuth flow, we would exchange the code for tokens here
-        # However, Clerk handles this differently - the frontend SDK manages tokens
+        # For development/test environment, create a mock access token
+        # In production, this would exchange code with Clerk for real tokens
         
-        # For server-side validation, we need to:
-        # 1. Use Clerk's session tokens (not raw OAuth tokens)
-        # 2. Or implement a custom session management system
+        # Generate a development access token (JWT-like structure)
+        import time
+        import json
+        import base64
         
-        # For now, we'll create a session token that can be validated by our middleware
-        # In production, you'd want to:
-        # - Store this in a database/cache
-        # - Set proper expiration
-        # - Link to user's Clerk ID
+        # Mock JWT payload for development
+        jwt_payload = {
+            "sub": "dev_user_123",
+            "iss": clerk_issuer,
+            "aud": base_url,
+            "iat": int(time.time()),
+            "exp": int(time.time()) + 3600,  # 1 hour
+            "email": "dev@example.com",
+            "given_name": "Dev",
+            "family_name": "User",
+            "sid": "dev_session_123",
+            "metadata": {"plan": "free"}
+        }
         
-        session_token = secrets.token_urlsafe(64)
+        # Create a simple base64 encoded "token" for development
+        token_data = base64.b64encode(json.dumps(jwt_payload).encode()).decode()
+        session_token = f"dev_token_{token_data}"
         
-        # Return the session token to the client
+        # Check if this is a token exchange request (POST with grant_type)
+        if request.method == "POST" and grant_type == "authorization_code":
+            # OAuth 2.1 token response
+            return JSONResponse(content={
+                "access_token": session_token,
+                "token_type": "Bearer", 
+                "expires_in": 3600,
+                "refresh_token": f"refresh_{secrets.token_urlsafe(32)}",
+                "scope": "read search"
+            })
+        
+        # Check if this is a ChatGPT callback
+        original_redirect = redirect_uri or redirect_url
+        if "chatgpt.com" in (original_redirect or ""):
+            # For ChatGPT, we need to redirect back with the authorization code
+            # ChatGPT expects the authorization code to continue the OAuth flow
+            return RedirectResponse(
+                url=f"{original_redirect}?code={code}&state={state or ''}"
+            )
+        
+        # Return the session token to the client for other clients
         # In a real app, you might:
         # 1. Set this as an HTTP-only cookie
         # 2. Redirect to the frontend with the token
@@ -239,6 +328,42 @@ async def google_oauth_login(request: Request):
     google_oauth_url = f"https://{domain}.clerk.accounts.dev/sign-in#/?strategy=oauth_google"
     
     return RedirectResponse(url=google_oauth_url)
+
+
+@router.post("/register")
+async def dynamic_client_registration(request: Request):
+    """
+    OAuth 2.0 Dynamic Client Registration (RFC 7591) - MCP Spec SHOULD support.
+    
+    For development/testing, returns a static client configuration.
+    In production, this would integrate with Clerk's client management.
+    """
+    try:
+        # In a real implementation, you would:
+        # 1. Validate the request
+        # 2. Register the client with Clerk
+        # 3. Return proper client credentials
+        
+        # For now, return a development client configuration
+        return JSONResponse(content={
+            "client_id": "yargi-mcp-dynamic-client",
+            "client_secret": "dev-client-secret-123",
+            "client_id_issued_at": 1625097600,
+            "client_secret_expires_at": 0,  # Never expires for development
+            "redirect_uris": [
+                "https://chatgpt.com/connector_platform_oauth_redirect",
+                "https://chatgpt.com/auth/callback",
+                "http://localhost:3000/auth/callback"
+            ],
+            "grant_types": ["authorization_code", "refresh_token"],
+            "response_types": ["code"],
+            "scope": "read search openid profile email",
+            "token_endpoint_auth_method": "client_secret_basic"
+        })
+        
+    except Exception as e:
+        logger.error(f"Dynamic client registration error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid client registration request")
 
 
 @router.get("/session/validate")

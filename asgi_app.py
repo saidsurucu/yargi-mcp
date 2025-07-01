@@ -10,10 +10,12 @@ Usage:
 """
 
 import os
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.exception_handlers import http_exception_handler
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import Response
 
 # Import the fully configured MCP app with all tools
 from mcp_server_main import app as mcp_server
@@ -23,6 +25,10 @@ from stripe_webhook import router as stripe_router
 
 # Import OAuth router
 from oauth_router import router as oauth_router
+
+# OAuth configuration from environment variables
+CLERK_ISSUER = os.getenv("CLERK_ISSUER", "https://artistic-swan-81.clerk.accounts.dev")
+BASE_URL = os.getenv("BASE_URL", "https://yargi-mcp.fly.dev")
 
 # Configure CORS middleware
 cors_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
@@ -56,6 +62,23 @@ app.include_router(stripe_router, prefix="/api")
 
 # Add OAuth router to FastAPI
 app.include_router(oauth_router)
+
+# Custom 401 exception handler for MCP spec compliance
+@app.exception_handler(401)
+async def custom_401_handler(request: Request, exc: HTTPException):
+    """Custom 401 handler that adds WWW-Authenticate header as required by MCP spec"""
+    response = await http_exception_handler(request, exc)
+    
+    # Add WWW-Authenticate header pointing to protected resource metadata
+    # as required by RFC 9728 Section 5.1 and MCP Authorization spec
+    response.headers["WWW-Authenticate"] = (
+        'Bearer '
+        'error="invalid_token", '
+        'error_description="The access token is missing or invalid", '
+        f'resource="{BASE_URL}/.well-known/oauth-protected-resource"'
+    )
+    
+    return response
 
 # Mount MCP app as sub-application
 app.mount("/mcp", mcp_app)
@@ -106,6 +129,135 @@ async def root():
             "issuer": os.getenv("CLERK_ISSUER", "https://clerk.accounts.dev"),
             "providers": ["google"],
             "flow": "authorization_code"
+        }
+    })
+
+# OAuth 2.0 Authorization Server Metadata proxy (for MCP clients that can't reach Clerk directly)
+@app.get("/.well-known/oauth-authorization-server")
+async def oauth_authorization_server():
+    """OAuth 2.0 Authorization Server Metadata proxy to Clerk"""
+    return JSONResponse({
+        "issuer": CLERK_ISSUER,
+        "authorization_endpoint": f"{BASE_URL}/auth/login",
+        "token_endpoint": f"{BASE_URL}/auth/callback", 
+        "jwks_uri": f"{CLERK_ISSUER}/.well-known/jwks.json",
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code", "refresh_token"],
+        "token_endpoint_auth_methods_supported": ["client_secret_basic", "none"],
+        "scopes_supported": ["read", "search", "openid", "profile", "email"],
+        "subject_types_supported": ["public"],
+        "id_token_signing_alg_values_supported": ["RS256"],
+        "claims_supported": ["sub", "iss", "aud", "exp", "iat", "email", "name"],
+        "code_challenge_methods_supported": ["S256"],
+        "service_documentation": f"{BASE_URL}/mcp",
+        "registration_endpoint": f"{BASE_URL}/auth/register",
+        "resource_documentation": f"{BASE_URL}/mcp"
+    })
+
+# MCP endpoint info for GET requests (ChatGPT compatibility)
+@app.get("/mcp")
+async def mcp_info():
+    """MCP endpoint information for discovery"""
+    return JSONResponse({
+        "mcp_server": True,
+        "name": "Yargı MCP Server",
+        "version": "0.1.0",
+        "description": "MCP server for Turkish legal databases",
+        "protocol": "mcp/1.0",
+        "transport": "http",
+        "authentication_required": True,
+        "authentication": {
+            "type": "oauth2",
+            "authorization_url": f"{BASE_URL}/auth/login",
+            "token_url": f"{BASE_URL}/auth/callback",
+            "scopes": ["read", "search"],
+            "provider": "clerk"
+        },
+        "endpoints": {
+            "mcp_protocol": "/mcp/",
+            "discovery": "/mcp/discovery",
+            "well_known": "/.well-known/mcp",
+            "health": "/health",
+            "oauth_login": "/auth/login"
+        },
+        "capabilities": {
+            "tools": True,
+            "resources": True,
+            "prompts": False
+        },
+        "tools_count": len(mcp_server._tool_manager._tools),
+        "usage": {
+            "note": "This is an MCP server. Use POST to /mcp/ with proper MCP protocol headers.",
+            "headers_required": [
+                "Content-Type: application/json",
+                "Accept: application/json, text/event-stream",
+                "Authorization: Bearer <token>",
+                "X-Session-ID: <session-id>"
+            ]
+        }
+    })
+
+# OAuth 2.0 Protected Resource Metadata (RFC 9728) - MCP Spec Required
+@app.get("/.well-known/oauth-protected-resource")
+async def oauth_protected_resource():
+    """OAuth 2.0 Protected Resource Metadata as required by MCP spec"""
+    return JSONResponse({
+        "resource": BASE_URL,
+        "authorization_servers": [
+            BASE_URL
+        ],
+        "scopes_supported": ["read", "search"],
+        "bearer_methods_supported": ["header"],
+        "resource_documentation": f"{BASE_URL}/mcp",
+        "resource_policy_uri": f"{BASE_URL}/privacy"
+    })
+
+# Standard well-known discovery endpoint
+@app.get("/.well-known/mcp")
+async def well_known_mcp():
+    """Standard MCP discovery endpoint"""
+    return JSONResponse({
+        "mcp_server": {
+            "name": "Yargı MCP Server",
+            "version": "0.1.0",
+            "endpoint": f"{BASE_URL}/mcp/",
+            "authentication": {
+                "type": "oauth2",
+                "authorization_url": f"{BASE_URL}/auth/login",
+                "scopes": ["read", "search"]
+            },
+            "capabilities": ["tools", "resources"],
+            "tools_count": len(mcp_server._tool_manager._tools)
+        }
+    })
+
+# MCP Discovery endpoint for ChatGPT integration
+@app.get("/mcp/discovery")
+async def mcp_discovery():
+    """MCP Discovery endpoint for ChatGPT and other MCP clients"""
+    return JSONResponse({
+        "name": "Yargı MCP Server",
+        "description": "MCP server for Turkish legal databases",
+        "version": "0.1.0",
+        "protocol": "mcp",
+        "transport": "http",
+        "endpoint": "/mcp/",
+        "authentication": {
+            "type": "oauth2",
+            "authorization_url": "/auth/login",
+            "token_url": "/auth/callback",
+            "scopes": ["read", "search"],
+            "provider": "clerk"
+        },
+        "capabilities": {
+            "tools": True,
+            "resources": True,
+            "prompts": False
+        },
+        "tools_count": len(mcp_server._tool_manager._tools),
+        "contact": {
+            "url": BASE_URL,
+            "email": "support@yargi-mcp.dev"
         }
     })
 

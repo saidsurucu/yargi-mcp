@@ -2466,6 +2466,266 @@ def perform_cleanup():
 
 atexit.register(perform_cleanup)
 
+# --- ChatGPT Deep Research Compatible Tools ---
+
+@app.tool(
+    description="ChatGPT Deep Research search for Turkish legal databases via Bedesten API - supports advanced search operators and multiple court types",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": True,
+        "idempotentHint": True
+    }
+)
+async def search(
+    query: str = Field(..., description="""Search query for Turkish legal documents via Bedesten API. 
+
+    IMPORTANT: This tool is specifically designed for ChatGPT Deep Research. 
+    Do NOT use for regular questions - use specific court tools instead.
+
+    Bedesten API Search Operators:
+    • Regular search: "mülkiyet kararı" - searches words separately (OR logic)
+    • Exact phrase: "\"mülkiyet kararı\"" - searches exact phrase (more precise)
+    • Required terms: "+mülkiyet +hak" - both terms must be present (AND logic)
+    • Excluded terms: "+mülkiyet -kira" - first term required, second excluded
+    • Combined: "+\"mülkiyet hakkı\" -\"kira sözleşmesi\"" - exact phrase required, exclude another
+    • Legal concepts: "\"idari işlem\"", "\"sözleşme ihlali\"", "\"tazminat davası\""
+    
+    Searches across all Turkish courts via Bedesten unified API:
+    • Yargıtay (Court of Cassation) - Supreme court civil/criminal decisions  
+    • Danıştay (Council of State) - Administrative court decisions
+    • Yerel Hukuk (Local Civil Courts) - First instance civil decisions
+    • İstinaf Hukuk (Civil Appeals Courts) - Appellate court decisions
+    • Kanun Yararına Bozma (KYB) - Extraordinary appeal decisions""")
+) -> List[Dict[str, str]]:
+    """
+    Bedesten API search tool for ChatGPT Deep Research compatibility.
+    
+    This tool searches Turkish legal databases via the unified Bedesten API.
+    It supports advanced search operators and covers all major court types.
+    
+    USAGE RESTRICTION: Only for ChatGPT Deep Research workflows.
+    For regular legal research, use specific court tools like search_yargitay_bedesten.
+    
+    Returns:
+    Array of search result objects with id, title, text snippet, and url fields
+    as required by ChatGPT Deep Research specification.
+    """
+    logger.info(f"ChatGPT Deep Research search tool called with query: {query}")
+    
+    results = []
+    
+    try:
+        # Search all court types via unified Bedesten API
+        court_types = [
+            ("YARGITAYKARARI", "Yargıtay", "yargitay_bedesten"),
+            ("DANISTAYKARAR", "Danıştay", "danistay_bedesten"), 
+            ("YERELHUKUK", "Yerel Hukuk Mahkemesi", "yerel_hukuk_bedesten"),
+            ("ISTINAFHUKUK", "İstinaf Hukuk Mahkemesi", "istinaf_hukuk_bedesten"),
+            ("KYB", "Kanun Yararına Bozma", "kyb_bedesten")
+        ]
+        
+        for item_type, court_name, id_prefix in court_types:
+            try:
+                search_results = await bedesten_client_instance.search_documents(
+                    BedestenSearchRequest(
+                        data=BedestenSearchData(
+                            phrase=query,  # Use query as-is to support both regular and exact phrase searches
+                            itemTypeList=[item_type],
+                            pageSize=10,
+                            pageNumber=1
+                        )
+                    )
+                )
+                
+                # Add results from this court type (limit to top 5 per court)
+                for decision in search_results.data.emsalKararList[:5]:
+                    results.append({
+                        "id": f"{id_prefix}_{decision.documentId}",
+                        "title": f"{court_name} - {decision.birimAdi or 'Bilinmeyen Daire'} - {decision.esasNo or ''}/{decision.kararNo or ''}",
+                        "text": f"{court_name} decision on '{query}' - Date: {decision.kararTarihi} - Court: {decision.birimAdi or 'Unknown'}",
+                        "url": f"https://yargi-mcp.fly.dev/documents/{id_prefix}/{decision.documentId}"
+                    })
+                    
+                logger.info(f"Found {len(search_results.data.emsalKararList)} results from {court_name}")
+                
+            except Exception as e:
+                logger.warning(f"Bedesten API search error for {court_name}: {e}")
+        
+        # Comment out other API implementations for ChatGPT Deep Research
+        """
+        # Other API implementations disabled for ChatGPT Deep Research
+        # These are available through specific court tools:
+        
+        # Yargıtay Official API - use search_yargitay_detailed instead
+        # Danıştay Official API - use search_danistay_by_keyword instead  
+        # Constitutional Court - use search_anayasa_norm_denetimi_decisions instead
+        # Competition Authority - use search_rekabet_kurumu_decisions instead
+        # Public Procurement Authority - use search_kik_decisions instead
+        # Court of Accounts - use search_sayistay_* tools instead
+        # UYAP Emsal - use search_emsal_detailed_decisions instead
+        # Jurisdictional Disputes Court - use search_uyusmazlik_decisions instead
+        """
+        
+        logger.info(f"ChatGPT Deep Research search completed. Found {len(results)} results via Bedesten API.")
+        return results
+        
+    except Exception as e:
+        logger.exception("Error in ChatGPT Deep Research search tool")
+        # Return partial results if any were found
+        if results:
+            return results
+        raise
+
+@app.tool(
+    description="ChatGPT Deep Research fetch for Turkish legal documents via Bedesten API - retrieves complete document text in Markdown format",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": False,  # Retrieves specific documents, not exploring
+        "idempotentHint": True
+    }
+)
+async def fetch(
+    id: str = Field(..., description="""Document identifier from search results via Bedesten API.
+
+    IMPORTANT: This tool is specifically designed for ChatGPT Deep Research.
+    Do NOT use for regular questions - use specific court document tools instead.
+
+    Supported ID formats from Bedesten API:
+    • yargitay_bedesten_{documentId} - Court of Cassation decisions
+    • danistay_bedesten_{documentId} - Council of State decisions  
+    • yerel_hukuk_bedesten_{documentId} - Local Civil Court decisions
+    • istinaf_hukuk_bedesten_{documentId} - Civil Appeals Court decisions
+    • kyb_bedesten_{documentId} - Extraordinary Appeal decisions""")
+) -> Dict[str, str]:
+    """
+    Bedesten API fetch tool for ChatGPT Deep Research compatibility.
+    
+    Retrieves the full text content of Turkish legal documents via unified Bedesten API.
+    Converts documents from HTML/PDF to clean Markdown format.
+    
+    USAGE RESTRICTION: Only for ChatGPT Deep Research workflows.
+    For regular legal research, use specific court document tools.
+    
+    Input Format:
+    • id: Document identifier from Bedesten API search results 
+      (e.g., "yargitay_bedesten_ABC123", "danistay_bedesten_XYZ789")
+    
+    Returns:
+    Single object with id, title, text (full Markdown content), url, and metadata fields
+    as required by ChatGPT Deep Research specification.
+    """
+    logger.info(f"ChatGPT Deep Research fetch tool called for document ID: {id}")
+    
+    if not id or not id.strip():
+        raise ValueError("Document ID must be a non-empty string")
+    
+    try:
+        # Parse the document ID to determine court type and document identifier
+        if "_" not in id:
+            raise ValueError("Invalid document ID format. Expected: courttype_bedesten_documentid")
+        
+        # Map of supported Bedesten API court types
+        court_mappings = {
+            "yargitay_bedesten_": {
+                "name": "Yargıtay (Court of Cassation)",
+                "level": "Supreme Court", 
+                "jurisdiction": "Civil and Criminal Law"
+            },
+            "danistay_bedesten_": {
+                "name": "Danıştay (Council of State)",
+                "level": "Administrative Supreme Court",
+                "jurisdiction": "Administrative Law"
+            },
+            "yerel_hukuk_bedesten_": {
+                "name": "Yerel Hukuk Mahkemesi (Local Civil Court)",
+                "level": "First Instance Court",
+                "jurisdiction": "Civil Law"
+            },
+            "istinaf_hukuk_bedesten_": {
+                "name": "İstinaf Hukuk Mahkemesi (Civil Appeals Court)",
+                "level": "Appellate Court",
+                "jurisdiction": "Civil Law Appeals"
+            },
+            "kyb_bedesten_": {
+                "name": "Kanun Yararına Bozma (Extraordinary Appeal)",
+                "level": "Extraordinary Appeal",
+                "jurisdiction": "Extraordinary Legal Remedies"
+            }
+        }
+        
+        # Find matching court type
+        court_info = None
+        doc_id = None
+        prefix = None
+        
+        for court_prefix, info in court_mappings.items():
+            if id.startswith(court_prefix):
+                court_info = info
+                doc_id = id.replace(court_prefix, "")
+                prefix = court_prefix.rstrip("_")
+                break
+        
+        if not court_info or not doc_id:
+            raise ValueError(f"Unsupported document ID format for ChatGPT Deep Research: {id}")
+        
+        # Fetch document via Bedesten API
+        doc = await bedesten_client_instance.get_document_as_markdown(doc_id)
+        
+        return {
+            "id": id,
+            "title": f"{court_info['name']} - Document {doc_id}",
+            "text": doc.markdown_content,
+            "url": f"https://yargi-mcp.fly.dev/documents/{prefix}/{doc_id}",
+            "metadata": {
+                "database": f"{court_info['name']} via Bedesten API",
+                "court_level": court_info['level'],
+                "jurisdiction": court_info['jurisdiction'],
+                "document_id": doc_id,
+                "api_source": "Bedesten Unified API",
+                "chatgpt_deep_research": True
+            }
+        }
+        
+        # Comment out other API implementations for ChatGPT Deep Research
+        """
+        # Other API implementations disabled for ChatGPT Deep Research
+        # These are available through specific court document tools:
+        
+        elif id.startswith("yargitay_"):
+            # Yargıtay Official API - use get_yargitay_document_markdown instead
+            doc_id = id.replace("yargitay_", "")
+            doc = await yargitay_client_instance.get_decision_document_as_markdown(doc_id)
+            
+        elif id.startswith("danistay_"):
+            # Danıştay Official API - use get_danistay_document_markdown instead
+            doc_id = id.replace("danistay_", "")
+            doc = await danistay_client_instance.get_decision_document_as_markdown(doc_id)
+            
+        elif id.startswith("anayasa_"):
+            # Constitutional Court - use get_anayasa_norm_denetimi_document_markdown instead
+            doc_id = id.replace("anayasa_", "")
+            doc = await anayasa_norm_client_instance.get_decision_document_as_markdown(...)
+            
+        elif id.startswith("rekabet_"):
+            # Competition Authority - use get_rekabet_kurumu_document instead
+            doc_id = id.replace("rekabet_", "")
+            doc = await rekabet_client_instance.get_decision_document(...)
+            
+        elif id.startswith("kik_"):
+            # Public Procurement Authority - use get_kik_decision_document_as_markdown instead
+            doc_id = id.replace("kik_", "")
+            doc = await kik_client_instance.get_decision_document_as_markdown(doc_id)
+            
+        elif id.startswith("local_"):
+            # This was already using Bedesten API, but deprecated for ChatGPT Deep Research
+            doc_id = id.replace("local_", "")
+            doc = await bedesten_client_instance.get_document_as_markdown(doc_id)
+        """
+        
+    except Exception as e:
+        logger.exception(f"Error fetching ChatGPT Deep Research document {id}")
+        raise
+
 def main():
     logger.info(f"Starting {app.name} server via main() function...")
     logger.info(f"Logs will be written to: {LOG_FILE_PATH}")

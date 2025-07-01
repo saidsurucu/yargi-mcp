@@ -10,6 +10,7 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 from clerk_backend_api import Clerk, SDKError, authenticate_request, AuthenticateRequestOptions
 from mcp import McpError
 from mcp.types import ErrorData
+from starlette.responses import Response
 
 logger = logging.getLogger(__name__)
 
@@ -101,10 +102,17 @@ class ClerkOAuthMiddleware(Middleware):
     def _validate_oauth_token(self, request) -> Optional[Dict[str, Any]]:
         """
         Validate OAuth token using Clerk SDK's authenticate_request method.
+        For development tokens, decode directly.
         
         Returns user info if token is valid, None otherwise.
         """
         try:
+            # Check for development token first
+            auth_header = request.headers.get('Authorization', '')
+            if auth_header.startswith('Bearer dev_token_'):
+                return self._validate_dev_token(auth_header)
+            
+            # Use Clerk SDK for production tokens
             # Get the host for authorized parties
             host = request.url.host if hasattr(request.url, 'host') else 'localhost'
             
@@ -144,6 +152,44 @@ class ClerkOAuthMiddleware(Middleware):
             return None
         except Exception as e:
             logger.error(f"Unexpected error validating OAuth token: {e}")
+            return None
+    
+    def _validate_dev_token(self, auth_header: str) -> Optional[Dict[str, Any]]:
+        """
+        Validate development token for testing purposes.
+        """
+        try:
+            import json
+            import base64
+            import time
+            
+            # Extract token data
+            token = auth_header.replace('Bearer dev_token_', '')
+            payload_json = base64.b64decode(token).decode()
+            payload = json.loads(payload_json)
+            
+            # Check expiration
+            if payload.get('exp', 0) < time.time():
+                logger.warning("Development token expired")
+                return None
+            
+            # Return user info
+            return {
+                "id": payload.get("sub"),
+                "email": payload.get("email"),
+                "first_name": payload.get("given_name"),
+                "last_name": payload.get("family_name"),
+                "metadata": payload.get("metadata", {}),
+                "plan": payload.get("metadata", {}).get("plan", "free"),
+                "session_id": payload.get("sid"),
+                "org_id": payload.get("org_id"),
+                "org_role": payload.get("org_role"),
+                "iat": payload.get("iat"),
+                "exp": payload.get("exp")
+            }
+            
+        except Exception as e:
+            logger.error(f"Error validating development token: {e}")
             return None
             
     def _check_user_permissions(self, user_info: Dict[str, Any]) -> bool:
