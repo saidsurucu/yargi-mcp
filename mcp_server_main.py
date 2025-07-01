@@ -2545,20 +2545,38 @@ async def search(
                 
                 # Add results from this court type (limit to top 5 per court)
                 for decision in search_results.data.emsalKararList[:5]:
+                    # Embed all metadata into title for ChatGPT Deep Research compatibility
+                    title_parts = [
+                        court_name,
+                        decision.birimAdi or 'Bilinmeyen Daire',
+                        f"Esas: {decision.esasNo or 'N/A'}",
+                        f"Karar: {decision.kararNo or 'N/A'}",
+                        f"Tarih: {decision.kararTarihiStr or 'N/A'}"
+                    ]
+                    
+                    # Add finalization status if available
+                    if decision.kesinlesmeDurumu:
+                        title_parts.append(f"Durum: {decision.kesinlesmeDurumu}")
+                    
+                    # Fetch first 1000 characters of document content
+                    document_preview = ""
+                    try:
+                        doc = await bedesten_client_instance.get_document_as_markdown(decision.documentId)
+                        if doc.markdown_content:
+                            # Get first 1000 characters of the document content
+                            document_preview = doc.markdown_content[:1000]
+                            # If truncated, add ellipsis
+                            if len(doc.markdown_content) > 1000:
+                                document_preview += "..."
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch document preview for {decision.documentId}: {e}")
+                        document_preview = f"{court_name} decision on '{query}' - Date: {decision.kararTarihi} - Court: {decision.birimAdi or 'Unknown'}"
+                    
                     results.append({
                         "id": decision.documentId,
-                        "title": f"{court_name} - {decision.birimAdi or 'Bilinmeyen Daire'} - {decision.esasNo or ''}/{decision.kararNo or ''}",
-                        "text": f"{court_name} decision on '{query}' - Date: {decision.kararTarihi} - Court: {decision.birimAdi or 'Unknown'}",
-                        "url": f"https://mevzuat.adalet.gov.tr/ictihat/{decision.documentId}",
-                        "birimAdi": decision.birimAdi,
-                        "esasNoYil": decision.esasNoYil,
-                        "esasNoSira": decision.esasNoSira,
-                        "kararNoYil": decision.kararNoYil,
-                        "kararNoSira": decision.kararNoSira,
-                        "kararTarihiStr": decision.kararTarihiStr,
-                        "kesinlesmeDurumu": decision.kesinlesmeDurumu,
-                        "kararNo": decision.kararNo,
-                        "esasNo": decision.esasNo
+                        "title": " - ".join(title_parts),
+                        "text": document_preview,
+                        "url": f"https://mevzuat.adalet.gov.tr/ictihat/{decision.documentId}"
                     })
                     
                 logger.info(f"Found {len(search_results.data.emsalKararList)} results from {court_name}")
