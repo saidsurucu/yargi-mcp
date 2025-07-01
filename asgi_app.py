@@ -23,12 +23,12 @@ from mcp_server_main import app as mcp_server
 # Import Stripe webhook router
 from stripe_webhook import router as stripe_router
 
-# Import OAuth router
-from oauth_router import router as oauth_router
+# Import MCP Auth HTTP adapter
+from mcp_auth_http_adapter import router as mcp_auth_router
 
 # OAuth configuration from environment variables
-CLERK_ISSUER = os.getenv("CLERK_ISSUER", "https://artistic-swan-81.clerk.accounts.dev")
-BASE_URL = os.getenv("BASE_URL", "https://yargi-mcp.fly.dev")
+CLERK_ISSUER = os.getenv("CLERK_ISSUER", "https://accounts.yargimcp.com")
+BASE_URL = os.getenv("BASE_URL", "https://yargimcp.com")
 
 # Configure CORS middleware
 cors_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
@@ -60,8 +60,8 @@ app = FastAPI(
 # Add Stripe webhook router to FastAPI
 app.include_router(stripe_router, prefix="/api")
 
-# Add OAuth router to FastAPI
-app.include_router(oauth_router)
+# Add MCP Auth HTTP adapter to FastAPI (replaces old OAuth router)
+app.include_router(mcp_auth_router)
 
 # Custom 401 exception handler for MCP spec compliance
 @app.exception_handler(401)

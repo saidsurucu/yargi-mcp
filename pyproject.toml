@@ -39,7 +39,7 @@ saas = [
 yargi-mcp = "mcp_server_main:main"
 
 [tool.setuptools]
-py-modules = ["mcp_server_main", "mcp_factory", "mcp_auth_factory", "asgi_app", "fastapi_app", "starlette_app", "run_asgi", "oauth_middleware", "oauth_router", "stripe_webhook"]
+py-modules = ["mcp_server_main", "mcp_auth_factory", "mcp_auth_http_adapter", "asgi_app", "fastapi_app", "starlette_app", "run_asgi", "stripe_webhook"]
 
 [tool.setuptools.packages.find]
 include = ["*_mcp_module", "mcp_auth"]

@@ -191,6 +191,13 @@ class OAuthProvider:
             "scope": " ".join(session["scopes"]),
         }
 
+    def validate_pkce(self, code_verifier: str, code_challenge: str) -> bool:
+        """Validate PKCE code challenge (RFC 7636)"""
+        # S256 method
+        verifier_hash = hashlib.sha256(code_verifier.encode()).digest()
+        expected_challenge = base64.urlsafe_b64encode(verifier_hash).decode().rstrip('=')
+        return expected_challenge == code_challenge
+
     def _create_mcp_token(
         self, scopes: list[str], upstream_token: str, session_id: str
     ) -> str:
