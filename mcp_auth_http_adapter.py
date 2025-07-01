@@ -5,9 +5,11 @@ Exposes MCP OAuth tools as HTTP endpoints for Claude.ai integration
 
 import os
 import logging
+import secrets
+import time
 from typing import Optional
 from urllib.parse import urlencode, quote
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.responses import RedirectResponse, JSONResponse
@@ -17,14 +19,10 @@ try:
     from clerk_backend_api import Clerk
     from clerk_backend_api.types import UnprocessableEntityError
     CLERK_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     CLERK_AVAILABLE = False
     Clerk = None
     UnprocessableEntityError = None
-
-import secrets
-import time
-from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
