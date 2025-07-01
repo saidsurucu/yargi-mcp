@@ -21,6 +21,7 @@ def create_app() -> FastMCP:
         )
     else:
         # Production mode - OAuth authentication via middleware
+        app_config["instructions"] += " with OAuth authentication via Clerk."
         app = FastMCP(
             name="Yargı MCP – PROD",
             **app_config
@@ -28,8 +29,5 @@ def create_app() -> FastMCP:
         
         # Add OAuth middleware instead of BearerAuthProvider
         app.add_middleware(ClerkOAuthMiddleware())
-        
-        # Update instructions to reflect OAuth
-        app.instructions += " with OAuth authentication via Clerk."
     
     return app

@@ -21,6 +21,7 @@ router = APIRouter(prefix="/auth")
 # Initialize Clerk client conditionally
 clerk_secret = os.getenv("CLERK_SECRET_KEY")
 clerk_publishable = os.getenv("CLERK_PUBLISHABLE_KEY")
+clerk_domain = os.getenv("CLERK_DOMAIN")  # e.g., "artistic-swan-81"
 clerk_frontend_url = os.getenv("CLERK_FRONTEND_URL", "http://localhost:3000")
 redirect_url = os.getenv("CLERK_OAUTH_REDIRECT_URL", "http://localhost:8000/auth/callback")
 enable_auth = os.getenv("ENABLE_AUTH", "false").lower() == "true"
@@ -54,7 +55,9 @@ async def oauth_login(request: Request, redirect_uri: Optional[str] = None):
     
     # For Clerk, we typically use their hosted sign-in page
     # or the Clerk.js frontend SDK
-    clerk_sign_in_url = f"https://{clerk_publishable.split('_')[1]}.clerk.accounts.dev/sign-in"
+    # Use explicit domain if provided, otherwise extract from publishable key
+    domain = clerk_domain or clerk_publishable.split('_')[1] if clerk_publishable else "localhost"
+    clerk_sign_in_url = f"https://{domain}.clerk.accounts.dev/sign-in"
     
     # Add redirect URL as a query parameter
     oauth_url = f"{clerk_sign_in_url}?{urlencode(clerk_oauth_params)}"
@@ -232,8 +235,8 @@ async def google_oauth_login(request: Request):
     so we redirect to Clerk's sign-in with Google specified.
     """
     # Build Clerk sign-in URL with Google as the provider
-    clerk_domain = clerk_publishable.split('_')[1]
-    google_oauth_url = f"https://{clerk_domain}.clerk.accounts.dev/sign-in#/?strategy=oauth_google"
+    domain = clerk_domain or clerk_publishable.split('_')[1] if clerk_publishable else "localhost"
+    google_oauth_url = f"https://{domain}.clerk.accounts.dev/sign-in#/?strategy=oauth_google"
     
     return RedirectResponse(url=google_oauth_url)
 
