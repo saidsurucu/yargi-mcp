@@ -1152,7 +1152,12 @@ async def search_kik_decisions(
     basvuru_sahibi: Optional[str] = Field(None, description="Applicant."),
     ihaleyi_yapan_idare: Optional[str] = Field(None, description="Procuring Entity."),
     basvuru_konusu_ihale: Optional[str] = Field(None, description="Tender subject of the application."),
-    karar_metni: Optional[str] = Field(None, description="Keyword/phrase in decision text."),
+    karar_metni: Optional[str] = Field(None, description="""
+        Keyword/phrase in decision text. Advanced search operators supported:
+        • word1+word2 = AND logic (+anayasa +mahkeme → both words required)
+        • +"required" -"excluded" = Include and exclude (+ihale -"iptal")
+        Examples: anayasa | +anayasa +mahkeme | +ihale -"iptal"
+    """),
     yil: Optional[str] = Field(None, description="Year of the decision."),
     resmi_gazete_tarihi: Optional[str] = Field(None, description="Official Gazette Date (DD.MM.YYYY)."),
     resmi_gazete_sayisi: Optional[str] = Field(None, description="Official Gazette Number."),
