@@ -6,11 +6,25 @@ Exposes MCP OAuth tools as HTTP endpoints for Claude.ai integration
 import os
 import logging
 from typing import Optional
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 from datetime import datetime
 
 from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.responses import RedirectResponse, JSONResponse
+
+# Try to import Clerk SDK
+try:
+    from clerk_backend_api import Clerk
+    from clerk_backend_api.types import UnprocessableEntityError
+    CLERK_AVAILABLE = True
+except ImportError:
+    CLERK_AVAILABLE = False
+    Clerk = None
+    UnprocessableEntityError = None
+
+import secrets
+import time
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -58,32 +72,63 @@ async def authorize_endpoint(
     state: Optional[str] = Query(None),
     scope: Optional[str] = Query(None)
 ):
-    """OAuth 2.1 Authorization Endpoint - Redirects to MCP Auth tool"""
+    """OAuth 2.1 Authorization Endpoint - Uses Clerk SDK for custom domains"""
     
     logger.info(f"OAuth authorize request - client_id: {client_id}, redirect_uri: {redirect_uri}")
     
-    # Import here to avoid circular imports
+    if not CLERK_AVAILABLE:
+        logger.error("Clerk SDK not available")
+        raise HTTPException(status_code=500, detail="Clerk SDK not available")
+    
+    # Store OAuth session for later validation
     try:
         from mcp_server_main import app as mcp_app
         from mcp_auth_factory import get_oauth_provider
         
-        # Get OAuth provider from MCP app
         oauth_provider = get_oauth_provider(mcp_app)
         if not oauth_provider:
-            logger.error("OAuth provider not available in MCP app")
             raise HTTPException(status_code=500, detail="OAuth provider not configured")
         
-        # Generate authorization URL using MCP Auth Toolkit
-        auth_url, pkce = oauth_provider.generate_authorization_url(
-            redirect_uri=redirect_uri,
-            state=state,
-            scopes=scope.split(" ") if scope else None
-        )
+        # Generate session and store PKCE
+        session_id = secrets.token_urlsafe(32)
+        if state is None:
+            state = secrets.token_urlsafe(16)
         
-        logger.info(f"Generated auth URL: {auth_url[:100]}...")
+        # Create PKCE challenge
+        from mcp_auth.oauth import PKCEChallenge
+        pkce = PKCEChallenge()
         
-        # Redirect to Clerk OAuth
-        return RedirectResponse(url=auth_url)
+        # Store session data
+        session_data = {
+            "pkce_verifier": pkce.verifier,
+            "pkce_challenge": code_challenge,  # Store the client's challenge
+            "state": state,
+            "redirect_uri": redirect_uri,
+            "client_id": client_id,
+            "scopes": scope.split(" ") if scope else ["mcp:tools:read", "mcp:tools:write"],
+            "created_at": time.time(),
+            "expires_at": (datetime.utcnow() + timedelta(minutes=10)).timestamp(),
+        }
+        oauth_provider.storage.set_session(session_id, session_data)
+        
+        # For Clerk with custom domains, we need to use their hosted sign-in page
+        # We'll pass our callback URL and session info in the state
+        callback_url = f"{BASE_URL}/auth/callback"
+        
+        # Encode session info in state for retrieval after Clerk auth
+        combined_state = f"{state}:{session_id}"
+        
+        # Use Clerk's sign-in URL with proper parameters
+        clerk_domain = os.getenv("CLERK_DOMAIN", "accounts.yargimcp.com")
+        sign_in_params = {
+            "redirect_url": f"{callback_url}?state={quote(combined_state)}",
+        }
+        
+        sign_in_url = f"https://{clerk_domain}/sign-in?{urlencode(sign_in_params)}"
+        
+        logger.info(f"Redirecting to Clerk sign-in: {sign_in_url}")
+        
+        return RedirectResponse(url=sign_in_url)
         
     except Exception as e:
         logger.exception(f"Authorization failed: {e}")
@@ -92,87 +137,151 @@ async def authorize_endpoint(
 
 @router.get("/auth/callback")
 async def oauth_callback(
-    code: Optional[str] = Query(None),
+    request: Request,
     state: Optional[str] = Query(None),
-    error: Optional[str] = Query(None),
-    error_description: Optional[str] = Query(None)
+    __session: Optional[str] = Query(None),
+    __client_uat: Optional[str] = Query(None)
 ):
-    """Handle OAuth callback from Clerk"""
+    """Handle OAuth callback from Clerk - verify authentication and issue code"""
     
-    logger.info(f"OAuth callback - code: {code[:20] if code else 'None'}..., state: {state[:20] if state else 'None'}...")
+    logger.info(f"OAuth callback received - state: {state}")
     
-    if error:
-        logger.error(f"OAuth error: {error} - {error_description}")
+    # Check if we have Clerk SDK
+    if not CLERK_AVAILABLE:
+        logger.error("Clerk SDK not available")
         return JSONResponse(
-            status_code=400,
-            content={"error": error, "error_description": error_description}
+            status_code=500,
+            content={"error": "server_error", "error_description": "Clerk SDK not available"}
         )
     
-    if not code or not state:
-        logger.error("Missing code or state in callback")
+    # Get Clerk session from cookies or query params
+    session_token = request.cookies.get("__session") or __session
+    client_uat = request.cookies.get("__client_uat") or __client_uat
+    
+    # Initialize Clerk SDK
+    clerk_secret = os.getenv("CLERK_SECRET_KEY")
+    if not clerk_secret:
+        logger.error("CLERK_SECRET_KEY not configured")
         return JSONResponse(
-            status_code=400,
-            content={"error": "invalid_request", "error_description": "Missing code or state parameter"}
+            status_code=500,
+            content={"error": "server_error", "error_description": "Clerk not configured"}
         )
+    
+    clerk = Clerk(bearer_auth=clerk_secret)
     
     try:
-        # Import here to avoid circular imports
+        # Verify the session with Clerk SDK
+        session = None
+        user = None
+        
+        if session_token:
+            try:
+                # Verify session token with Clerk
+                logger.info("Verifying session token with Clerk SDK")
+                session = clerk.sessions.verify_token(
+                    token=session_token,
+                    session_token=session_token
+                )
+                logger.info(f"Session verified: {session.id if hasattr(session, 'id') else 'unknown'}")
+                
+                # Get user info
+                if hasattr(session, 'user_id'):
+                    user = clerk.users.get(user_id=session.user_id)
+                    logger.info(f"User authenticated: {user.id}")
+            except Exception as e:
+                logger.warning(f"Session verification failed: {e}")
+        
+        # If no valid session, check client UAT (User Authentication Token)
+        if not session and client_uat:
+            try:
+                logger.info("Verifying client UAT with Clerk SDK")
+                # Try to get current user with client token
+                clients = clerk.clients.verify_token(token=client_uat)
+                if clients and hasattr(clients, 'sessions') and clients.sessions:
+                    session = clients.sessions[0]
+                    logger.info(f"Client session found: {session.id}")
+            except Exception as e:
+                logger.warning(f"Client UAT verification failed: {e}")
+        
+        if not session:
+            logger.error("No valid Clerk session found")
+            return JSONResponse(
+                status_code=401,
+                content={"error": "unauthorized", "error_description": "No valid Clerk session found"}
+            )
+        
+        # Extract session ID from state
+        if not state:
+            logger.error("No state parameter provided")
+            return JSONResponse(
+                status_code=400,
+                content={"error": "invalid_request", "error_description": "Missing state parameter"}
+            )
+        
+        # Parse state to get original state and session ID
+        try:
+            if ":" in state:
+                original_state, session_id = state.rsplit(":", 1)
+            else:
+                original_state = state
+                session_id = None
+        except ValueError:
+            logger.error(f"Invalid state format: {state}")
+            return JSONResponse(
+                status_code=400,
+                content={"error": "invalid_request", "error_description": "Invalid state format"}
+            )
+        
+        # Get OAuth provider
         from mcp_server_main import app as mcp_app
         from mcp_auth_factory import get_oauth_provider
         
-        # Get OAuth provider
         oauth_provider = get_oauth_provider(mcp_app)
         if not oauth_provider:
             raise HTTPException(status_code=500, detail="OAuth provider not configured")
         
-        # Parse state to get original client state and session ID
-        try:
-            original_state, session_id = state.split(":", 1)
-        except ValueError:
-            logger.error(f"Invalid state format: {state}")
-            raise HTTPException(status_code=400, detail="Invalid state format")
+        # Get stored session
+        oauth_session = None
+        if session_id:
+            oauth_session = oauth_provider.storage.get_session(session_id)
         
-        # Get session data from storage
-        session = oauth_provider.storage.get_session(session_id)
-        if not session:
-            logger.error(f"Session {session_id} not found")
-            raise HTTPException(status_code=400, detail="Invalid session")
+        if not oauth_session:
+            logger.error(f"OAuth session not found for ID: {session_id}")
+            return JSONResponse(
+                status_code=400,
+                content={"error": "invalid_request", "error_description": "OAuth session not found"}
+            )
         
-        # Exchange code for token with Clerk
-        token_result = await oauth_provider.exchange_code_for_token(
-            code=code,
-            state=state,
-            redirect_uri=session["redirect_uri"]
-        )
+        # Generate authorization code
+        auth_code = f"clerk_{session.id}_{session_id}"
         
-        # Build redirect URL back to Claude with authorization code
-        # The "code" here is our session ID that Claude will exchange for a token
+        # Store the code mapping for token exchange
+        code_data = {
+            "session_id": session_id,
+            "clerk_session_id": session.id if hasattr(session, 'id') else None,
+            "user_id": session.user_id if hasattr(session, 'user_id') else None,
+            "created_at": time.time(),
+            "expires_at": (datetime.utcnow() + timedelta(minutes=5)).timestamp(),
+        }
+        oauth_provider.storage.set_session(f"code_{auth_code}", code_data)
+        
+        # Build redirect URL back to Claude
         redirect_params = {
-            "code": session_id,
+            "code": auth_code,
             "state": original_state
         }
         
-        redirect_url = f"{session['redirect_uri']}?{urlencode(redirect_params)}"
+        redirect_url = f"{oauth_session['redirect_uri']}?{urlencode(redirect_params)}"
         logger.info(f"Redirecting back to Claude: {redirect_url}")
         
         return RedirectResponse(url=redirect_url)
         
     except Exception as e:
         logger.exception(f"Callback processing failed: {e}")
-        # Try to redirect back with error
-        if session and "redirect_uri" in session:
-            error_params = {
-                "error": "server_error",
-                "error_description": str(e),
-                "state": original_state if 'original_state' in locals() else state
-            }
-            error_url = f"{session['redirect_uri']}?{urlencode(error_params)}"
-            return RedirectResponse(url=error_url)
-        else:
-            return JSONResponse(
-                status_code=500,
-                content={"error": "server_error", "error_description": str(e)}
-            )
+        return JSONResponse(
+            status_code=500,
+            content={"error": "server_error", "error_description": str(e)}
+        )
 
 
 @router.post("/register")
@@ -227,8 +336,22 @@ async def token_endpoint(request: Request):
         if not oauth_provider:
             raise HTTPException(status_code=500, detail="OAuth provider not configured")
         
-        # The "code" is actually our session ID
-        session_id = code
+        # Extract session info from code
+        code_session = None
+        if code.startswith("clerk_"):
+            # Get the code mapping
+            code_session = oauth_provider.storage.get_session(f"code_{code}")
+            if code_session:
+                session_id = code_session.get("session_id")
+            else:
+                logger.error(f"Code mapping not found for: {code}")
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "invalid_grant", "error_description": "Invalid authorization code"}
+                )
+        else:
+            session_id = code
+            
         session = oauth_provider.storage.get_session(session_id)
         
         if not session:
@@ -238,17 +361,18 @@ async def token_endpoint(request: Request):
                 content={"error": "invalid_grant", "error_description": "Invalid authorization code"}
             )
         
-        # Validate PKCE
-        if "pkce_verifier" in session:
-            # Session has the verifier stored, validate it matches
-            if code_verifier != session["pkce_verifier"]:
-                logger.error("PKCE verifier mismatch")
+        # Validate PKCE if present
+        if "pkce_challenge" in session and code_verifier:
+            # Validate PKCE challenge
+            if not oauth_provider.validate_pkce(code_verifier, session["pkce_challenge"]):
+                logger.error("PKCE challenge validation failed")
                 return JSONResponse(
                     status_code=400,
                     content={"error": "invalid_grant", "error_description": "Invalid code verifier"}
                 )
+            logger.info("PKCE validation successful")
         else:
-            logger.warning("No PKCE verifier in session, skipping validation")
+            logger.info("No PKCE validation required")
         
         # Create JWT token
         access_token = oauth_provider._create_mcp_token(
@@ -257,8 +381,10 @@ async def token_endpoint(request: Request):
             session_id
         )
         
-        # Clean up session
+        # Clean up sessions
         oauth_provider.storage.delete_session(session_id)
+        if code_session:
+            oauth_provider.storage.delete_session(f"code_{code}")
         
         return JSONResponse({
             "access_token": access_token,

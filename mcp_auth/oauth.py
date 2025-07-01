@@ -18,6 +18,14 @@ from jwt.exceptions import PyJWTError, InvalidTokenError
 
 from .storage import PersistentStorage
 
+# Try to import Clerk SDK
+try:
+    from clerk_backend_api import Clerk
+    CLERK_AVAILABLE = True
+except ImportError:
+    CLERK_AVAILABLE = False
+    Clerk = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -62,6 +70,16 @@ class OAuthProvider:
         self.jwt_secret = jwt_secret
         # Use persistent storage instead of memory
         self.storage = PersistentStorage()
+        
+        # Initialize Clerk SDK if available
+        self.clerk = None
+        if CLERK_AVAILABLE and config.client_secret:
+            try:
+                self.clerk = Clerk(bearer_auth=config.client_secret)
+                logger.info("Clerk SDK initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Clerk SDK: {e}")
+                
         logger.info("OAuth provider initialized with persistent storage")
 
     def generate_authorization_url(
@@ -92,19 +110,30 @@ class OAuthProvider:
         }
         self.storage.set_session(session_id, session_data)
 
-        # Build Clerk OAuth URL with PKCE
-        params = {
-            "response_type": "code",
-            "client_id": self.config.client_id,
-            "redirect_uri": redirect_uri,
-            "scope": " ".join(scopes),
-            "state": f"{state}:{session_id}",  # Combine state with session ID
-            "code_challenge": pkce.challenge,
-            "code_challenge_method": "S256",
-        }
-
-        auth_url = f"{self.config.authorization_endpoint}?{urlencode(params)}"
+        # Build Clerk OAuth URL
+        # Check if this is a custom domain (sign-in endpoint)
+        if self.config.authorization_endpoint.endswith('/sign-in'):
+            # For custom domains, Clerk expects redirect_url parameter
+            params = {
+                "redirect_url": redirect_uri,
+                "state": f"{state}:{session_id}",
+            }
+            auth_url = f"{self.config.authorization_endpoint}?{urlencode(params)}"
+        else:
+            # Standard OAuth flow with PKCE
+            params = {
+                "response_type": "code",
+                "client_id": self.config.client_id,
+                "redirect_uri": redirect_uri,
+                "scope": " ".join(scopes),
+                "state": f"{state}:{session_id}",  # Combine state with session ID
+                "code_challenge": pkce.challenge,
+                "code_challenge_method": "S256",
+            }
+            auth_url = f"{self.config.authorization_endpoint}?{urlencode(params)}"
+        
         logger.info(f"Generated OAuth URL with session {session_id[:8]}...")
+        logger.debug(f"Auth URL: {auth_url}")
         return auth_url, pkce
 
     async def exchange_code_for_token(
