@@ -81,9 +81,42 @@ async def custom_401_handler(request: Request, exc: HTTPException):
     return response
 
 # Mount MCP app as sub-application
-# Order matters: mount more specific paths first
-app.mount("/mcp", mcp_app)  # Mount without trailing slash for Claude compatibility
 app.mount("/mcp/", mcp_app)
+
+# Add simple handler for /mcp POST requests
+@app.post("/mcp")
+@app.get("/mcp") 
+async def mcp_handler(request: Request):
+    """Handle /mcp requests by forwarding to MCP app"""
+    # Modify scope to look like /mcp/ request
+    scope = request.scope.copy()
+    scope["path"] = "/mcp/"
+    scope["path_info"] = "/mcp/"
+    
+    # Forward to mcp_app
+    async def receive():
+        return await request.receive()
+    
+    # Capture response
+    response_data = {"body": b"", "status_code": 200, "headers": []}
+    
+    async def send(message):
+        if message["type"] == "http.response.start":
+            response_data["status_code"] = message["status"]
+            response_data["headers"] = message["headers"]
+        elif message["type"] == "http.response.body":
+            response_data["body"] += message.get("body", b"")
+    
+    # Call mcp_app
+    await mcp_app(scope, receive, send)
+    
+    # Return response
+    from starlette.responses import Response
+    return Response(
+        content=response_data["body"],
+        status_code=response_data["status_code"],
+        headers=dict(response_data["headers"])
+    )
 
 # FastAPI health check endpoint
 @app.get("/health")
