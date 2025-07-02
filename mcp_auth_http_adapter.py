@@ -19,10 +19,14 @@ try:
     from clerk_backend_api import Clerk
     from clerk_backend_api.types import UnprocessableEntityError
     CLERK_AVAILABLE = True
+    print(f"DEBUG: Clerk SDK imported successfully in HTTP adapter")
 except ImportError as e:
     CLERK_AVAILABLE = False
     Clerk = None
     UnprocessableEntityError = None
+    print(f"DEBUG: Clerk SDK import failed in HTTP adapter: {e}")
+
+print(f"DEBUG: CLERK_AVAILABLE in HTTP adapter = {CLERK_AVAILABLE}")
 
 logger = logging.getLogger(__name__)
 
