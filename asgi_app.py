@@ -81,42 +81,8 @@ async def custom_401_handler(request: Request, exc: HTTPException):
     return response
 
 # Mount MCP app as sub-application
-app.mount("/mcp/", mcp_app)
+app.mount("/mcp", mcp_app)
 
-# Add simple handler for /mcp POST requests
-@app.post("/mcp")
-@app.get("/mcp") 
-async def mcp_handler(request: Request):
-    """Handle /mcp requests by forwarding to MCP app"""
-    # Modify scope to look like /mcp/ request
-    scope = request.scope.copy()
-    scope["path"] = "/mcp/"
-    scope["path_info"] = "/mcp/"
-    
-    # Forward to mcp_app
-    async def receive():
-        return await request.receive()
-    
-    # Capture response
-    response_data = {"body": b"", "status_code": 200, "headers": []}
-    
-    async def send(message):
-        if message["type"] == "http.response.start":
-            response_data["status_code"] = message["status"]
-            response_data["headers"] = message["headers"]
-        elif message["type"] == "http.response.body":
-            response_data["body"] += message.get("body", b"")
-    
-    # Call mcp_app
-    await mcp_app(scope, receive, send)
-    
-    # Return response
-    from starlette.responses import Response
-    return Response(
-        content=response_data["body"],
-        status_code=response_data["status_code"],
-        headers=dict(response_data["headers"])
-    )
 
 # FastAPI health check endpoint
 @app.get("/health")
@@ -138,7 +104,7 @@ async def root():
         "service": "Yargı MCP Server",
         "description": "MCP server for Turkish legal databases with OAuth authentication",
         "endpoints": {
-            "mcp": "/mcp/",
+            "mcp": "/mcp",
             "health": "/health",
             "status": "/status",
             "stripe_webhook": "/api/stripe/webhook",
@@ -209,7 +175,7 @@ async def mcp_info():
             "provider": "clerk"
         },
         "endpoints": {
-            "mcp_protocol": "/mcp/",
+            "mcp_protocol": "/mcp",
             "discovery": "/mcp/discovery",
             "well_known": "/.well-known/mcp",
             "health": "/health",
@@ -255,7 +221,7 @@ async def well_known_mcp():
         "mcp_server": {
             "name": "Yargı MCP Server",
             "version": "0.1.0",
-            "endpoint": f"{BASE_URL}/mcp/",
+            "endpoint": f"{BASE_URL}/mcp",
             "authentication": {
                 "type": "oauth2",
                 "authorization_url": f"{BASE_URL}/auth/login",
@@ -276,7 +242,7 @@ async def mcp_discovery():
         "version": "0.1.0",
         "protocol": "mcp",
         "transport": "http",
-        "endpoint": "/mcp/",
+        "endpoint": "/mcp",
         "authentication": {
             "type": "oauth2",
             "authorization_url": "/auth/login",
