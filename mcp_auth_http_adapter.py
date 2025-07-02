@@ -42,7 +42,8 @@ async def get_oauth_metadata():
         "grant_types_supported": ["authorization_code", "refresh_token"],
         "code_challenge_methods_supported": ["S256"],
         "token_endpoint_auth_methods_supported": ["none"],
-        "scopes_supported": ["mcp:tools:read", "mcp:tools:write", "openid", "profile", "email"]
+        "scopes_supported": ["mcp:tools:read", "mcp:tools:write", "openid", "profile", "email"],
+        "service_documentation": f"{BASE_URL}/mcp/"
     })
 
 
