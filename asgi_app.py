@@ -82,6 +82,7 @@ async def custom_401_handler(request: Request, exc: HTTPException):
 
 # Mount MCP app as sub-application  
 app.mount("/mcp/", mcp_app)
+app.mount("/mcp", mcp_app)  # Also mount without trailing slash for Claude compatibility
 
 # FastAPI health check endpoint
 @app.get("/health")
