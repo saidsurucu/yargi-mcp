@@ -80,8 +80,8 @@ async def custom_401_handler(request: Request, exc: HTTPException):
     
     return response
 
-# Mount MCP app as sub-application
-app.mount("/mcp", mcp_app)
+# Mount MCP app as sub-application  
+app.mount("/mcp/", mcp_app)
 
 # FastAPI health check endpoint
 @app.get("/health")
