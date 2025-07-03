@@ -70,7 +70,6 @@ Bu bölüm, Yargı MCP aracını 5ire gibi Claude Desktop dışındaki MCP istem
         "Yargı MCP": {
           "command": "uvx",
           "args": [
-            "--from", "git+https://github.com/saidsurucu/yargi-mcp",
             "yargi-mcp"
           ]
         }
@@ -101,8 +100,6 @@ Yargı MCP'yi Gemini CLI ile kullanmak için:
        "yargi_mcp": {
          "command": "uvx",
          "args": [
-           "--from",
-           "git+https://github.com/saidsurucu/yargi-mcp",
            "yargi-mcp"
          ]
        }
