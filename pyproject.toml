@@ -1,9 +1,24 @@
 [project]
 name = "yargi-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP Server For Turkish Legal Databases"
 readme = "README.md"
 requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "Said Surucu", email = "saidsrc@gmail.com"}]
+keywords = ["mcp", "turkish-law", "legal", "yargitay", "danistay", "turkish", "law", "court", "decisions"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Legal Industry",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Legal",
+    "Topic :: Text Processing :: Markup :: Markdown",
+    "Operating System :: OS Independent",
+]
+urls = {Homepage = "https://github.com/saidsurucu/yargi-mcp", Issues = "https://github.com/saidsurucu/yargi-mcp/issues"}
 dependencies = [
     "beautifulsoup4>=4.13.4",
     "httpx>=0.28.1",
@@ -43,3 +58,7 @@ py-modules = ["mcp_server_main", "mcp_auth_factory", "mcp_auth_http_adapter", "a
 
 [tool.setuptools.packages.find]
 include = ["*_mcp_module", "mcp_auth"]
+
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
