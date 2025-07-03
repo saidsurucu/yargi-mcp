@@ -48,7 +48,7 @@ Bu bölüm, Yargı MCP aracını 5ire gibi Claude Desktop dışındaki MCP istem
     * **Name:** `Yargı MCP`
     * **Command:**
         ```
-        uvx --from git+https://github.com/saidsurucu/yargi-mcp yargi-mcp
+        uvx yargi-mcp
         ```
     * **Save** butonuna basarak kaydedin.
 ![5ire ayarları](./5ire-settings.png)
