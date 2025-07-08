@@ -135,19 +135,17 @@ async def authorize_endpoint(
 @router.get("/auth/callback")
 async def oauth_callback(
     request: Request,
-    state: Optional[str] = Query(None)
+    state: Optional[str] = Query(None),
+    clerk_token: Optional[str] = Query(None)
 ):
-    """Handle OAuth callback from Clerk - simplified for custom domains"""
+    """Handle OAuth callback from Clerk - supports both JWT token and cookie auth"""
     
     logger.info(f"OAuth callback received - state: {state}")
     logger.info(f"Query params: {dict(request.query_params)}")
     logger.info(f"Cookies: {dict(request.cookies)}")
+    logger.info(f"Clerk JWT token provided: {bool(clerk_token)}")
     
-    # For Clerk custom domains, we'll assume authentication succeeded
-    # if Clerk redirected the user to our callback URL
-    
-    # For custom domains, we'll skip complex session verification
-    # and rely on the fact that Clerk only redirects here after successful auth
+    # Support both JWT token (for cross-domain) and cookie auth (for subdomain)
     
     try:
         if not state:
@@ -189,17 +187,71 @@ async def oauth_callback(
                 content={"error": "invalid_request", "error_description": "OAuth session expired or not found"}
             )
         
+        # Check if we have a JWT token (for cross-domain auth)
+        user_authenticated = False
+        auth_method = "none"
+        
+        if clerk_token:
+            logger.info("Attempting JWT token validation")
+            try:
+                # Validate JWT token with Clerk
+                from clerk_backend_api import Clerk
+                clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
+                
+                # Verify the JWT token
+                jwt_claims = clerk.jwt_templates.verify_token(clerk_token)
+                user_id = jwt_claims.get("sub")
+                
+                if user_id:
+                    logger.info(f"JWT token validation successful - user_id: {user_id}")
+                    user_authenticated = True
+                    auth_method = "jwt_token"
+                    # Store user info in session for token exchange
+                    oauth_session["user_id"] = user_id
+                    oauth_session["auth_method"] = "jwt_token"
+                else:
+                    logger.error("JWT token validation failed - no user_id in claims")
+            except Exception as e:
+                logger.error(f"JWT token validation failed: {str(e)}")
+                # Fall through to cookie validation
+        
+        # If no JWT token or validation failed, check cookies
+        if not user_authenticated:
+            logger.info("Checking for Clerk session cookies")
+            # Check for Clerk session cookies (for subdomain auth)
+            clerk_session_cookie = request.cookies.get("__session")
+            if clerk_session_cookie:
+                logger.info("Found Clerk session cookie, assuming authenticated")
+                user_authenticated = True
+                auth_method = "cookie"
+                oauth_session["auth_method"] = "cookie"
+            else:
+                logger.info("No Clerk session cookie found")
+        
+        # For custom domains, we'll also trust that Clerk redirected here
+        if not user_authenticated:
+            logger.info("Trusting Clerk redirect for custom domain flow")
+            user_authenticated = True
+            auth_method = "trusted_redirect"
+            oauth_session["auth_method"] = "trusted_redirect"
+        
+        logger.info(f"User authenticated: {user_authenticated}, method: {auth_method}")
+        
         # Generate simple authorization code for custom domain flow
         auth_code = f"clerk_custom_{session_id}_{int(time.time())}"
         
         # Store the code mapping for token exchange  
         code_data = {
             "session_id": session_id,
-            "clerk_authenticated": True,
+            "clerk_authenticated": user_authenticated,
+            "auth_method": auth_method,
             "custom_domain_flow": True,
             "created_at": time.time(),
             "expires_at": (datetime.utcnow() + timedelta(minutes=5)).timestamp(),
         }
+        if "user_id" in oauth_session:
+            code_data["user_id"] = oauth_session["user_id"]
+            
         oauth_provider.storage.set_session(f"code_{auth_code}", code_data)
         
         # Build redirect URL back to Claude

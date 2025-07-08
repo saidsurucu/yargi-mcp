@@ -235,8 +235,8 @@ async def mcp_info():
         "authentication_required": True,
         "authentication": {
             "type": "oauth2",
-            "authorization_url": "https://yargimcp.com/sign-in",
-            "token_url": f"{BASE_URL}/auth/token",
+            "authorization_url": "https://yargimcp.com/sign-in?redirect_url=https://api.yargimcp.com/auth/mcp-callback",
+            "token_url": f"{BASE_URL}/auth/mcp-token",
             "scopes": ["read", "search"],
             "provider": "clerk"
         },
@@ -417,7 +417,7 @@ async def validate_clerk_session(request: Request, clerk_token: str = None) -> s
         raise HTTPException(status_code=401, detail=f"Session validation failed: {str(e)}")
 
 # MCP OAuth Callback Endpoint
-@app.get("/auth/callback")
+@app.get("/auth/mcp-callback")
 async def mcp_oauth_callback(request: Request, clerk_token: str = Query(None)):
     """Handle OAuth callback for MCP token generation"""
     logger.info(f"MCP OAuth callback - clerk_token provided: {bool(clerk_token)}")
@@ -511,7 +511,7 @@ async def mcp_oauth_callback(request: Request, clerk_token: str = Query(None)):
         """, status_code=500)
 
 # MCP Token Endpoint (for OAuth2 compatibility)
-@app.post("/auth/token")
+@app.post("/auth/mcp-token")
 async def mcp_token_endpoint(request: Request):
     """OAuth2 token endpoint for MCP clients"""
     try:
