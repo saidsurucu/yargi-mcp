@@ -10,8 +10,11 @@ Usage:
 """
 
 import os
+import jwt
+import time
+from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.exception_handlers import http_exception_handler
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
@@ -29,6 +32,7 @@ from mcp_auth_http_adapter import router as mcp_auth_router
 # OAuth configuration from environment variables
 CLERK_ISSUER = os.getenv("CLERK_ISSUER", "https://accounts.yargimcp.com")
 BASE_URL = os.getenv("BASE_URL", "https://yargimcp.com")
+JWT_SECRET = os.getenv("JWT_SECRET_KEY", "your-secret-key-here")
 
 # Configure CORS middleware
 cors_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
@@ -83,10 +87,28 @@ async def custom_401_handler(request: Request, exc: HTTPException):
 # Mount MCP app as sub-application
 app.mount("/mcp", mcp_app)
 
-# Add POST handler for /mcp to forward to mounted app
+# Add POST handler for /mcp to forward to mounted app with Bearer token validation
 @app.post("/mcp")
 async def mcp_post_handler(request: Request):
-    """Forward POST /mcp requests to mounted MCP app"""
+    """Forward POST /mcp requests to mounted MCP app with Bearer token validation"""
+    # Validate Bearer token
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization header with Bearer token required"
+        )
+    
+    # Extract and validate token
+    token = auth_header.split(" ")[1]
+    try:
+        user_payload = validate_mcp_token(token)
+        # Add user info to request state for potential use in tools
+        request.state.user_id = user_payload["user_id"]
+        request.state.token_scopes = user_payload.get("scopes", ["read", "search"])
+    except HTTPException:
+        raise
+    
     # Forward to the mounted app by calling it directly
     async def receive():
         return await request.receive()
@@ -209,8 +231,8 @@ async def mcp_info():
         "authentication_required": True,
         "authentication": {
             "type": "oauth2",
-            "authorization_url": f"{BASE_URL}/auth/login",
-            "token_url": f"{BASE_URL}/auth/callback",
+            "authorization_url": "https://yargimcp.com/sign-in",
+            "token_url": f"{BASE_URL}/auth/token",
             "scopes": ["read", "search"],
             "provider": "clerk"
         },
@@ -321,6 +343,136 @@ async def status():
         "architecture": "FastAPI wrapper + MCP Starlette sub-app",
         "auth_status": "enabled" if os.getenv("ENABLE_AUTH", "false").lower() == "true" else "disabled"
     })
+
+# MCP Token Generation and Validation
+def generate_mcp_token(user_id: str, expires_in: int = 3600) -> str:
+    """Generate MCP access token for authenticated user"""
+    payload = {
+        "user_id": user_id,
+        "iat": int(time.time()),
+        "exp": int(time.time()) + expires_in,
+        "iss": BASE_URL,
+        "aud": "mcp-client",
+        "scopes": ["read", "search"]
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+
+def validate_mcp_token(token: str) -> dict:
+    """Validate MCP access token and return user info"""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+async def validate_clerk_session(request: Request) -> str:
+    """Validate Clerk session from cookies and return user_id"""
+    try:
+        # Try to import Clerk SDK
+        from clerk_backend_api import Clerk
+        
+        # Get Clerk session from cookies
+        clerk_session = request.cookies.get("__session")
+        if not clerk_session:
+            raise HTTPException(status_code=401, detail="No Clerk session found")
+        
+        # Validate session with Clerk
+        clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
+        session = clerk.sessions.verify_session(clerk_session)
+        
+        return session.user_id
+    except ImportError:
+        # Fallback for development without Clerk SDK
+        return "dev_user_123"
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Session validation failed: {str(e)}")
+
+# MCP OAuth Callback Endpoint
+@app.get("/auth/callback")
+async def mcp_oauth_callback(request: Request):
+    """Handle OAuth callback for MCP token generation"""
+    try:
+        # Validate Clerk session
+        user_id = await validate_clerk_session(request)
+        
+        # Generate MCP token
+        mcp_token = generate_mcp_token(user_id)
+        
+        # Return success response
+        return HTMLResponse(f"""
+        <html>
+            <head>
+                <title>MCP Connection Successful</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; }}
+                    .success {{ color: #28a745; }}
+                    .token {{ background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; word-break: break-all; }}
+                </style>
+            </head>
+            <body>
+                <h1 class="success">✅ MCP Connection Successful!</h1>
+                <p>Your Yargı MCP integration is now active.</p>
+                <div class="token">
+                    <strong>Access Token:</strong><br>
+                    <code>{mcp_token}</code>
+                </div>
+                <p>You can now close this window and return to your MCP client.</p>
+                <script>
+                    // Try to close the popup if opened as such
+                    if (window.opener) {{
+                        window.opener.postMessage({{
+                            type: 'MCP_AUTH_SUCCESS',
+                            token: '{mcp_token}'
+                        }}, '*');
+                        setTimeout(() => window.close(), 3000);
+                    }}
+                </script>
+            </body>
+        </html>
+        """)
+        
+    except HTTPException as e:
+        return HTMLResponse(f"""
+        <html>
+            <head>
+                <title>MCP Connection Failed</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; }}
+                    .error {{ color: #dc3545; }}
+                </style>
+            </head>
+            <body>
+                <h1 class="error">❌ MCP Connection Failed</h1>
+                <p>{e.detail}</p>
+                <p>Please try again or contact support.</p>
+                <a href="https://yargimcp.com/sign-in">Return to Sign In</a>
+            </body>
+        </html>
+        """, status_code=e.status_code)
+
+# MCP Token Endpoint (for OAuth2 compatibility)
+@app.post("/auth/token")
+async def mcp_token_endpoint(request: Request):
+    """OAuth2 token endpoint for MCP clients"""
+    try:
+        # For simplicity, we'll handle this as a redirect from callback
+        # In a full OAuth2 implementation, this would handle authorization codes
+        user_id = await validate_clerk_session(request)
+        mcp_token = generate_mcp_token(user_id)
+        
+        return JSONResponse({
+            "access_token": mcp_token,
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "scope": "read search"
+        })
+    except HTTPException as e:
+        return JSONResponse(
+            status_code=e.status_code,
+            content={"error": "invalid_request", "error_description": e.detail}
+        )
 
 # Alternative: SSE transport (for compatibility)
 sse_app = mcp_server.http_app(
