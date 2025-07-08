@@ -88,41 +88,41 @@ async def custom_401_handler(request: Request, exc: HTTPException):
     
     return response
 
-# Mount MCP app as sub-application
-app.mount("/mcp", mcp_app)
+# Mount MCP app as sub-application at /mcp-server to avoid path conflicts
+app.mount("/mcp-server", mcp_app)
 
-# Add POST handler for /mcp to forward to mounted app with Bearer token validation
-@app.post("/mcp")
-async def mcp_post_handler(request: Request):
-    """Forward POST /mcp requests to mounted MCP app with Bearer token validation"""
-    # Validate Bearer token
+# Add custom route to handle /mcp requests and forward to mounted app
+@app.api_route("/mcp", methods=["GET", "POST", "OPTIONS"])
+@app.api_route("/mcp/", methods=["GET", "POST", "OPTIONS"])
+async def mcp_protocol_handler(request: Request):
+    """Handle MCP protocol requests by forwarding to mounted app"""
+    
+    # Optional: Validate Bearer JWT tokens for direct API access
     auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Authorization header with Bearer token required"
-        )
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            # Validate custom JWT token (for direct API access)
+            user_payload = validate_mcp_token(token)
+            logger.info(f"Bearer JWT token validated for user: {user_payload.get('user_id')}")
+            # Add user info to request state
+            request.state.user_id = user_payload["user_id"]
+            request.state.token_scopes = user_payload.get("scopes", ["read", "search"])
+        except HTTPException as e:
+            logger.warning(f"Bearer token validation failed: {e.detail}")
+            # Don't fail here - let MCP Auth Toolkit handle it
+            pass
     
-    # Extract and validate token
-    token = auth_header.split(" ")[1]
-    try:
-        user_payload = validate_mcp_token(token)
-        # Add user info to request state for potential use in tools
-        request.state.user_id = user_payload["user_id"]
-        request.state.token_scopes = user_payload.get("scopes", ["read", "search"])
-    except HTTPException:
-        raise
-    
-    # Forward to the mounted app by calling it directly
+    # Forward the request to the mounted MCP app
     async def receive():
         return await request.receive()
     
-    # Create a new scope for the mounted app
+    # Create new scope for the mounted app
     scope = request.scope.copy()
-    scope["path"] = "/"  # Root path for the mounted app
+    scope["path"] = "/"  # Root path for mounted app
     scope["path_info"] = "/"
     
-    # Capture response
+    # Capture the response
     response_parts = {"status": 200, "headers": [], "body": b""}
     
     async def send(message):
