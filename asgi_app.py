@@ -12,8 +12,9 @@ Usage:
 import os
 import jwt
 import time
+import logging
 from datetime import datetime, timedelta
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.exception_handlers import http_exception_handler
 from starlette.middleware import Middleware
@@ -33,6 +34,9 @@ from mcp_auth_http_adapter import router as mcp_auth_router
 CLERK_ISSUER = os.getenv("CLERK_ISSUER", "https://accounts.yargimcp.com")
 BASE_URL = os.getenv("BASE_URL", "https://yargimcp.com")
 JWT_SECRET = os.getenv("JWT_SECRET_KEY", "your-secret-key-here")
+
+# Setup logging
+logger = logging.getLogger(__name__)
 
 # Configure CORS middleware
 cors_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
@@ -367,38 +371,65 @@ def validate_mcp_token(token: str) -> dict:
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-async def validate_clerk_session(request: Request) -> str:
-    """Validate Clerk session from cookies and return user_id"""
+async def validate_clerk_session(request: Request, clerk_token: str = None) -> str:
+    """Validate Clerk session from cookies or JWT token and return user_id"""
+    logger.info(f"Validating Clerk session - token provided: {bool(clerk_token)}")
+    
     try:
         # Try to import Clerk SDK
         from clerk_backend_api import Clerk
+        clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
         
-        # Get Clerk session from cookies
+        # Try JWT token first (from URL parameter)
+        if clerk_token:
+            logger.info("Validating Clerk JWT token from URL parameter")
+            try:
+                # Verify JWT token with Clerk
+                jwt_claims = clerk.jwt_templates.verify_token(clerk_token)
+                user_id = jwt_claims.get("sub")
+                if user_id:
+                    logger.info(f"JWT token validation successful - user_id: {user_id}")
+                    return user_id
+                else:
+                    logger.error("JWT token validation failed - no user_id in claims")
+            except Exception as e:
+                logger.error(f"JWT token validation failed: {str(e)}")
+                # Fall through to cookie validation
+        
+        # Fallback to cookie validation
+        logger.info("Attempting cookie-based session validation")
         clerk_session = request.cookies.get("__session")
         if not clerk_session:
+            logger.error("No Clerk session cookie found")
             raise HTTPException(status_code=401, detail="No Clerk session found")
         
         # Validate session with Clerk
-        clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
         session = clerk.sessions.verify_session(clerk_session)
-        
+        logger.info(f"Cookie session validation successful - user_id: {session.user_id}")
         return session.user_id
+        
     except ImportError:
         # Fallback for development without Clerk SDK
+        logger.warning("Clerk SDK not available - using development fallback")
         return "dev_user_123"
     except Exception as e:
+        logger.error(f"Session validation failed: {str(e)}")
         raise HTTPException(status_code=401, detail=f"Session validation failed: {str(e)}")
 
 # MCP OAuth Callback Endpoint
 @app.get("/auth/callback")
-async def mcp_oauth_callback(request: Request):
+async def mcp_oauth_callback(request: Request, clerk_token: str = Query(None)):
     """Handle OAuth callback for MCP token generation"""
+    logger.info(f"MCP OAuth callback - clerk_token provided: {bool(clerk_token)}")
+    
     try:
-        # Validate Clerk session
-        user_id = await validate_clerk_session(request)
+        # Validate Clerk session with JWT token support
+        user_id = await validate_clerk_session(request, clerk_token)
+        logger.info(f"User authenticated successfully - user_id: {user_id}")
         
         # Generate MCP token
         mcp_token = generate_mcp_token(user_id)
+        logger.info("MCP token generated successfully")
         
         # Return success response
         return HTMLResponse(f"""
@@ -434,6 +465,7 @@ async def mcp_oauth_callback(request: Request):
         """)
         
     except HTTPException as e:
+        logger.error(f"MCP OAuth callback failed: {e.detail}")
         return HTMLResponse(f"""
         <html>
             <head>
@@ -441,16 +473,42 @@ async def mcp_oauth_callback(request: Request):
                 <style>
                     body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; }}
                     .error {{ color: #dc3545; }}
+                    .debug {{ background: #f8f9fa; padding: 10px; margin: 20px 0; border-radius: 5px; font-family: monospace; }}
                 </style>
             </head>
             <body>
                 <h1 class="error">❌ MCP Connection Failed</h1>
                 <p>{e.detail}</p>
+                <div class="debug">
+                    <strong>Debug Info:</strong><br>
+                    Clerk Token: {'✅ Provided' if clerk_token else '❌ Missing'}<br>
+                    Error: {e.detail}<br>
+                    Status: {e.status_code}
+                </div>
                 <p>Please try again or contact support.</p>
                 <a href="https://yargimcp.com/sign-in">Return to Sign In</a>
             </body>
         </html>
         """, status_code=e.status_code)
+    except Exception as e:
+        logger.error(f"Unexpected error in MCP OAuth callback: {str(e)}")
+        return HTMLResponse(f"""
+        <html>
+            <head>
+                <title>MCP Connection Error</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; }}
+                    .error {{ color: #dc3545; }}
+                </style>
+            </head>
+            <body>
+                <h1 class="error">❌ Unexpected Error</h1>
+                <p>An unexpected error occurred during authentication.</p>
+                <p>Error: {str(e)}</p>
+                <a href="https://yargimcp.com/sign-in">Return to Sign In</a>
+            </body>
+        </html>
+        """, status_code=500)
 
 # MCP Token Endpoint (for OAuth2 compatibility)
 @app.post("/auth/token")
