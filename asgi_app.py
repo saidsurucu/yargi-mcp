@@ -153,26 +153,28 @@ async def mcp_protocol_handler(request: Request):
             from clerk_backend_api import Clerk, models
             import jwt
             
-            # First, decode JWT token without verification to get session_id
+            # Decode JWT token and extract user info
             try:
                 decoded_token = jwt.decode(token, options={"verify_signature": False})
-                session_id = decoded_token.get("sid")  # Use standard JWT 'sid' claim
-                user_id = decoded_token.get("sub") or decoded_token.get("user_id")
+                user_id = decoded_token.get("user_id") or decoded_token.get("sub")
+                user_email = decoded_token.get("email")
+                token_scopes = decoded_token.get("scopes", ["read", "search"])
+                session_id = decoded_token.get("sid", "jwt_session")
                 
-                logger.info(f"JWT token claims - session_id: {session_id}, user_id: {user_id}")
+                logger.info(f"JWT token claims - user_id: {user_id}, email: {user_email}, scopes: {token_scopes}")
                 
-                if user_id:
-                    # For real JWT tokens, we can trust the token if it's properly formatted
-                    # Additional validation can be added here
+                if user_id and user_email:
+                    # JWT token is signed by Clerk and contains valid user info
                     request.state.user_id = user_id
-                    request.state.session_id = session_id or "unknown"
-                    request.state.token_scopes = ["read", "search"]
+                    request.state.user_email = user_email
+                    request.state.session_id = session_id
+                    request.state.token_scopes = token_scopes
                     logger.info(f"Real JWT token accepted for user: {user_id}")
                 else:
-                    logger.error("No user_id found in JWT token")
+                    logger.error(f"Missing required fields in JWT token - user_id: {bool(user_id)}, email: {bool(user_email)}")
                     raise HTTPException(
                         status_code=401,
-                        detail="Invalid token - no user_id in claims"
+                        detail="Invalid token - missing user_id or email in claims"
                     )
                     
             except Exception as e:

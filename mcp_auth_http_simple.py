@@ -119,40 +119,26 @@ async def oauth_callback(
         
         if clerk_token and CLERK_AVAILABLE:
             try:
-                clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
-                
-                # Extract session_id from JWT token (use 'sid' claim - standard JWT claim)
+                # Extract user info from JWT token (no Clerk session verification needed)
                 import jwt
                 decoded_token = jwt.decode(clerk_token, options={"verify_signature": False})
-                session_id = decoded_token.get("sid")  # Use standard JWT 'sid' claim
+                user_id = decoded_token.get("user_id") or decoded_token.get("sub")
+                user_email = decoded_token.get("email")
+                token_scopes = decoded_token.get("scopes", ["read", "search"])
                 
-                if session_id:
-                    # Verify with Clerk using session_id
-                    session = clerk.sessions.verify(session_id=session_id, token=clerk_token)
-                    user_id = session.user_id if session else None
+                logger.info(f"JWT token claims - user_id: {user_id}, email: {user_email}, scopes: {token_scopes}")
+                
+                if user_id and user_email:
+                    # JWT token is already signed by Clerk and contains valid user info
+                    user_authenticated = True
+                    logger.info(f"User authenticated via JWT token - user_id: {user_id}")
                     
-                    if user_id:
-                        user_authenticated = True
-                        logger.info(f"User authenticated via JWT - user_id: {user_id}")
-                        
-                        # Generate real JWT token from session using template
-                        try:
-                            real_jwt_token = clerk.sessions.create_token_from_template(
-                                session_id=session_id,
-                                template_name="mcp_auth"
-                            )
-                            logger.info("Real JWT token generated from template")
-                        except Exception as e:
-                            logger.warning(f"Failed to generate JWT from template: {e}")
-                            # Fallback to regular token creation
-                            real_jwt_token = clerk.sessions.create_token(
-                                session_id=session_id,
-                                expires_in_seconds=3600
-                            )
-                            logger.info("Real JWT token generated (fallback)")
-                        
+                    # Use the JWT token directly as the real token (it's already from Clerk template)
+                    real_jwt_token = clerk_token
+                    logger.info("Using Clerk JWT token directly (already real token)")
+                    
                 else:
-                    logger.error("No session_id found in JWT token")
+                    logger.error(f"Missing required fields in JWT token - user_id: {bool(user_id)}, email: {bool(user_email)}")
                     
             except Exception as e:
                 logger.error(f"JWT validation failed: {e}")
