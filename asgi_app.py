@@ -86,8 +86,7 @@ async def custom_401_handler(request: Request, exc: HTTPException):
     
     return response
 
-# Mount MCP app as sub-application at /mcp-server to avoid path conflicts
-app.mount("/mcp-server", mcp_app)
+# MCP app handled via custom route handlers - mounting removed
 
 # Add custom route to handle /mcp requests and forward to mounted app
 @app.api_route("/mcp", methods=["GET", "POST", "DELETE", "OPTIONS"])
