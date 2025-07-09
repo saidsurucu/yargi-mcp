@@ -54,13 +54,34 @@ mcp_app = mcp_server.http_app(
     middleware=custom_middleware
 )
 
+# Configure JSON encoder for proper Turkish character support
+import json
+from fastapi.responses import JSONResponse
+
+class UTF8JSONResponse(JSONResponse):
+    def __init__(self, content=None, status_code=200, headers=None, **kwargs):
+        if headers is None:
+            headers = {}
+        headers["Content-Type"] = "application/json; charset=utf-8"
+        super().__init__(content, status_code, headers, **kwargs)
+    
+    def render(self, content) -> bytes:
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+        ).encode("utf-8")
+
 # Create FastAPI wrapper application with MCP lifespan
 app = FastAPI(
     title="Yargı MCP Server",
     description="MCP server for Turkish legal databases with OAuth authentication",
     version="0.1.0",
     middleware=custom_middleware,
-    lifespan=mcp_app.lifespan  # Only HTTP app lifespan
+    lifespan=mcp_app.lifespan,  # Only HTTP app lifespan
+    default_response_class=UTF8JSONResponse  # Use UTF-8 JSON encoder
 )
 
 # Add Stripe webhook router to FastAPI
