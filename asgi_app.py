@@ -95,6 +95,22 @@ app.mount("/mcp-server", mcp_app)
 async def mcp_protocol_handler(request: Request):
     """Handle MCP protocol requests by forwarding to mounted app"""
     
+    # Handle GET requests for SSE stream establishment
+    if request.method == "GET":
+        accept_header = request.headers.get("Accept", "")
+        if "text/event-stream" in accept_header:
+            # GET requests for SSE don't require session ID validation
+            # Continue with JWT validation and SSE stream establishment
+            pass
+        else:
+            # Return 405 Method Not Allowed for non-SSE GET requests
+            from starlette.responses import Response
+            return Response(
+                status_code=405,
+                headers={"Allow": "POST"},
+                content="Method Not Allowed: GET requests require Accept: text/event-stream header"
+            )
+    
     # Optional: Validate Clerk Bearer JWT tokens for direct API access
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
@@ -196,6 +212,22 @@ async def mcp_protocol_handler(request: Request):
 async def sse_protocol_handler(request: Request):
     """Handle SSE MCP protocol requests by forwarding to mounted SSE app"""
     
+    # Handle GET requests for SSE stream establishment
+    if request.method == "GET":
+        accept_header = request.headers.get("Accept", "")
+        if "text/event-stream" in accept_header:
+            # GET requests for SSE don't require session ID validation
+            # Continue with JWT validation and SSE stream establishment
+            pass
+        else:
+            # Return 405 Method Not Allowed for non-SSE GET requests
+            from starlette.responses import Response
+            return Response(
+                status_code=405,
+                headers={"Allow": "POST"},
+                content="Method Not Allowed: GET requests require Accept: text/event-stream header"
+            )
+    
     # Optional: Validate Clerk Bearer JWT tokens for direct API access
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
@@ -279,15 +311,18 @@ async def sse_protocol_handler(request: Request):
     # Return the response
     from starlette.responses import Response
     
-    # Convert ASGI headers to dict and add SSE headers
+    # Convert ASGI headers to dict
     headers = {}
     for name, value in response_parts["headers"]:
         headers[name.decode()] = value.decode()
     
-    # Add SSE-specific headers
-    headers["Content-Type"] = "text/event-stream"
-    headers["Cache-Control"] = "no-cache"
-    headers["Connection"] = "keep-alive"
+    # Add SSE-specific headers only if not already JSON response
+    if headers.get("Content-Type") != "application/json":
+        headers["Content-Type"] = "text/event-stream"
+        headers["Cache-Control"] = "no-cache"
+        headers["Connection"] = "keep-alive"
+    
+    # Always add CORS header
     headers["Access-Control-Allow-Origin"] = "*"
     
     return Response(
