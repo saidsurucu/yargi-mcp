@@ -48,10 +48,8 @@ custom_middleware = [
     ),
 ]
 
-# Create MCP Starlette sub-application with authentication
-from mcp_auth_factory import create_app
-mcp_app_with_auth = create_app()
-mcp_app = mcp_app_with_auth.http_app(
+# Create MCP Starlette sub-application (without auth wrapper)
+mcp_app = mcp_server.http_app(
     path="/",
     middleware=custom_middleware
 )
@@ -82,15 +80,15 @@ app = FastAPI(
     description="MCP server for Turkish legal databases with OAuth authentication",
     version="0.1.0",
     middleware=custom_middleware,
-    lifespan=mcp_app.lifespan,  # Authentication-enabled MCP app lifespan
+    lifespan=mcp_app.lifespan,  # MCP app lifespan
     default_response_class=UTF8JSONResponse  # Use UTF-8 JSON encoder
 )
 
 # Add Stripe webhook router to FastAPI
 app.include_router(stripe_router, prefix="/api")
 
-# MCP Auth HTTP adapter now handled by create_app() - no need for separate router
-# app.include_router(mcp_auth_router, prefix="/mcp")  # Commented out to avoid duplication
+# Add MCP Auth HTTP adapter to FastAPI (handles OAuth endpoints)
+app.include_router(mcp_auth_router)
 
 # Custom 401 exception handler for MCP spec compliance
 @app.exception_handler(401)
@@ -109,7 +107,8 @@ async def custom_401_handler(request: Request, exc: HTTPException):
     
     return response
 
-# MCP app handled via custom route handlers - mounting removed
+# Mount MCP app as sub-application at /mcp-server to avoid path conflicts
+app.mount("/mcp-server", mcp_app)
 
 # Add custom route to handle /mcp requests and forward to mounted app
 @app.api_route("/mcp", methods=["POST", "DELETE", "OPTIONS"])
@@ -128,46 +127,33 @@ async def mcp_protocol_handler(request: Request):
             content="Session terminated successfully"
         )
     
-    # Optional: Validate Bearer JWT tokens as secondary auth method
+    # Optional: Validate Bearer JWT tokens for direct API access
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
         try:
-            # Validate Clerk JWT token using correct imports
-            from clerk_backend_api.security.verifytoken import verify_token
-            from clerk_backend_api.security.types import VerifyTokenOptions
-            
-            # Create verification options
-            options = VerifyTokenOptions(
-                secret_key=os.getenv("CLERK_SECRET_KEY"),
-                api_url="https://api.clerk.com",
-                api_version="v1",
-                audience=None  # Skip audience validation to avoid issues
-            )
-            
-            # Validate Clerk JWT token directly
-            jwt_claims = verify_token(token, options)
+            # Validate Clerk JWT token (simplified validation)
+            from clerk_backend_api import Clerk
+            clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
+            jwt_claims = clerk.jwt_templates.verify_token(token)
             user_id = jwt_claims.get("sub")
-            
             if user_id:
-                logger.info(f"JWT Bearer token validated successfully for user: {user_id}")
+                logger.info(f"Bearer JWT token validated for user: {user_id}")
                 # Add user info to request state
                 request.state.user_id = user_id
-                request.state.auth_method = "bearer_jwt"
-            else:
-                logger.warning("JWT Bearer token validation failed - no user_id in claims")
+                request.state.token_scopes = jwt_claims.get("scopes", ["read", "search"])
         except Exception as e:
-            logger.warning(f"JWT Bearer token validation failed: {str(e)}")
-            # Don't fail here - let MCP Auth Toolkit handle it as fallback
+            logger.warning(f"Bearer token validation failed: {str(e)}")
+            # Don't fail here - let MCP Auth Toolkit handle it
             pass
     
-    # Forward the request to the MCP app
+    # Forward the request to the mounted MCP app
     async def receive():
         return await request.receive()
     
-    # Create new scope for the MCP app
+    # Create new scope for the mounted app
     scope = request.scope.copy()
-    scope["path"] = "/"  # Root path for MCP app
+    scope["path"] = "/"  # Root path for mounted app
     scope["path_info"] = "/"
     
     # Capture the response
@@ -180,7 +166,7 @@ async def mcp_protocol_handler(request: Request):
         elif message["type"] == "http.response.body":
             response_parts["body"] += message.get("body", b"")
     
-    # Call the MCP app directly
+    # Call the mounted MCP app
     await mcp_app(scope, receive, send)
     
     # Return the response
@@ -254,9 +240,32 @@ async def root():
     })
 
 # OAuth 2.0 Authorization Server Metadata proxy (for MCP clients that can't reach Clerk directly)
-@app.get("/.well-known/oauth-authorization-server")
+# MCP Auth Toolkit expects this to be under /mcp/.well-known/oauth-authorization-server
+@app.get("/mcp/.well-known/oauth-authorization-server")
 async def oauth_authorization_server():
-    """OAuth 2.0 Authorization Server Metadata proxy to Clerk"""
+    """OAuth 2.0 Authorization Server Metadata proxy to Clerk - MCP Auth Toolkit standard location"""
+    return JSONResponse({
+        "issuer": CLERK_ISSUER,
+        "authorization_endpoint": f"{BASE_URL}/auth/login",
+        "token_endpoint": f"{BASE_URL}/auth/callback", 
+        "jwks_uri": f"{CLERK_ISSUER}/.well-known/jwks.json",
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code", "refresh_token"],
+        "token_endpoint_auth_methods_supported": ["client_secret_basic", "none"],
+        "scopes_supported": ["read", "search", "openid", "profile", "email"],
+        "subject_types_supported": ["public"],
+        "id_token_signing_alg_values_supported": ["RS256"],
+        "claims_supported": ["sub", "iss", "aud", "exp", "iat", "email", "name"],
+        "code_challenge_methods_supported": ["S256"],
+        "service_documentation": f"{BASE_URL}/mcp",
+        "registration_endpoint": f"{BASE_URL}/auth/register",
+        "resource_documentation": f"{BASE_URL}/mcp"
+    })
+
+# Keep root level for compatibility with some MCP clients
+@app.get("/.well-known/oauth-authorization-server")
+async def oauth_authorization_server_root():
+    """OAuth 2.0 Authorization Server Metadata proxy to Clerk - root level for compatibility"""
     return JSONResponse({
         "issuer": CLERK_ISSUER,
         "authorization_endpoint": f"{BASE_URL}/auth/login",
