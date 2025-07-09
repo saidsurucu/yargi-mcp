@@ -118,9 +118,7 @@ async def mcp_protocol_handler(request: Request):
             
             request_state = clerk.authenticate_request(
                 mock_request,
-                AuthenticateRequestOptions(
-                    authorized_parties=['https://api.yargimcp.com']
-                )
+                AuthenticateRequestOptions()
             )
             
             if request_state.is_signed_in:
@@ -221,10 +219,14 @@ async def sse_protocol_handler(request: Request):
             
             request_state = clerk.authenticate_request(
                 mock_request,
-                AuthenticateRequestOptions(
-                    authorized_parties=['https://api.yargimcp.com']
-                )
+                AuthenticateRequestOptions()
             )
+            
+            # Initialize variables
+            user_id = None
+            user_email = None
+            user_plan = 'free'
+            scopes = ['yargi.read']
             
             if request_state.is_signed_in:
                 # Get user info from token payload
@@ -237,8 +239,6 @@ async def sse_protocol_handler(request: Request):
                 
                 # Use email as primary user identifier
                 user_id = user_email or request_state.user_id
-            else:
-                user_id = None
             
             if user_id:
                 logger.info(f"SSE Clerk Bearer JWT token validated for user: {user_id}")
