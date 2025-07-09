@@ -89,26 +89,10 @@ async def custom_401_handler(request: Request, exc: HTTPException):
 # MCP app handled via custom route handlers - mounting removed
 
 # Add custom route to handle /mcp requests and forward to mounted app
-@app.api_route("/mcp", methods=["GET", "POST", "DELETE", "OPTIONS"])
-@app.api_route("/mcp/", methods=["GET", "POST", "DELETE", "OPTIONS"])
+@app.api_route("/mcp", methods=["POST", "DELETE", "OPTIONS"])
+@app.api_route("/mcp/", methods=["POST", "DELETE", "OPTIONS"])
 async def mcp_protocol_handler(request: Request):
     """Handle MCP protocol requests by forwarding to mounted app"""
-    
-    # Handle GET requests for SSE stream establishment
-    if request.method == "GET":
-        accept_header = request.headers.get("Accept", "")
-        if "text/event-stream" in accept_header:
-            # GET requests for SSE don't require session ID validation
-            # Continue with JWT validation and SSE stream establishment
-            pass
-        else:
-            # Return 405 Method Not Allowed for non-SSE GET requests
-            from starlette.responses import Response
-            return Response(
-                status_code=405,
-                headers={"Allow": "POST, DELETE"},
-                content="Method Not Allowed: GET requests require Accept: text/event-stream header"
-            )
     
     # Handle DELETE requests for session termination
     if request.method == "DELETE":
