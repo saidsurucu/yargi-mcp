@@ -82,7 +82,7 @@ app = FastAPI(
     description="MCP server for Turkish legal databases with OAuth authentication",
     version="0.1.0",
     middleware=custom_middleware,
-    lifespan=mcp_app.lifespan,  # Only HTTP app lifespan
+    lifespan=mcp_app.lifespan,  # Authentication-enabled MCP app lifespan
     default_response_class=UTF8JSONResponse  # Use UTF-8 JSON encoder
 )
 
