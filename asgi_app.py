@@ -54,13 +54,23 @@ mcp_app = mcp_server.http_app(
     middleware=custom_middleware
 )
 
-# Create FastAPI wrapper application with MCP app's lifespan
+# Create combined lifespan that handles both HTTP and SSE apps
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def combined_lifespan(app):
+    # Start both MCP apps
+    async with mcp_app.lifespan(app):
+        async with sse_mcp_app.lifespan(app):
+            yield
+
+# Create FastAPI wrapper application with combined lifespan
 app = FastAPI(
     title="Yargı MCP Server",
     description="MCP server for Turkish legal databases with OAuth authentication",
     version="0.1.0",
     middleware=custom_middleware,
-    lifespan=mcp_app.lifespan  # Critical: Get lifespan from mcp_app, not mcp_server
+    lifespan=combined_lifespan  # Combined lifespan for both HTTP and SSE apps
 )
 
 # Add Stripe webhook router to FastAPI
@@ -206,7 +216,17 @@ async def mcp_protocol_handler(request: Request):
     )
 
 
-# Add custom route to handle /sse requests for Server-Sent Events
+# Create separate SSE app for legacy clients
+sse_mcp_app = mcp_server.http_app(
+    path="/",
+    transport="sse",
+    middleware=custom_middleware
+)
+
+# Mount SSE app at /sse-server to avoid path conflicts
+app.mount("/sse-server", sse_mcp_app)
+
+# Add custom route to handle /sse requests for Server-Sent Events (legacy transport)
 @app.api_route("/sse", methods=["GET", "POST", "OPTIONS"])
 @app.api_route("/sse/", methods=["GET", "POST", "OPTIONS"])
 async def sse_protocol_handler(request: Request):
@@ -305,8 +325,8 @@ async def sse_protocol_handler(request: Request):
         elif message["type"] == "http.response.body":
             response_parts["body"] += message.get("body", b"")
     
-    # Call the main MCP app (same as HTTP endpoint)
-    await mcp_app(scope, receive, send)
+    # Call the dedicated SSE app (not the main HTTP app)
+    await sse_mcp_app(scope, receive, send)
     
     # Return the response
     from starlette.responses import Response
@@ -316,11 +336,8 @@ async def sse_protocol_handler(request: Request):
     for name, value in response_parts["headers"]:
         headers[name.decode()] = value.decode()
     
-    # Add SSE-specific headers only if not already JSON response
-    if headers.get("Content-Type") != "application/json":
-        headers["Content-Type"] = "text/event-stream"
-        headers["Cache-Control"] = "no-cache"
-        headers["Connection"] = "keep-alive"
+    # SSE headers are already set by the SSE transport
+    # Don't override them unless it's a JSON error response
     
     # Always add CORS header
     headers["Access-Control-Allow-Origin"] = "*"
