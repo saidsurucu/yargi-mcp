@@ -126,12 +126,20 @@ async def mcp_protocol_handler(request: Request):
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
         try:
-            # Validate Clerk JWT token
-            from clerk_backend_api import Clerk
-            clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
+            # Validate Clerk JWT token using correct imports
+            from clerk_backend_api.security.verifytoken import verify_token
+            from clerk_backend_api.security.types import VerifyTokenOptions
+            
+            # Create verification options
+            options = VerifyTokenOptions(
+                secret_key=os.getenv("CLERK_SECRET_KEY"),
+                api_url="https://api.clerk.com",
+                api_version="v1",
+                audience=None  # Skip audience validation to avoid issues
+            )
             
             # Validate Clerk JWT token directly
-            jwt_claims = clerk.jwt_templates.verify_token(token)
+            jwt_claims = verify_token(token, options)
             user_id = jwt_claims.get("sub")
             
             if user_id:
