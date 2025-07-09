@@ -48,8 +48,10 @@ custom_middleware = [
     ),
 ]
 
-# Create MCP Starlette sub-application first
-mcp_app = mcp_server.http_app(
+# Create MCP Starlette sub-application with authentication
+from mcp_auth_factory import create_app
+mcp_app_with_auth = create_app()
+mcp_app = mcp_app_with_auth.http_app(
     path="/",
     middleware=custom_middleware
 )
