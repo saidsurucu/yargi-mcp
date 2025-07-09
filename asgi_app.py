@@ -26,8 +26,8 @@ from mcp_server_main import app as mcp_server
 # Import Stripe webhook router
 from stripe_webhook import router as stripe_router
 
-# Import MCP Auth HTTP adapter
-from mcp_auth_http_adapter import router as mcp_auth_router
+# Import simplified MCP Auth HTTP adapter
+from mcp_auth_http_simple import router as mcp_auth_router
 
 # OAuth configuration from environment variables
 CLERK_ISSUER = os.getenv("CLERK_ISSUER", "https://accounts.yargimcp.com")
@@ -127,25 +127,44 @@ async def mcp_protocol_handler(request: Request):
             content="Session terminated successfully"
         )
     
-    # Optional: Validate Bearer JWT tokens for direct API access
+    # REQUIRED: Validate Bearer JWT tokens for all MCP requests
     auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
-        try:
-            # Validate Clerk JWT token (simplified validation)
-            from clerk_backend_api import Clerk
-            clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
-            jwt_claims = clerk.jwt_templates.verify_token(token)
-            user_id = jwt_claims.get("sub")
-            if user_id:
-                logger.info(f"Bearer JWT token validated for user: {user_id}")
-                # Add user info to request state
-                request.state.user_id = user_id
-                request.state.token_scopes = jwt_claims.get("scopes", ["read", "search"])
-        except Exception as e:
-            logger.warning(f"Bearer token validation failed: {str(e)}")
-            # Don't fail here - let MCP Auth Toolkit handle it
-            pass
+    if not auth_header or not auth_header.startswith("Bearer "):
+        logger.error("Missing or invalid Authorization header")
+        raise HTTPException(
+            status_code=401, 
+            detail="Missing or invalid Authorization header. Bearer token required."
+        )
+    
+    token = auth_header.split(" ")[1]
+    try:
+        # Validate Clerk JWT token (required)
+        from clerk_backend_api import Clerk
+        clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
+        jwt_claims = clerk.jwt_templates.verify_token(token)
+        user_id = jwt_claims.get("sub")
+        
+        if not user_id:
+            logger.error("JWT token validation failed - no user_id in claims")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token - no user_id in claims"
+            )
+        
+        logger.info(f"Bearer JWT token validated for user: {user_id}")
+        # Add user info to request state
+        request.state.user_id = user_id
+        request.state.token_scopes = jwt_claims.get("scopes", ["read", "search"])
+        
+    except HTTPException:
+        # Re-raise HTTPException as-is
+        raise
+    except Exception as e:
+        logger.error(f"Bearer token validation failed: {str(e)}")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Token validation failed: {str(e)}"
+        )
     
     # Forward the request to the mounted MCP app
     async def receive():

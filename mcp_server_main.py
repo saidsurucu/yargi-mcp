@@ -31,7 +31,7 @@ root_logger.addHandler(console_handler)
 logger = logging.getLogger(__name__)
 # --- Logging Configuration End ---
 
-from mcp_auth_factory import create_app
+# Removed mcp_auth_factory import to eliminate OAuth tools from MCP protocol
 
 # --- Module Imports ---
 from yargitay_mcp_module.client import YargitayOfficialApiClient
@@ -2837,11 +2837,6 @@ async def fetch(
         raise
 
 def main():
-    from mcp_auth_factory import enable_tool_authentication
-    
-    # Enable authentication on all tools now that they're defined
-    enable_tool_authentication(app)
-    
     logger.info(f"Starting {app.name} server via main() function...")
     logger.info(f"Logs will be written to: {LOG_FILE_PATH}")
     try:
