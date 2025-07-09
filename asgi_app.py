@@ -54,23 +54,13 @@ mcp_app = mcp_server.http_app(
     middleware=custom_middleware
 )
 
-# Create combined lifespan that handles both HTTP and SSE apps
-from contextlib import asynccontextmanager
-
-@asynccontextmanager
-async def combined_lifespan(app):
-    # Start both MCP apps
-    async with mcp_app.lifespan(app):
-        async with sse_mcp_app.lifespan(app):
-            yield
-
-# Create FastAPI wrapper application with combined lifespan
+# Create FastAPI wrapper application with MCP lifespan
 app = FastAPI(
     title="Yargı MCP Server",
     description="MCP server for Turkish legal databases with OAuth authentication",
     version="0.1.0",
     middleware=custom_middleware,
-    lifespan=combined_lifespan  # Combined lifespan for both HTTP and SSE apps
+    lifespan=mcp_app.lifespan  # Only HTTP app lifespan
 )
 
 # Add Stripe webhook router to FastAPI
@@ -100,8 +90,8 @@ async def custom_401_handler(request: Request, exc: HTTPException):
 app.mount("/mcp-server", mcp_app)
 
 # Add custom route to handle /mcp requests and forward to mounted app
-@app.api_route("/mcp", methods=["GET", "POST", "OPTIONS"])
-@app.api_route("/mcp/", methods=["GET", "POST", "OPTIONS"])
+@app.api_route("/mcp", methods=["GET", "POST", "DELETE", "OPTIONS"])
+@app.api_route("/mcp/", methods=["GET", "POST", "DELETE", "OPTIONS"])
 async def mcp_protocol_handler(request: Request):
     """Handle MCP protocol requests by forwarding to mounted app"""
     
@@ -117,9 +107,20 @@ async def mcp_protocol_handler(request: Request):
             from starlette.responses import Response
             return Response(
                 status_code=405,
-                headers={"Allow": "POST"},
+                headers={"Allow": "POST, DELETE"},
                 content="Method Not Allowed: GET requests require Accept: text/event-stream header"
             )
+    
+    # Handle DELETE requests for session termination
+    if request.method == "DELETE":
+        logger.info("DELETE request received for session termination")
+        # For session termination, we just return 200 OK
+        # The actual session cleanup is handled by the underlying MCP transport
+        from starlette.responses import Response
+        return Response(
+            status_code=200,
+            content="Session terminated successfully"
+        )
     
     # Optional: Validate Clerk Bearer JWT tokens for direct API access
     auth_header = request.headers.get("Authorization")
@@ -216,137 +217,7 @@ async def mcp_protocol_handler(request: Request):
     )
 
 
-# Create separate SSE app for legacy clients
-sse_mcp_app = mcp_server.http_app(
-    path="/",
-    transport="sse",
-    middleware=custom_middleware
-)
-
-# Mount SSE app at /sse-server to avoid path conflicts
-app.mount("/sse-server", sse_mcp_app)
-
-# Add custom route to handle /sse requests for Server-Sent Events (legacy transport)
-@app.api_route("/sse", methods=["GET", "POST", "OPTIONS"])
-@app.api_route("/sse/", methods=["GET", "POST", "OPTIONS"])
-async def sse_protocol_handler(request: Request):
-    """Handle SSE MCP protocol requests by forwarding to mounted SSE app"""
-    
-    # Handle GET requests for SSE stream establishment
-    if request.method == "GET":
-        accept_header = request.headers.get("Accept", "")
-        if "text/event-stream" in accept_header:
-            # GET requests for SSE don't require session ID validation
-            # Continue with JWT validation and SSE stream establishment
-            pass
-        else:
-            # Return 405 Method Not Allowed for non-SSE GET requests
-            from starlette.responses import Response
-            return Response(
-                status_code=405,
-                headers={"Allow": "POST"},
-                content="Method Not Allowed: GET requests require Accept: text/event-stream header"
-            )
-    
-    # Optional: Validate Clerk Bearer JWT tokens for direct API access
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
-        try:
-            # Validate Clerk JWT token
-            from clerk_backend_api import Clerk
-            clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
-            
-            # Validate Clerk JWT token using authenticate_request
-            import httpx
-            from clerk_backend_api.security import authenticate_request
-            from clerk_backend_api.security.types import AuthenticateRequestOptions
-            
-            # Create a mock request with the Bearer token
-            mock_request = httpx.Request(
-                method="POST",
-                url="https://api.yargimcp.com/mock",
-                headers={"Authorization": f"Bearer {token}"}
-            )
-            
-            request_state = clerk.authenticate_request(
-                mock_request,
-                AuthenticateRequestOptions()
-            )
-            
-            # Initialize variables
-            user_id = None
-            user_email = None
-            user_plan = 'free'
-            scopes = ['yargi.read']
-            
-            if request_state.is_signed_in:
-                # Get user info from token payload
-                payload = getattr(request_state, 'payload', {})
-                
-                # Extract user information from JWT payload  
-                user_email = payload.get('email')  # Primary identifier
-                user_plan = payload.get('plan', 'free')
-                scopes = payload.get('scopes', ['yargi.read'])
-                
-                # Use email as primary user identifier
-                user_id = user_email or request_state.user_id
-            
-            if user_id:
-                logger.info(f"SSE Clerk Bearer JWT token validated for user: {user_id}")
-                # Add user info to request state
-                request.state.user_id = user_id
-                request.state.user_email = user_email
-                request.state.user_plan = user_plan
-                request.state.token_scopes = scopes
-            else:
-                logger.warning("SSE Clerk JWT token validation failed - no user_id in claims")
-        except Exception as e:
-            logger.warning(f"SSE Clerk Bearer token validation failed: {str(e)}")
-            # Don't fail here - let MCP Auth Toolkit handle it
-            pass
-    
-    # Forward the request to the mounted SSE app
-    async def receive():
-        return await request.receive()
-    
-    # Create new scope for the mounted app
-    scope = request.scope.copy()
-    scope["path"] = "/"  # Root path for mounted app
-    scope["path_info"] = "/"
-    
-    # Capture the response
-    response_parts = {"status": 200, "headers": [], "body": b""}
-    
-    async def send(message):
-        if message["type"] == "http.response.start":
-            response_parts["status"] = message["status"]
-            response_parts["headers"] = message["headers"]
-        elif message["type"] == "http.response.body":
-            response_parts["body"] += message.get("body", b"")
-    
-    # Call the dedicated SSE app (not the main HTTP app)
-    await sse_mcp_app(scope, receive, send)
-    
-    # Return the response
-    from starlette.responses import Response
-    
-    # Convert ASGI headers to dict
-    headers = {}
-    for name, value in response_parts["headers"]:
-        headers[name.decode()] = value.decode()
-    
-    # SSE headers are already set by the SSE transport
-    # Don't override them unless it's a JSON error response
-    
-    # Always add CORS header
-    headers["Access-Control-Allow-Origin"] = "*"
-    
-    return Response(
-        content=response_parts["body"],
-        status_code=response_parts["status"],
-        headers=headers
-    )
+# SSE transport deprecated - removed
 
 
 # FastAPI health check endpoint
@@ -370,7 +241,6 @@ async def root():
         "description": "MCP server for Turkish legal databases with OAuth authentication",
         "endpoints": {
             "mcp": "/mcp",
-            "sse": "/sse",
             "health": "/health",
             "status": "/status",
             "stripe_webhook": "/api/stripe/webhook",
@@ -380,8 +250,7 @@ async def root():
             "user_info": "/auth/user"
         },
         "transports": {
-            "http": "/mcp",
-            "sse": "/sse"
+            "http": "/mcp"
         },
         "supported_databases": [
             "Yargıtay (Court of Cassation)",
@@ -435,7 +304,7 @@ async def mcp_info():
         "version": "0.1.0",
         "description": "MCP server for Turkish legal databases",
         "protocol": "mcp/1.0",
-        "transport": ["http", "sse"],
+        "transport": ["http"],
         "authentication_required": True,
         "authentication": {
             "type": "oauth2",
@@ -446,7 +315,6 @@ async def mcp_info():
         },
         "endpoints": {
             "mcp_protocol": "/mcp",
-            "sse_protocol": "/sse",
             "discovery": "/mcp/discovery",
             "well_known": "/.well-known/mcp",
             "health": "/health",
@@ -462,7 +330,7 @@ async def mcp_info():
             "note": "This is an MCP server. Use POST to /mcp/ with proper MCP protocol headers.",
             "headers_required": [
                 "Content-Type: application/json",
-                "Accept: application/json, text/event-stream",
+                "Accept: application/json",
                 "Authorization: Bearer <token>",
                 "X-Session-ID: <session-id>"
             ]
@@ -715,8 +583,7 @@ async def mcp_token_endpoint(request: Request):
             content={"error": "invalid_request", "error_description": e.detail}
         )
 
-# Note: SSE endpoint uses the same mcp_app as HTTP endpoint
-# No separate SSE app needed - the difference is in headers and response handling
+# Note: Only HTTP transport supported - SSE transport deprecated
 
 # Export for uvicorn
 __all__ = ["app"]
