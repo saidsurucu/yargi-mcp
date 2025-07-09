@@ -150,6 +150,71 @@ async def mcp_protocol_handler(request: Request):
     )
 
 
+# Add custom route to handle /sse requests for Server-Sent Events
+@app.api_route("/sse", methods=["GET", "POST", "OPTIONS"])
+@app.api_route("/sse/", methods=["GET", "POST", "OPTIONS"])
+async def sse_protocol_handler(request: Request):
+    """Handle SSE MCP protocol requests by forwarding to mounted SSE app"""
+    
+    # Optional: Validate Bearer JWT tokens for direct API access
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            # Validate custom JWT token (for direct API access)
+            user_payload = validate_mcp_token(token)
+            logger.info(f"SSE Bearer JWT token validated for user: {user_payload.get('user_id')}")
+            # Add user info to request state
+            request.state.user_id = user_payload["user_id"]
+            request.state.token_scopes = user_payload.get("scopes", ["read", "search"])
+        except HTTPException as e:
+            logger.warning(f"SSE Bearer token validation failed: {e.detail}")
+            # Don't fail here - let MCP Auth Toolkit handle it
+            pass
+    
+    # Forward the request to the mounted SSE app
+    async def receive():
+        return await request.receive()
+    
+    # Create new scope for the mounted app
+    scope = request.scope.copy()
+    scope["path"] = "/"  # Root path for mounted app
+    scope["path_info"] = "/"
+    
+    # Capture the response
+    response_parts = {"status": 200, "headers": [], "body": b""}
+    
+    async def send(message):
+        if message["type"] == "http.response.start":
+            response_parts["status"] = message["status"]
+            response_parts["headers"] = message["headers"]
+        elif message["type"] == "http.response.body":
+            response_parts["body"] += message.get("body", b"")
+    
+    # Call the main MCP app (same as HTTP endpoint)
+    await mcp_app(scope, receive, send)
+    
+    # Return the response
+    from starlette.responses import Response
+    
+    # Convert ASGI headers to dict and add SSE headers
+    headers = {}
+    for name, value in response_parts["headers"]:
+        headers[name.decode()] = value.decode()
+    
+    # Add SSE-specific headers
+    headers["Content-Type"] = "text/event-stream"
+    headers["Cache-Control"] = "no-cache"
+    headers["Connection"] = "keep-alive"
+    headers["Access-Control-Allow-Origin"] = "*"
+    
+    return Response(
+        content=response_parts["body"],
+        status_code=response_parts["status"],
+        headers=headers
+    )
+
+
 # FastAPI health check endpoint
 @app.get("/health")
 async def health_check():
@@ -171,6 +236,7 @@ async def root():
         "description": "MCP server for Turkish legal databases with OAuth authentication",
         "endpoints": {
             "mcp": "/mcp",
+            "sse": "/sse",
             "health": "/health",
             "status": "/status",
             "stripe_webhook": "/api/stripe/webhook",
@@ -178,6 +244,10 @@ async def root():
             "oauth_callback": "/auth/callback",
             "oauth_google": "/auth/google/login",
             "user_info": "/auth/user"
+        },
+        "transports": {
+            "http": "/mcp",
+            "sse": "/sse"
         },
         "supported_databases": [
             "Yargıtay (Court of Cassation)",
@@ -231,7 +301,7 @@ async def mcp_info():
         "version": "0.1.0",
         "description": "MCP server for Turkish legal databases",
         "protocol": "mcp/1.0",
-        "transport": "http",
+        "transport": ["http", "sse"],
         "authentication_required": True,
         "authentication": {
             "type": "oauth2",
@@ -242,6 +312,7 @@ async def mcp_info():
         },
         "endpoints": {
             "mcp_protocol": "/mcp",
+            "sse_protocol": "/sse",
             "discovery": "/mcp/discovery",
             "well_known": "/.well-known/mcp",
             "health": "/health",
@@ -532,12 +603,8 @@ async def mcp_token_endpoint(request: Request):
             content={"error": "invalid_request", "error_description": e.detail}
         )
 
-# Alternative: SSE transport (for compatibility)
-sse_app = mcp_server.http_app(
-    path="/sse", 
-    transport="sse",
-    middleware=custom_middleware
-)
+# Note: SSE endpoint uses the same mcp_app as HTTP endpoint
+# No separate SSE app needed - the difference is in headers and response handling
 
 # Export for uvicorn
-__all__ = ["app", "sse_app"]
+__all__ = ["app"]
