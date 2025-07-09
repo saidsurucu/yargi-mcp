@@ -4,7 +4,7 @@ import atexit
 import logging
 import os
 from pydantic import HttpUrl, Field 
-from typing import Optional, Dict, List, Literal
+from typing import Optional, Dict, List, Literal, Any
 import urllib.parse
 
 # --- Logging Configuration Start ---
@@ -2468,6 +2468,51 @@ atexit.register(perform_cleanup)
 
 # --- ChatGPT Deep Research Compatible Tools ---
 
+def get_preview_text(markdown_content: str, skip_chars: int = 100, preview_chars: int = 200) -> str:
+    """
+    Extract a preview of document text by skipping headers and showing meaningful content.
+    
+    Args:
+        markdown_content: Full document content in markdown format
+        skip_chars: Number of characters to skip from the beginning (default: 100)
+        preview_chars: Number of characters to show in preview (default: 200)
+    
+    Returns:
+        Preview text suitable for ChatGPT Deep Research
+    """
+    if not markdown_content:
+        return ""
+    
+    # Remove common markdown artifacts and clean up
+    cleaned_content = markdown_content.strip()
+    
+    # Skip the first N characters (usually headers, metadata)
+    if len(cleaned_content) > skip_chars:
+        content_start = cleaned_content[skip_chars:]
+    else:
+        content_start = cleaned_content
+    
+    # Get the next N characters for preview
+    if len(content_start) > preview_chars:
+        preview = content_start[:preview_chars]
+    else:
+        preview = content_start
+    
+    # Clean up the preview - remove incomplete sentences at the end
+    preview = preview.strip()
+    
+    # If preview ends mid-sentence, try to end at last complete sentence
+    if preview and not preview.endswith('.'):
+        last_period = preview.rfind('.')
+        if last_period > 50:  # Only if there's a reasonable sentence
+            preview = preview[:last_period + 1]
+    
+    # Add ellipsis if content was truncated
+    if len(content_start) > preview_chars:
+        preview += "..."
+    
+    return preview.strip()
+
 @app.tool(
     description="""
     Search Turkish legal databases for court decisions and legal precedents. 
@@ -2522,7 +2567,7 @@ async def search(
     • Yerel Hukuk (Local Civil Courts) - First instance civil decisions
     • İstinaf Hukuk (Civil Appeals Courts) - Appellate court decisions
     • Kanun Yararına Bozma (KYB) - Extraordinary appeal decisions""")
-) -> Dict[str, List[str]]:
+) -> Dict[str, List[Dict[str, str]]]:
     """
     Bedesten API search tool for ChatGPT Deep Research compatibility.
     
@@ -2533,7 +2578,7 @@ async def search(
     For regular legal research, use specific court tools like search_yargitay_bedesten.
     
     Returns:
-    Object with "ids" field containing a list of document IDs for fetching
+    Object with "results" field containing a list of documents with id, title, text preview, and url
     as required by ChatGPT Deep Research specification.
     """
     logger.info(f"ChatGPT Deep Research search tool called with query: {query}")
@@ -2565,8 +2610,47 @@ async def search(
                 
                 # Add results from this court type (limit to top 5 per court)
                 for decision in search_results.data.emsalKararList[:5]:
-                    # For ChatGPT Deep Research, only collect document IDs
-                    results.append(decision.documentId)
+                    # For ChatGPT Deep Research, fetch document content for preview
+                    try:
+                        # Fetch document content for preview
+                        doc = await bedesten_client_instance.get_document_as_markdown(decision.documentId)
+                        
+                        # Generate preview text (skip first 100 chars, show next 200)
+                        preview_text = get_preview_text(doc.markdown_content, skip_chars=100, preview_chars=200)
+                        
+                        # Build title from metadata
+                        title_parts = []
+                        if decision.birimAdi:
+                            title_parts.append(decision.birimAdi)
+                        if decision.esasNo:
+                            title_parts.append(f"Esas: {decision.esasNo}")
+                        if decision.kararNo:
+                            title_parts.append(f"Karar: {decision.kararNo}")
+                        if decision.kararTarihiStr:
+                            title_parts.append(f"Tarih: {decision.kararTarihiStr}")
+                        
+                        if title_parts:
+                            title = " - ".join(title_parts)
+                        else:
+                            title = f"{court_name} - Document {decision.documentId}"
+                        
+                        # Add to results in OpenAI format
+                        results.append({
+                            "id": decision.documentId,
+                            "title": title,
+                            "text": preview_text,
+                            "url": f"https://mevzuat.adalet.gov.tr/ictihat/{decision.documentId}"
+                        })
+                        
+                    except Exception as e:
+                        logger.warning(f"Could not fetch preview for document {decision.documentId}: {e}")
+                        # Add minimal result without preview
+                        results.append({
+                            "id": decision.documentId,
+                            "title": f"{court_name} - Document {decision.documentId}",
+                            "text": "Document preview not available",
+                            "url": f"https://mevzuat.adalet.gov.tr/ictihat/{decision.documentId}"
+                        })
                     
                 logger.info(f"Found {len(search_results.data.emsalKararList)} results from {court_name}")
                 
@@ -2589,13 +2673,13 @@ async def search(
         """
         
         logger.info(f"ChatGPT Deep Research search completed. Found {len(results)} results via Bedesten API.")
-        return {"ids": results}
+        return {"results": results}
         
     except Exception as e:
         logger.exception("Error in ChatGPT Deep Research search tool")
         # Return partial results if any were found
         if results:
-            return {"ids": results}
+            return {"results": results}
         raise
 
 @app.tool(
@@ -2636,7 +2720,7 @@ async def fetch(
     • Numeric document ID only (e.g., "730113500", "71370900")
     • IDs are obtained from the search tool results
     • Works for all Turkish court types via unified Bedesten API""")
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """
     Bedesten API fetch tool for ChatGPT Deep Research compatibility.
     
