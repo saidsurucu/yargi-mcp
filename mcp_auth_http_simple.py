@@ -160,53 +160,53 @@ async def oauth_callback(
                     except Exception as e:
                         logger.warning(f"Failed to generate JWT from cookie: {e}")
         
-        # Last resort - trust Clerk redirect
-        if not user_authenticated:
-            user_authenticated = True
-            logger.info("User authenticated via trusted redirect")
+        # Only generate authorization code if we have a real JWT token
+        if user_authenticated and real_jwt_token:
+            # Generate authorization code
+            auth_code = f"clerk_auth_{os.urandom(16).hex()}"
             
-            # For trusted redirect, we can't generate real JWT without session
-            # This is expected behavior - real JWT only from JWT token flow
-            logger.warning("Trusted redirect authentication - no real JWT token available")
-        
-        if not user_authenticated:
-            return JSONResponse(
-                status_code=401,
-                content={"error": "access_denied", "error_description": "User not authenticated"}
-            )
-        
-        # Generate authorization code
-        auth_code = f"clerk_auth_{os.urandom(16).hex()}"
-        
-        # Store code with JWT token mapping (in production, use proper storage)
-        # For now, we'll use a simple in-memory storage
-        import time
-        code_data = {
-            "user_id": user_id,
-            "session_id": session_id,
-            "real_jwt_token": real_jwt_token,
-            "user_authenticated": user_authenticated,
-            "created_at": time.time(),
-            "expires_at": time.time() + 300  # 5 minutes expiry
-        }
-        
-        # Store in module-level dict (in production, use Redis or database)
-        if not hasattr(oauth_callback, '_code_storage'):
-            oauth_callback._code_storage = {}
-        oauth_callback._code_storage[auth_code] = code_data
-        
-        logger.info(f"Stored authorization code with JWT token: {bool(real_jwt_token)}")
-        
-        # Redirect back to client with authorization code
-        redirect_params = {
-            "code": auth_code,
-            "state": state or ""
-        }
-        
-        final_redirect_url = f"{redirect_uri}?{urlencode(redirect_params)}"
-        logger.info(f"Redirecting back to client: {final_redirect_url}")
-        
-        return RedirectResponse(url=final_redirect_url)
+            # Store code with JWT token mapping (in production, use proper storage)
+            # For now, we'll use a simple in-memory storage
+            import time
+            code_data = {
+                "user_id": user_id,
+                "session_id": session_id,
+                "real_jwt_token": real_jwt_token,
+                "user_authenticated": user_authenticated,
+                "created_at": time.time(),
+                "expires_at": time.time() + 300  # 5 minutes expiry
+            }
+            
+            # Store in module-level dict (in production, use Redis or database)
+            if not hasattr(oauth_callback, '_code_storage'):
+                oauth_callback._code_storage = {}
+            oauth_callback._code_storage[auth_code] = code_data
+            
+            logger.info(f"Stored authorization code with real JWT token")
+            
+            # Redirect back to client with authorization code
+            redirect_params = {
+                "code": auth_code,
+                "state": state or ""
+            }
+            
+            final_redirect_url = f"{redirect_uri}?{urlencode(redirect_params)}"
+            logger.info(f"Redirecting back to client: {final_redirect_url}")
+            
+            return RedirectResponse(url=final_redirect_url)
+        else:
+            # No JWT token yet - redirect back to sign-in page to wait for authentication
+            logger.info("No JWT token provided - redirecting back to sign-in to complete authentication")
+            
+            # Keep the same redirect URL so the flow continues
+            sign_in_params = {
+                "redirect_url": f"{request.url._url}"  # Current callback URL with all params
+            }
+            
+            sign_in_url = f"https://yargimcp.com/sign-in?{urlencode(sign_in_params)}"
+            logger.info(f"Redirecting back to sign-in: {sign_in_url}")
+            
+            return RedirectResponse(url=sign_in_url)
         
     except Exception as e:
         logger.exception(f"Callback processing failed: {e}")
