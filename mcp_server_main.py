@@ -31,7 +31,12 @@ root_logger.addHandler(console_handler)
 logger = logging.getLogger(__name__)
 # --- Logging Configuration End ---
 
-# Removed mcp_auth_factory import to eliminate OAuth tools from MCP protocol
+# Create FastMCP app directly without authentication wrapper
+from fastmcp import FastMCP
+
+def create_app():
+    """Create basic FastMCP app without authentication wrapper"""
+    return FastMCP("Yargı MCP Server")
 
 # --- Module Imports ---
 from yargitay_mcp_module.client import YargitayOfficialApiClient
