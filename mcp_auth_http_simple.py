@@ -78,12 +78,13 @@ async def oauth_authorize(
         # Encode callback URL as redirect_url for Clerk
         callback_with_params = f"{callback_url}?{urlencode(callback_params)}"
         
-        # Build Clerk sign-in URL
+        # Build Clerk sign-in URL - use yargimcp.com frontend for JWT token generation
         clerk_params = {
             "redirect_url": callback_with_params
         }
         
-        clerk_signin_url = f"https://{CLERK_DOMAIN}/sign-in?{urlencode(clerk_params)}"
+        # Use frontend sign-in page that handles JWT token generation
+        clerk_signin_url = f"https://yargimcp.com/sign-in?{urlencode(clerk_params)}"
         
         logger.info(f"Redirecting to Clerk: {clerk_signin_url}")
         
@@ -177,6 +178,10 @@ async def oauth_callback(
         if not user_authenticated:
             user_authenticated = True
             logger.info("User authenticated via trusted redirect")
+            
+            # For trusted redirect, we can't generate real JWT without session
+            # This is expected behavior - real JWT only from JWT token flow
+            logger.warning("Trusted redirect authentication - no real JWT token available")
         
         if not user_authenticated:
             return JSONResponse(
@@ -328,7 +333,7 @@ async def oauth_callback_post(request: Request):
         else:
             logger.warning("No real JWT token found, generating mock token")
             # Fallback to mock token for testing
-            mock_token = f"mock_clerk_jwt_{auth_code}"
+            mock_token = f"mock_clerk_jwt_{code}"
             return JSONResponse({
                 "access_token": mock_token,
                 "token_type": "Bearer",
