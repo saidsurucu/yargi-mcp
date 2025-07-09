@@ -2469,7 +2469,27 @@ atexit.register(perform_cleanup)
 # --- ChatGPT Deep Research Compatible Tools ---
 
 @app.tool(
-    description="ChatGPT Deep Research search for Turkish legal databases via Bedesten API - returns numeric document IDs and supports advanced search operators",
+    description="""
+    Search Turkish legal databases for court decisions and legal precedents. 
+    This tool searches across all major Turkish courts and returns document IDs for ChatGPT Deep Research.
+    
+    SEARCH LANGUAGE: Queries must be in Turkish - English terms will not work.
+    
+    SEARCH STRATEGY:
+    • Use specific legal terms: "mülkiyet hakkı" (property rights), "sözleşme ihlali" (contract breach)
+    • Try exact phrases in quotes: "\"idari işlem\"" for precise administrative law terms
+    • Combine multiple concepts: "+\"mülkiyet hakkı\" +\"anayasa\"" for constitutional property rights
+    • Search by legal areas: "\"ticaret hukuku\"", "\"medeni hukuk\"", "\"ceza hukuku\""
+    
+    COURT COVERAGE:
+    • Yargıtay: Supreme Court (civil/criminal final appeals)
+    • Danıştay: Council of State (administrative law)
+    • Yerel Hukuk: Local Civil Courts (first instance)
+    • İstinaf Hukuk: Civil Appeals Courts (intermediate appeals)  
+    • KYB: Extraordinary appeals (rare prosecutorial challenges)
+    
+    Returns document IDs that can be fetched with the fetch tool for full text analysis.
+    """,
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -2502,7 +2522,7 @@ async def search(
     • Yerel Hukuk (Local Civil Courts) - First instance civil decisions
     • İstinaf Hukuk (Civil Appeals Courts) - Appellate court decisions
     • Kanun Yararına Bozma (KYB) - Extraordinary appeal decisions""")
-) -> List[Dict[str, str]]:
+) -> Dict[str, List[str]]:
     """
     Bedesten API search tool for ChatGPT Deep Research compatibility.
     
@@ -2513,7 +2533,7 @@ async def search(
     For regular legal research, use specific court tools like search_yargitay_bedesten.
     
     Returns:
-    Array of search result objects with numeric id, title, text snippet, and mevzuat.adalet.gov.tr url fields
+    Object with "ids" field containing a list of document IDs for fetching
     as required by ChatGPT Deep Research specification.
     """
     logger.info(f"ChatGPT Deep Research search tool called with query: {query}")
@@ -2545,39 +2565,8 @@ async def search(
                 
                 # Add results from this court type (limit to top 5 per court)
                 for decision in search_results.data.emsalKararList[:5]:
-                    # Embed all metadata into title for ChatGPT Deep Research compatibility
-                    title_parts = [
-                        court_name,
-                        decision.birimAdi or 'Bilinmeyen Daire',
-                        f"Esas: {decision.esasNo or 'N/A'}",
-                        f"Karar: {decision.kararNo or 'N/A'}",
-                        f"Tarih: {decision.kararTarihiStr or 'N/A'}"
-                    ]
-                    
-                    # Add finalization status if available
-                    if decision.kesinlesmeDurumu:
-                        title_parts.append(f"Durum: {decision.kesinlesmeDurumu}")
-                    
-                    # Fetch first 1000 characters of document content
-                    document_preview = ""
-                    try:
-                        doc = await bedesten_client_instance.get_document_as_markdown(decision.documentId)
-                        if doc.markdown_content:
-                            # Get first 1000 characters of the document content
-                            document_preview = doc.markdown_content[:1000]
-                            # If truncated, add ellipsis
-                            if len(doc.markdown_content) > 1000:
-                                document_preview += "..."
-                    except Exception as e:
-                        logger.warning(f"Failed to fetch document preview for {decision.documentId}: {e}")
-                        document_preview = f"{court_name} decision on '{query}' - Date: {decision.kararTarihi} - Court: {decision.birimAdi or 'Unknown'}"
-                    
-                    results.append({
-                        "id": decision.documentId,
-                        "title": " - ".join(title_parts),
-                        "text": document_preview,
-                        "url": f"https://mevzuat.adalet.gov.tr/ictihat/{decision.documentId}"
-                    })
+                    # For ChatGPT Deep Research, only collect document IDs
+                    results.append(decision.documentId)
                     
                 logger.info(f"Found {len(search_results.data.emsalKararList)} results from {court_name}")
                 
@@ -2600,17 +2589,37 @@ async def search(
         """
         
         logger.info(f"ChatGPT Deep Research search completed. Found {len(results)} results via Bedesten API.")
-        return results
+        return {"ids": results}
         
     except Exception as e:
         logger.exception("Error in ChatGPT Deep Research search tool")
         # Return partial results if any were found
         if results:
-            return results
+            return {"ids": results}
         raise
 
 @app.tool(
-    description="ChatGPT Deep Research fetch for Turkish legal documents via Bedesten API - accepts numeric document IDs and retrieves complete text in Markdown format",
+    description="""
+    Retrieve full text of Turkish legal documents using document IDs from search results.
+    This tool fetches complete court decisions in clean Markdown format for analysis.
+    
+    INPUT: Numeric document ID from search tool results (e.g., "730113500", "1149020800")
+    
+    OUTPUT: Complete legal document with:
+    • Full decision text in readable Markdown format
+    • Court metadata (chamber, case numbers, dates)
+    • Legal reasoning and conclusions
+    • Citations and legal references
+    
+    DOCUMENT TYPES:
+    • Supreme Court opinions with detailed legal analysis
+    • Administrative court decisions on government actions
+    • Civil court rulings on private disputes
+    • Criminal court decisions and sentencing rationale
+    • Extraordinary appeal reviews by prosecutors
+    
+    Use this tool after searching to get the complete text of relevant legal decisions for analysis, citation, and research.
+    """,
     annotations={
         "readOnlyHint": True,
         "openWorldHint": False,  # Retrieves specific documents, not exploring
@@ -2653,9 +2662,44 @@ async def fetch(
         # Use the numeric ID directly with Bedesten API
         doc = await bedesten_client_instance.get_document_as_markdown(id)
         
+        # Try to get additional metadata by searching for this specific document
+        title = f"Turkish Legal Document {id}"
+        try:
+            # Quick search to get metadata for better title
+            search_results = await bedesten_client_instance.search_documents(
+                BedestenSearchRequest(
+                    data=BedestenSearchData(
+                        phrase=id,  # Search by document ID
+                        pageSize=1,
+                        pageNumber=1
+                    )
+                )
+            )
+            
+            if search_results.data.emsalKararList:
+                decision = search_results.data.emsalKararList[0]
+                if decision.documentId == id:
+                    # Build a proper title from metadata
+                    title_parts = []
+                    if decision.birimAdi:
+                        title_parts.append(decision.birimAdi)
+                    if decision.esasNo:
+                        title_parts.append(f"Esas: {decision.esasNo}")
+                    if decision.kararNo:
+                        title_parts.append(f"Karar: {decision.kararNo}")
+                    if decision.kararTarihiStr:
+                        title_parts.append(f"Tarih: {decision.kararTarihiStr}")
+                    
+                    if title_parts:
+                        title = " - ".join(title_parts)
+                    else:
+                        title = f"Turkish Legal Decision {id}"
+        except Exception as e:
+            logger.warning(f"Could not fetch metadata for document {id}: {e}")
+        
         return {
             "id": id,
-            "title": f"Turkish Legal Database - Document {id}",
+            "title": title,
             "text": doc.markdown_content,
             "url": f"https://mevzuat.adalet.gov.tr/ictihat/{id}",
             "metadata": {
@@ -2664,8 +2708,7 @@ async def fetch(
                 "source_url": doc.source_url,
                 "mime_type": doc.mime_type,
                 "api_source": "Bedesten Unified API",
-                "chatgpt_deep_research": True,
-                "note": "For detailed metadata (birimAdi, esasNo, kararNo, etc.), use the search tool results"
+                "chatgpt_deep_research": True
             }
         }
         
