@@ -121,10 +121,10 @@ async def oauth_callback(
             try:
                 clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
                 
-                # Extract session_id from JWT token
+                # Extract session_id from JWT token (use 'sid' claim - standard JWT claim)
                 import jwt
                 decoded_token = jwt.decode(clerk_token, options={"verify_signature": False})
-                session_id = decoded_token.get("sid") or decoded_token.get("session_id")
+                session_id = decoded_token.get("sid")  # Use standard JWT 'sid' claim
                 
                 if session_id:
                     # Verify with Clerk using session_id

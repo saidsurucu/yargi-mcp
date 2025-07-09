@@ -156,7 +156,7 @@ async def mcp_protocol_handler(request: Request):
             # First, decode JWT token without verification to get session_id
             try:
                 decoded_token = jwt.decode(token, options={"verify_signature": False})
-                session_id = decoded_token.get("sid") or decoded_token.get("session_id")
+                session_id = decoded_token.get("sid")  # Use standard JWT 'sid' claim
                 user_id = decoded_token.get("sub") or decoded_token.get("user_id")
                 
                 logger.info(f"JWT token claims - session_id: {session_id}, user_id: {user_id}")
@@ -482,7 +482,7 @@ async def validate_clerk_session(request: Request, clerk_token: str = None) -> s
                 # Extract session_id from JWT token and verify with Clerk
                 import jwt
                 decoded_token = jwt.decode(clerk_token, options={"verify_signature": False})
-                session_id = decoded_token.get("sid") or decoded_token.get("session_id")
+                session_id = decoded_token.get("sid")  # Use standard JWT 'sid' claim
                 
                 if session_id:
                     # Verify with Clerk using session_id
