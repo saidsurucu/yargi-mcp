@@ -10,7 +10,6 @@ Usage:
 """
 
 import os
-import jwt
 import time
 import logging
 from datetime import datetime, timedelta
@@ -33,7 +32,6 @@ from mcp_auth_http_adapter import router as mcp_auth_router
 # OAuth configuration from environment variables
 CLERK_ISSUER = os.getenv("CLERK_ISSUER", "https://accounts.yargimcp.com")
 BASE_URL = os.getenv("BASE_URL", "https://yargimcp.com")
-JWT_SECRET = os.getenv("JWT_SECRET_KEY", "your-secret-key-here")
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -97,19 +95,63 @@ app.mount("/mcp-server", mcp_app)
 async def mcp_protocol_handler(request: Request):
     """Handle MCP protocol requests by forwarding to mounted app"""
     
-    # Optional: Validate Bearer JWT tokens for direct API access
+    # Optional: Validate Clerk Bearer JWT tokens for direct API access
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
         try:
-            # Validate custom JWT token (for direct API access)
-            user_payload = validate_mcp_token(token)
-            logger.info(f"Bearer JWT token validated for user: {user_payload.get('user_id')}")
-            # Add user info to request state
-            request.state.user_id = user_payload["user_id"]
-            request.state.token_scopes = user_payload.get("scopes", ["read", "search"])
-        except HTTPException as e:
-            logger.warning(f"Bearer token validation failed: {e.detail}")
+            # Validate Clerk JWT token
+            from clerk_backend_api import Clerk
+            clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
+            
+            # Validate Clerk JWT token using authenticate_request
+            import httpx
+            from clerk_backend_api.security import authenticate_request
+            from clerk_backend_api.security.types import AuthenticateRequestOptions
+            
+            # Create a mock request with the Bearer token
+            mock_request = httpx.Request(
+                method="POST",
+                url="https://api.yargimcp.com/mock",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            
+            request_state = clerk.authenticate_request(
+                mock_request,
+                AuthenticateRequestOptions(
+                    authorized_parties=['https://api.yargimcp.com']
+                )
+            )
+            
+            if request_state.is_signed_in:
+                # Get user info from token payload
+                payload = getattr(request_state, 'payload', {})
+                
+                # Extract user information from JWT payload
+                user_email = payload.get('email')  # Primary identifier
+                user_name = payload.get('name')
+                user_plan = payload.get('plan', 'free')  # Default to free plan
+                scopes = payload.get('scopes', ['yargi.read'])
+                
+                # Use email as primary user identifier
+                user_id = user_email or request_state.user_id
+                
+                logger.info(f"Clerk JWT token validated successfully")
+                logger.info(f"User: {user_email}")
+                logger.info(f"Plan: {user_plan}")
+                logger.info(f"Scopes: {scopes}")
+                
+                # Add user info to request state
+                request.state.user_id = user_id
+                request.state.user_email = user_email
+                request.state.user_name = user_name
+                request.state.user_plan = user_plan
+                request.state.token_scopes = scopes
+            else:
+                logger.warning(f"Clerk JWT token validation failed. Reason: {getattr(request_state, 'reason', 'UNKNOWN')}")
+                user_id = None
+        except Exception as e:
+            logger.warning(f"Clerk Bearer token validation failed: {str(e)}")
             # Don't fail here - let MCP Auth Toolkit handle it
             pass
     
@@ -156,19 +198,59 @@ async def mcp_protocol_handler(request: Request):
 async def sse_protocol_handler(request: Request):
     """Handle SSE MCP protocol requests by forwarding to mounted SSE app"""
     
-    # Optional: Validate Bearer JWT tokens for direct API access
+    # Optional: Validate Clerk Bearer JWT tokens for direct API access
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
         try:
-            # Validate custom JWT token (for direct API access)
-            user_payload = validate_mcp_token(token)
-            logger.info(f"SSE Bearer JWT token validated for user: {user_payload.get('user_id')}")
-            # Add user info to request state
-            request.state.user_id = user_payload["user_id"]
-            request.state.token_scopes = user_payload.get("scopes", ["read", "search"])
-        except HTTPException as e:
-            logger.warning(f"SSE Bearer token validation failed: {e.detail}")
+            # Validate Clerk JWT token
+            from clerk_backend_api import Clerk
+            clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
+            
+            # Validate Clerk JWT token using authenticate_request
+            import httpx
+            from clerk_backend_api.security import authenticate_request
+            from clerk_backend_api.security.types import AuthenticateRequestOptions
+            
+            # Create a mock request with the Bearer token
+            mock_request = httpx.Request(
+                method="POST",
+                url="https://api.yargimcp.com/mock",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            
+            request_state = clerk.authenticate_request(
+                mock_request,
+                AuthenticateRequestOptions(
+                    authorized_parties=['https://api.yargimcp.com']
+                )
+            )
+            
+            if request_state.is_signed_in:
+                # Get user info from token payload
+                payload = getattr(request_state, 'payload', {})
+                
+                # Extract user information from JWT payload  
+                user_email = payload.get('email')  # Primary identifier
+                user_plan = payload.get('plan', 'free')
+                scopes = payload.get('scopes', ['yargi.read'])
+                
+                # Use email as primary user identifier
+                user_id = user_email or request_state.user_id
+            else:
+                user_id = None
+            
+            if user_id:
+                logger.info(f"SSE Clerk Bearer JWT token validated for user: {user_id}")
+                # Add user info to request state
+                request.state.user_id = user_id
+                request.state.user_email = user_email
+                request.state.user_plan = user_plan
+                request.state.token_scopes = scopes
+            else:
+                logger.warning("SSE Clerk JWT token validation failed - no user_id in claims")
+        except Exception as e:
+            logger.warning(f"SSE Clerk Bearer token validation failed: {str(e)}")
             # Don't fail here - let MCP Auth Toolkit handle it
             pass
     
@@ -419,28 +501,8 @@ async def status():
         "auth_status": "enabled" if os.getenv("ENABLE_AUTH", "false").lower() == "true" else "disabled"
     })
 
-# MCP Token Generation and Validation
-def generate_mcp_token(user_id: str, expires_in: int = 3600) -> str:
-    """Generate MCP access token for authenticated user"""
-    payload = {
-        "user_id": user_id,
-        "iat": int(time.time()),
-        "exp": int(time.time()) + expires_in,
-        "iss": BASE_URL,
-        "aud": "mcp-client",
-        "scopes": ["read", "search"]
-    }
-    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
-
-def validate_mcp_token(token: str) -> dict:
-    """Validate MCP access token and return user info"""
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+# Note: JWT token validation is now handled entirely by Clerk
+# All authentication flows use Clerk JWT tokens directly
 
 async def validate_clerk_session(request: Request, clerk_token: str = None) -> str:
     """Validate Clerk session from cookies or JWT token and return user_id"""
@@ -498,9 +560,8 @@ async def mcp_oauth_callback(request: Request, clerk_token: str = Query(None)):
         user_id = await validate_clerk_session(request, clerk_token)
         logger.info(f"User authenticated successfully - user_id: {user_id}")
         
-        # Generate MCP token
-        mcp_token = generate_mcp_token(user_id)
-        logger.info("MCP token generated successfully")
+        # Use the Clerk JWT token directly (no need to generate custom token)
+        logger.info("User authenticated successfully via Clerk")
         
         # Return success response
         return HTMLResponse(f"""
@@ -517,8 +578,8 @@ async def mcp_oauth_callback(request: Request, clerk_token: str = Query(None)):
                 <h1 class="success">✅ MCP Connection Successful!</h1>
                 <p>Your Yargı MCP integration is now active.</p>
                 <div class="token">
-                    <strong>Access Token:</strong><br>
-                    <code>{mcp_token}</code>
+                    <strong>Authentication:</strong><br>
+                    <code>Use your Clerk JWT token directly with Bearer authentication</code>
                 </div>
                 <p>You can now close this window and return to your MCP client.</p>
                 <script>
@@ -526,7 +587,7 @@ async def mcp_oauth_callback(request: Request, clerk_token: str = Query(None)):
                     if (window.opener) {{
                         window.opener.postMessage({{
                             type: 'MCP_AUTH_SUCCESS',
-                            token: '{mcp_token}'
+                            token: 'use_clerk_jwt_token'
                         }}, '*');
                         setTimeout(() => window.close(), 3000);
                     }}
@@ -581,21 +642,20 @@ async def mcp_oauth_callback(request: Request, clerk_token: str = Query(None)):
         </html>
         """, status_code=500)
 
-# MCP Token Endpoint (for OAuth2 compatibility)
+# OAuth2 Token Endpoint - Now uses Clerk JWT tokens directly
 @app.post("/auth/mcp-token")
 async def mcp_token_endpoint(request: Request):
-    """OAuth2 token endpoint for MCP clients"""
+    """OAuth2 token endpoint for MCP clients - returns Clerk JWT token info"""
     try:
-        # For simplicity, we'll handle this as a redirect from callback
-        # In a full OAuth2 implementation, this would handle authorization codes
+        # Validate Clerk session
         user_id = await validate_clerk_session(request)
-        mcp_token = generate_mcp_token(user_id)
         
         return JSONResponse({
-            "access_token": mcp_token,
+            "message": "Use your Clerk JWT token directly with Bearer authentication",
             "token_type": "Bearer",
-            "expires_in": 3600,
-            "scope": "read search"
+            "scope": "yargi.read",
+            "user_id": user_id,
+            "instructions": "Include 'Authorization: Bearer YOUR_CLERK_JWT_TOKEN' in your requests"
         })
     except HTTPException as e:
         return JSONResponse(
