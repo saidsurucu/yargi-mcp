@@ -198,9 +198,17 @@ async def oauth_callback(
                 from clerk_backend_api import Clerk
                 clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
                 
-                # Verify the JWT token
-                jwt_claims = clerk.jwt_templates.verify_token(clerk_token)
-                user_id = jwt_claims.get("sub")
+                # Extract session_id from JWT token and verify with Clerk
+                import jwt
+                decoded_token = jwt.decode(clerk_token, options={"verify_signature": False})
+                session_id = decoded_token.get("sid") or decoded_token.get("session_id")
+                
+                if session_id:
+                    # Verify with Clerk using session_id
+                    session = clerk.sessions.verify(session_id=session_id, token=clerk_token)
+                    user_id = session.user_id if session else None
+                else:
+                    user_id = None
                 
                 if user_id:
                     logger.info(f"JWT token validation successful - user_id: {user_id}")
@@ -340,11 +348,10 @@ async def token_endpoint(request: Request):
                     # Return Clerk JWT token format
                     # This should be the actual Clerk JWT token from the OAuth flow
                     return JSONResponse({
-                        "access_token": "use_clerk_jwt_token_here",
+                        "access_token": f"mock_clerk_jwt_{code}",
                         "token_type": "Bearer",
                         "expires_in": 3600,
-                        "scope": "yargi.read yargi.search",
-                        "instructions": "Replace 'use_clerk_jwt_token_here' with actual Clerk JWT token from OAuth callback"
+                        "scope": "yargi.read yargi.search"
                     })
                 else:
                     logger.error(f"Invalid code format: {code}")

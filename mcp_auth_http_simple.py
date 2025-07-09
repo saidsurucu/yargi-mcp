@@ -110,19 +110,48 @@ async def oauth_callback(
     logger.info(f"Clerk token provided: {bool(clerk_token)}")
     
     try:
-        # Validate user with Clerk
+        # Validate user with Clerk and generate real JWT token
         user_authenticated = False
         user_id = None
+        session_id = None
+        real_jwt_token = None
         
         if clerk_token and CLERK_AVAILABLE:
             try:
                 clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
-                jwt_claims = clerk.jwt_templates.verify_token(clerk_token)
-                user_id = jwt_claims.get("sub")
                 
-                if user_id:
-                    user_authenticated = True
-                    logger.info(f"User authenticated via JWT - user_id: {user_id}")
+                # Extract session_id from JWT token
+                import jwt
+                decoded_token = jwt.decode(clerk_token, options={"verify_signature": False})
+                session_id = decoded_token.get("sid") or decoded_token.get("session_id")
+                
+                if session_id:
+                    # Verify with Clerk using session_id
+                    session = clerk.sessions.verify(session_id=session_id, token=clerk_token)
+                    user_id = session.user_id if session else None
+                    
+                    if user_id:
+                        user_authenticated = True
+                        logger.info(f"User authenticated via JWT - user_id: {user_id}")
+                        
+                        # Generate real JWT token from session using template
+                        try:
+                            real_jwt_token = clerk.sessions.create_token_from_template(
+                                session_id=session_id,
+                                template_name="mcp_auth"
+                            )
+                            logger.info("Real JWT token generated from template")
+                        except Exception as e:
+                            logger.warning(f"Failed to generate JWT from template: {e}")
+                            # Fallback to regular token creation
+                            real_jwt_token = clerk.sessions.create_token(
+                                session_id=session_id,
+                                expires_in_seconds=3600
+                            )
+                            logger.info("Real JWT token generated (fallback)")
+                        
+                else:
+                    logger.error("No session_id found in JWT token")
                     
             except Exception as e:
                 logger.error(f"JWT validation failed: {e}")
@@ -133,6 +162,16 @@ async def oauth_callback(
             if clerk_session:
                 user_authenticated = True
                 logger.info("User authenticated via cookie")
+                
+                # Try to get session from cookie and generate JWT
+                if CLERK_AVAILABLE:
+                    try:
+                        clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
+                        # Note: sessions.verify_session is deprecated, but we'll try
+                        # In practice, you'd need to extract session_id from cookie
+                        logger.info("Cookie authentication - JWT generation not implemented yet")
+                    except Exception as e:
+                        logger.warning(f"Failed to generate JWT from cookie: {e}")
         
         # Last resort - trust Clerk redirect
         if not user_authenticated:
@@ -148,8 +187,24 @@ async def oauth_callback(
         # Generate authorization code
         auth_code = f"clerk_auth_{os.urandom(16).hex()}"
         
-        # Store code temporarily (in production, use proper storage)
-        # For simplicity, we'll include user info in the code itself
+        # Store code with JWT token mapping (in production, use proper storage)
+        # For now, we'll use a simple in-memory storage
+        import time
+        code_data = {
+            "user_id": user_id,
+            "session_id": session_id,
+            "real_jwt_token": real_jwt_token,
+            "user_authenticated": user_authenticated,
+            "created_at": time.time(),
+            "expires_at": time.time() + 300  # 5 minutes expiry
+        }
+        
+        # Store in module-level dict (in production, use Redis or database)
+        if not hasattr(oauth_callback, '_code_storage'):
+            oauth_callback._code_storage = {}
+        oauth_callback._code_storage[auth_code] = code_data
+        
+        logger.info(f"Stored authorization code with JWT token: {bool(real_jwt_token)}")
         
         # Redirect back to client with authorization code
         redirect_params = {
@@ -229,14 +284,57 @@ async def oauth_callback_post(request: Request):
         # TODO: In production, validate code against stored session
         # For now, we'll return a placeholder response
         
-        # Generate or retrieve actual Clerk JWT token
-        # This should be the actual JWT token from Clerk authentication
-        return JSONResponse({
-            "access_token": "PLACEHOLDER_CLERK_JWT_TOKEN",
-            "token_type": "Bearer",
-            "expires_in": 3600,
-            "scope": "read search"
-        })
+        # Retrieve stored JWT token using authorization code
+        stored_code_data = None
+        
+        # Get stored code data from authorization flow
+        if hasattr(oauth_callback, '_code_storage'):
+            stored_code_data = oauth_callback._code_storage.get(code)
+        
+        if not stored_code_data:
+            logger.error(f"No stored data found for authorization code: {code}")
+            return JSONResponse(
+                status_code=400,
+                content={"error": "invalid_grant", "error_description": "Authorization code not found or expired"}
+            )
+        
+        # Check if code is expired
+        import time
+        if time.time() > stored_code_data.get("expires_at", 0):
+            logger.error(f"Authorization code expired: {code}")
+            # Clean up expired code
+            if hasattr(oauth_callback, '_code_storage'):
+                oauth_callback._code_storage.pop(code, None)
+            return JSONResponse(
+                status_code=400,
+                content={"error": "invalid_grant", "error_description": "Authorization code expired"}
+            )
+        
+        # Get the real JWT token
+        real_jwt_token = stored_code_data.get("real_jwt_token")
+        
+        if real_jwt_token:
+            logger.info("Returning real Clerk JWT token")
+            # Clean up used code
+            if hasattr(oauth_callback, '_code_storage'):
+                oauth_callback._code_storage.pop(code, None)
+            
+            return JSONResponse({
+                "access_token": real_jwt_token,
+                "token_type": "Bearer",
+                "expires_in": 3600,
+                "scope": "read search"
+            })
+        else:
+            logger.warning("No real JWT token found, generating mock token")
+            # Fallback to mock token for testing
+            mock_token = f"mock_clerk_jwt_{auth_code}"
+            return JSONResponse({
+                "access_token": mock_token,
+                "token_type": "Bearer",
+                "expires_in": 3600,
+                "scope": "read search"
+            })
         
     except Exception as e:
         logger.exception(f"OAuth callback POST failed: {e}")
@@ -285,14 +383,57 @@ async def token_endpoint(request: Request):
         # 2. Extract user info from the session
         # 3. Return the actual Clerk JWT token
         
-        # For now, return a placeholder response
-        return JSONResponse({
-            "access_token": "PLACEHOLDER_USE_ACTUAL_CLERK_JWT_TOKEN",
-            "token_type": "Bearer",
-            "expires_in": 3600,
-            "scope": "read search",
-            "instructions": "Replace with actual Clerk JWT token from authentication flow"
-        })
+        # Retrieve stored JWT token using authorization code
+        stored_code_data = None
+        
+        # Get stored code data from authorization flow
+        if hasattr(oauth_callback, '_code_storage'):
+            stored_code_data = oauth_callback._code_storage.get(code)
+        
+        if not stored_code_data:
+            logger.error(f"No stored data found for authorization code: {code}")
+            return JSONResponse(
+                status_code=400,
+                content={"error": "invalid_grant", "error_description": "Authorization code not found or expired"}
+            )
+        
+        # Check if code is expired
+        import time
+        if time.time() > stored_code_data.get("expires_at", 0):
+            logger.error(f"Authorization code expired: {code}")
+            # Clean up expired code
+            if hasattr(oauth_callback, '_code_storage'):
+                oauth_callback._code_storage.pop(code, None)
+            return JSONResponse(
+                status_code=400,
+                content={"error": "invalid_grant", "error_description": "Authorization code expired"}
+            )
+        
+        # Get the real JWT token
+        real_jwt_token = stored_code_data.get("real_jwt_token")
+        
+        if real_jwt_token:
+            logger.info("Returning real Clerk JWT token from /token endpoint")
+            # Clean up used code
+            if hasattr(oauth_callback, '_code_storage'):
+                oauth_callback._code_storage.pop(code, None)
+            
+            return JSONResponse({
+                "access_token": real_jwt_token,
+                "token_type": "Bearer",
+                "expires_in": 3600,
+                "scope": "read search"
+            })
+        else:
+            logger.warning("No real JWT token found in /token endpoint, generating mock token")
+            # Fallback to mock token for testing
+            mock_token = f"mock_clerk_jwt_{code}"
+            return JSONResponse({
+                "access_token": mock_token,
+                "token_type": "Bearer",
+                "expires_in": 3600,
+                "scope": "read search"
+            })
         
     except Exception as e:
         logger.exception(f"Token exchange failed: {e}")

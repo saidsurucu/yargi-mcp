@@ -190,3 +190,4 @@ GEMINI.md
 fly.toml
 scripts/deploy-flyio.sh
 docs/DEPLOYMENT_FLYIO.md
+setup_jwt_template.py
