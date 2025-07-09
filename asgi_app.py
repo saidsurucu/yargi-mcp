@@ -139,22 +139,54 @@ async def mcp_protocol_handler(request: Request):
     token = auth_header.split(" ")[1]
     try:
         # Validate Clerk JWT token (required)
-        from clerk_backend_api import Clerk
-        clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
-        jwt_claims = clerk.jwt_templates.verify_token(token)
-        user_id = jwt_claims.get("sub")
+        from clerk_backend_api import Clerk, models
+        import jwt
         
-        if not user_id:
-            logger.error("JWT token validation failed - no user_id in claims")
+        # First, decode JWT token without verification to get session_id
+        try:
+            decoded_token = jwt.decode(token, options={"verify_signature": False})
+            session_id = decoded_token.get("sid") or decoded_token.get("session_id")
+        except Exception as e:
+            logger.error(f"JWT token decoding failed: {e}")
             raise HTTPException(
                 status_code=401,
-                detail="Invalid token - no user_id in claims"
+                detail="Invalid JWT token format"
             )
         
-        logger.info(f"Bearer JWT token validated for user: {user_id}")
-        # Add user info to request state
-        request.state.user_id = user_id
-        request.state.token_scopes = jwt_claims.get("scopes", ["read", "search"])
+        if not session_id:
+            logger.error("No session_id found in JWT token")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token - no session_id in claims"
+            )
+        
+        # Now verify the session with Clerk
+        clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
+        
+        try:
+            # Use deprecated but working sessions.verify method
+            session = clerk.sessions.verify(session_id=session_id, token=token)
+            user_id = session.user_id if session else None
+            
+            if not user_id:
+                logger.error("Session verification failed - no user_id")
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid session - no user_id"
+                )
+            
+            logger.info(f"Bearer JWT token validated for user: {user_id}")
+            # Add user info to request state
+            request.state.user_id = user_id
+            request.state.session_id = session_id
+            request.state.token_scopes = ["read", "search"]  # Default scopes
+            
+        except models.ClerkErrors as e:
+            logger.error(f"Clerk session verification failed: {e}")
+            raise HTTPException(
+                status_code=401,
+                detail="Session verification failed"
+            )
         
     except HTTPException:
         # Re-raise HTTPException as-is

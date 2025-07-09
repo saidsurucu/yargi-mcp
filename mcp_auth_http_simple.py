@@ -189,6 +189,62 @@ async def register_client(request: Request):
         "token_endpoint_auth_method": "none"
     })
 
+@router.post("/auth/callback")
+async def oauth_callback_post(request: Request):
+    """OAuth callback POST endpoint for token exchange"""
+    
+    # Parse form data (standard OAuth token exchange format)
+    form_data = await request.form()
+    grant_type = form_data.get("grant_type")
+    code = form_data.get("code")
+    redirect_uri = form_data.get("redirect_uri")
+    client_id = form_data.get("client_id")
+    code_verifier = form_data.get("code_verifier")
+    
+    logger.info(f"OAuth callback POST - grant_type: {grant_type}")
+    logger.info(f"Code: {code[:20] if code else 'None'}...")
+    logger.info(f"Client ID: {client_id}")
+    logger.info(f"PKCE verifier: {bool(code_verifier)}")
+    
+    if grant_type != "authorization_code":
+        return JSONResponse(
+            status_code=400,
+            content={"error": "unsupported_grant_type"}
+        )
+    
+    if not code or not redirect_uri:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "invalid_request", "error_description": "Missing code or redirect_uri"}
+        )
+    
+    try:
+        # Validate authorization code
+        if not code.startswith("clerk_auth_"):
+            return JSONResponse(
+                status_code=400,
+                content={"error": "invalid_grant", "error_description": "Invalid authorization code"}
+            )
+        
+        # TODO: In production, validate code against stored session
+        # For now, we'll return a placeholder response
+        
+        # Generate or retrieve actual Clerk JWT token
+        # This should be the actual JWT token from Clerk authentication
+        return JSONResponse({
+            "access_token": "PLACEHOLDER_CLERK_JWT_TOKEN",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "scope": "read search"
+        })
+        
+    except Exception as e:
+        logger.exception(f"OAuth callback POST failed: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "server_error", "error_description": str(e)}
+        )
+
 @router.post("/token")
 async def token_endpoint(request: Request):
     """OAuth 2.1 Token Endpoint - exchanges code for Clerk JWT"""
