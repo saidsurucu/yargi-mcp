@@ -130,35 +130,19 @@ async def mcp_protocol_handler(request: Request):
             from clerk_backend_api import Clerk
             clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
             
-            # Validate Clerk JWT token using authenticate_request
-            import httpx
-            from clerk_backend_api.security import authenticate_request
-            from clerk_backend_api.security.types import AuthenticateRequestOptions
+            # Validate Clerk JWT token directly
+            jwt_claims = clerk.jwt_templates.verify_token(token)
+            user_id = jwt_claims.get("sub")
             
-            # Create a mock request with the Bearer token
-            mock_request = httpx.Request(
-                method="POST",
-                url="https://api.yargimcp.com/mock",
-                headers={"Authorization": f"Bearer {token}"}
-            )
-            
-            request_state = clerk.authenticate_request(
-                mock_request,
-                AuthenticateRequestOptions()
-            )
-            
-            if request_state.is_signed_in:
-                # Get user info from token payload
-                payload = getattr(request_state, 'payload', {})
-                
+            if user_id:
                 # Extract user information from JWT payload
-                user_email = payload.get('email')  # Primary identifier
-                user_name = payload.get('name')
-                user_plan = payload.get('plan', 'free')  # Default to free plan
-                scopes = payload.get('scopes', ['yargi.read'])
+                user_email = jwt_claims.get('email')  # Primary identifier
+                user_name = jwt_claims.get('name')
+                user_plan = jwt_claims.get('plan', 'free')  # Default to free plan
+                scopes = jwt_claims.get('scopes', ['yargi.read'])
                 
-                # Use email as primary user identifier
-                user_id = user_email or request_state.user_id
+                # Use email as primary user identifier if available
+                user_id = user_email or user_id
                 
                 logger.info(f"Clerk JWT token validated successfully")
                 logger.info(f"User: {user_email}")
@@ -172,7 +156,7 @@ async def mcp_protocol_handler(request: Request):
                 request.state.user_plan = user_plan
                 request.state.token_scopes = scopes
             else:
-                logger.warning(f"Clerk JWT token validation failed. Reason: {getattr(request_state, 'reason', 'UNKNOWN')}")
+                logger.warning(f"Clerk JWT token validation failed - no user_id in claims")
                 user_id = None
         except Exception as e:
             logger.warning(f"Clerk Bearer token validation failed: {str(e)}")
