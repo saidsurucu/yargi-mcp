@@ -126,7 +126,7 @@ async def mcp_protocol_handler(request: Request):
             content="Session terminated successfully"
         )
     
-    # Optional: Validate Clerk Bearer JWT tokens for direct API access
+    # Optional: Validate Bearer JWT tokens as secondary auth method
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
@@ -148,41 +148,24 @@ async def mcp_protocol_handler(request: Request):
             user_id = jwt_claims.get("sub")
             
             if user_id:
-                # Extract user information from JWT payload
-                user_email = jwt_claims.get('email')  # Primary identifier
-                user_name = jwt_claims.get('name')
-                user_plan = jwt_claims.get('plan', 'free')  # Default to free plan
-                scopes = jwt_claims.get('scopes', ['yargi.read'])
-                
-                # Use email as primary user identifier if available
-                user_id = user_email or user_id
-                
-                logger.info(f"Clerk JWT token validated successfully")
-                logger.info(f"User: {user_email}")
-                logger.info(f"Plan: {user_plan}")
-                logger.info(f"Scopes: {scopes}")
-                
+                logger.info(f"JWT Bearer token validated successfully for user: {user_id}")
                 # Add user info to request state
                 request.state.user_id = user_id
-                request.state.user_email = user_email
-                request.state.user_name = user_name
-                request.state.user_plan = user_plan
-                request.state.token_scopes = scopes
+                request.state.auth_method = "bearer_jwt"
             else:
-                logger.warning(f"Clerk JWT token validation failed - no user_id in claims")
-                user_id = None
+                logger.warning("JWT Bearer token validation failed - no user_id in claims")
         except Exception as e:
-            logger.warning(f"Clerk Bearer token validation failed: {str(e)}")
-            # Don't fail here - let MCP Auth Toolkit handle it
+            logger.warning(f"JWT Bearer token validation failed: {str(e)}")
+            # Don't fail here - let MCP Auth Toolkit handle it as fallback
             pass
     
-    # Forward the request to the mounted MCP app
+    # Forward the request to the MCP app
     async def receive():
         return await request.receive()
     
-    # Create new scope for the mounted app
+    # Create new scope for the MCP app
     scope = request.scope.copy()
-    scope["path"] = "/"  # Root path for mounted app
+    scope["path"] = "/"  # Root path for MCP app
     scope["path_info"] = "/"
     
     # Capture the response
@@ -195,7 +178,7 @@ async def mcp_protocol_handler(request: Request):
         elif message["type"] == "http.response.body":
             response_parts["body"] += message.get("body", b"")
     
-    # Call the mounted MCP app
+    # Call the MCP app directly
     await mcp_app(scope, receive, send)
     
     # Return the response
