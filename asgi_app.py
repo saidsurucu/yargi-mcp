@@ -89,8 +89,8 @@ app = FastAPI(
 # Add Stripe webhook router to FastAPI
 app.include_router(stripe_router, prefix="/api")
 
-# Add MCP Auth HTTP adapter to FastAPI under /mcp prefix (replaces old OAuth router)
-app.include_router(mcp_auth_router, prefix="/mcp")
+# MCP Auth HTTP adapter now handled by create_app() - no need for separate router
+# app.include_router(mcp_auth_router, prefix="/mcp")  # Commented out to avoid duplication
 
 # Custom 401 exception handler for MCP spec compliance
 @app.exception_handler(401)
