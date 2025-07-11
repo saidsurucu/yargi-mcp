@@ -4,7 +4,7 @@ import atexit
 import logging
 import os
 from pydantic import HttpUrl, Field 
-from typing import Optional, Dict, List, Literal, Any
+from typing import Optional, Dict, List, Literal, Any, Union
 import urllib.parse
 
 # --- Logging Configuration Start ---
@@ -101,6 +101,14 @@ from sayistay_mcp_module.models import (
 )
 from sayistay_mcp_module.enums import DaireEnum, KamuIdaresiTuruEnum, WebKararKonusuEnum
 
+# KVKK Module Imports
+from kvkk_mcp_module.client import KvkkApiClient
+from kvkk_mcp_module.models import (
+    KvkkSearchRequest,
+    KvkkSearchResult,
+    KvkkDocumentMarkdown
+)
+
 
 app = create_app()
 
@@ -115,6 +123,7 @@ kik_client_instance = KikApiClient()
 rekabet_client_instance = RekabetKurumuApiClient()
 bedesten_client_instance = BedestenApiClient()
 sayistay_client_instance = SayistayApiClient()
+kvkk_client_instance = KvkkApiClient()
 
 
 KARAR_TURU_ADI_TO_GUID_ENUM_MAP = {
@@ -1095,7 +1104,7 @@ async def search_anayasa_bireysel_basvuru_report(
 )
 async def get_anayasa_bireysel_basvuru_document_markdown(
     document_url_path: str = Field(..., description="The URL path (e.g., /BB/YYYY/NNNN) of the AYM Bireysel Başvuru decision from kararlarbilgibankasi.anayasa.gov.tr."),
-    page_number: Optional[int] = Field(1, ge=1, description="Page number for paginated Markdown content (1-indexed). Default is 1 (first 5,000 characters).")
+    page_number: Union[int, str] = Field(1, description="Page number for paginated Markdown content (1-indexed). Default is 1 (first 5,000 characters). Accepts int.")
 ) -> AnayasaBireyselBasvuruDocumentMarkdown:
     """
     Retrieves the full text of a Constitutional Court individual application decision in paginated Markdown format.
@@ -1133,7 +1142,14 @@ async def get_anayasa_bireysel_basvuru_document_markdown(
     logger.info(f"Tool 'get_anayasa_bireysel_basvuru_document_markdown' called for URL path: {document_url_path}, Page: {page_number}")
     if not document_url_path or not document_url_path.strip() or not document_url_path.startswith("/BB/"):
         raise ValueError("Document URL path (e.g., /BB/YYYY/NNNN) is required for Anayasa Bireysel Başvuru document retrieval.")
-    current_page_to_fetch = page_number if page_number is not None and page_number >= 1 else 1
+    
+    # Handle both int and string page_number inputs
+    try:
+        current_page_to_fetch = int(page_number) if page_number is not None else 1
+        if current_page_to_fetch < 1:
+            current_page_to_fetch = 1
+    except (ValueError, TypeError):
+        current_page_to_fetch = 1
     try:
         return await anayasa_bireysel_client_instance.get_decision_document_as_markdown(document_url_path, page_number=current_page_to_fetch)
     except Exception as e:
@@ -2442,7 +2458,8 @@ def perform_cleanup():
         globals().get('kik_client_instance'),
         globals().get('rekabet_client_instance'),
         globals().get('bedesten_client_instance'),
-        globals().get('sayistay_client_instance')
+        globals().get('sayistay_client_instance'),
+        globals().get('kvkk_client_instance')
     ]
     async def close_all_clients_async():
         tasks = []
@@ -2470,6 +2487,204 @@ def perform_cleanup():
     logger.info("MCP Server atexit cleanup process finished.")
 
 atexit.register(perform_cleanup)
+
+# --- MCP Tools for KVKK ---
+@app.tool(
+    description="Search KVKK (Personal Data Protection Authority) decisions using Brave Search API with advanced filtering and Turkish language support. KVKK is Turkey's data protection authority enforcing personal data protection laws equivalent to GDPR",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": True,
+        "idempotentHint": True
+    }
+)
+async def search_kvkk_decisions(
+    keywords: str = Field(..., description="""
+        Keywords to search for in KVKK decisions. The search automatically targets KVKK decision summaries.
+        
+        Search Tips:
+        • Use Turkish legal terms: "açık rıza" (explicit consent), "veri güvenliği" (data security)
+        • Combine relevant terms: "kişisel veri işleme" (personal data processing)
+        • Use specific concepts: "GDPR", "veri ihlali" (data breach), "aydınlatma yükümlülüğü"
+        
+        Examples:
+        • "açık rıza" - Explicit consent decisions
+        • "veri güvenliği" - Data security cases
+        • "kişisel veri işleme" - Personal data processing
+        • "GDPR uyum" - GDPR compliance
+        • "veri ihlali bildirimi" - Data breach notifications
+    """),
+    page: int = Field(1, ge=1, le=50, description="Page number for results (1-50)."),
+    pageSize: int = Field(10, ge=1, le=20, description="Number of results per page (1-20).")
+) -> KvkkSearchResult:
+    """
+    Searches KVKK (Personal Data Protection Authority) decisions using Brave Search API.
+    
+    KVKK is Turkey's data protection authority, equivalent to European Data Protection Authorities.
+    It enforces the Turkish Personal Data Protection Law (KVKK - Kişisel Verilerin Korunması Kanunu)
+    which is Turkey's GDPR-equivalent legislation.
+    
+    Key Features:
+    • Brave Search API integration for comprehensive coverage
+    • Turkish language search with automatic site targeting
+    • Decision summaries with metadata extraction
+    • Pagination support for large result sets
+    • URL-based decision identification
+    
+    Search Coverage:
+    • Administrative fines and penalties
+    • Data processing compliance decisions
+    • Data breach notification requirements
+    • Consent and transparency obligations
+    • International data transfer decisions
+    • Data subject rights enforcement
+    
+    Use Cases:
+    • Research Turkish data protection precedents
+    • Analyze KVKK enforcement patterns
+    • Find specific data protection decisions
+    • Study compliance requirements and penalties
+    • Compare with GDPR implementation
+    
+    Returns structured data with decision titles, URLs, descriptions, and extractable metadata
+    including decision dates and numbers where available.
+    """
+    logger.info(f"KVKK search tool called with keywords: {keywords}")
+    
+    search_request = KvkkSearchRequest(
+        keywords=keywords,
+        page=page,
+        pageSize=pageSize
+    )
+    
+    try:
+        result = await kvkk_client_instance.search_decisions(search_request)
+        logger.info(f"KVKK search completed. Found {len(result.decisions)} decisions on page {page}")
+        return result
+    except Exception as e:
+        logger.exception(f"Error in KVKK search: {e}")
+        # Return empty result on error
+        return KvkkSearchResult(
+            decisions=[],
+            total_results=0,
+            page=page,
+            pageSize=pageSize,
+            query=keywords
+        )
+
+@app.tool(
+    description="Retrieve the full text content of a KVKK decision document converted to Markdown format with metadata extraction and proper legal document formatting",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": False,
+        "idempotentHint": True
+    }
+)
+async def get_kvkk_document_markdown(
+    decision_url: str = Field(..., description="""
+        URL of the KVKK decision document to retrieve.
+        
+        Expected URL format:
+        • Full KVKK decision page URL (e.g., https://www.kvkk.gov.tr/Icerik/7288/2021-1303)
+        • URL must point to a valid KVKK decision page
+        • URLs are typically obtained from search_kvkk_decisions results
+        
+        Examples:
+        • https://www.kvkk.gov.tr/Icerik/7288/2021-1303
+        • https://www.kvkk.gov.tr/Icerik/8043/2023-1356
+        
+        Note: The URL should be a complete KVKK decision page URL, not just a decision ID.
+    """),
+    page_number: Union[int, str] = Field(1, description="Page number for paginated Markdown content (1-indexed). Default is 1 (first 5,000 characters). Accepts int.")
+) -> KvkkDocumentMarkdown:
+    """
+    Retrieves the full text of a KVKK decision document in paginated Markdown format.
+    
+    This tool fetches complete KVKK decision content from the official KVKK website
+    and converts it to clean, readable Markdown format. Content is paginated into
+    5,000-character chunks for easier processing.
+    
+    Input Requirements:
+    • decision_url: Complete KVKK decision page URL from search_kvkk_decisions results
+    • page_number: Page number for pagination (1-indexed, default: 1)
+    
+    Output Format:
+    • Clean Markdown text with proper KVKK decision formatting
+    • Pagination information (current_page, total_pages, is_paginated)
+    • Decision metadata (title, date, number, subject summary)
+    
+    Content Processing:
+    • Fetches HTML content from KVKK decision pages
+    • Extracts decision metadata (date, number, subject summary)
+    • Converts legal document content to properly formatted Markdown
+    • Preserves document structure and important formatting
+    • Removes navigation elements and website artifacts
+    
+    Use Cases:
+    • Reading full KVKK decision texts with proper formatting
+    • Legal analysis of personal data protection decisions
+    • Content analysis and case summarization
+    • Citation extraction and legal reference building
+    
+    Returns structured document with paginated Markdown content and extracted metadata.
+    """
+    logger.info(f"KVKK document retrieval tool called for URL: {decision_url}")
+    
+    # Handle page_number type conversion (Union[int, str] -> int)
+    if isinstance(page_number, str):
+        try:
+            page_number = int(page_number)
+        except ValueError:
+            logger.warning(f"Invalid page_number string '{page_number}', defaulting to 1")
+            page_number = 1
+    
+    if not decision_url or not decision_url.strip():
+        return KvkkDocumentMarkdown(
+            source_url=HttpUrl("https://www.kvkk.gov.tr"),
+            title=None,
+            decision_date=None,
+            decision_number=None,
+            subject_summary=None,
+            markdown_chunk=None,
+            current_page=page_number or 1,
+            total_pages=0,
+            is_paginated=False,
+            error_message="Decision URL is required and cannot be empty."
+        )
+    
+    try:
+        # Validate URL format
+        if not decision_url.startswith("https://www.kvkk.gov.tr/"):
+            return KvkkDocumentMarkdown(
+                source_url=HttpUrl(decision_url),
+                title=None,
+                decision_date=None,
+                decision_number=None,
+                subject_summary=None,
+                markdown_chunk=None,
+                current_page=page_number or 1,
+                total_pages=0,
+                is_paginated=False,
+                error_message="Invalid KVKK decision URL format. URL must start with https://www.kvkk.gov.tr/"
+            )
+        
+        result = await kvkk_client_instance.get_decision_document(decision_url, page_number or 1)
+        logger.info(f"KVKK document retrieved successfully. Page {result.current_page}/{result.total_pages}, Content length: {len(result.markdown_chunk) if result.markdown_chunk else 0}")
+        return result
+        
+    except Exception as e:
+        logger.exception(f"Error retrieving KVKK document: {e}")
+        return KvkkDocumentMarkdown(
+            source_url=HttpUrl(decision_url),
+            title=None,
+            decision_date=None,
+            decision_number=None,
+            subject_summary=None,
+            markdown_chunk=None,
+            current_page=page_number or 1,
+            total_pages=0,
+            is_paginated=False,
+            error_message=f"Error retrieving KVKK document: {str(e)}"
+        )
 
 # --- ChatGPT Deep Research Compatible Tools ---
 

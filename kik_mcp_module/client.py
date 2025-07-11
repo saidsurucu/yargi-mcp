@@ -18,7 +18,7 @@ import html as html_parser
 from markitdown import MarkItDown 
 import os
 import math 
-import tempfile
+import io
 
 from .models import (
     KikSearchRequest,
@@ -207,10 +207,8 @@ class KikApiClient:
             
             try:
                 async with page.expect_navigation(wait_until="networkidle", timeout=self.request_timeout):
-                    if action_is_search_button_click:
-                        await page.locator(search_button_selector).click()
-                    else: 
-                        await page.evaluate(f"javascript:__doPostBack('{event_target_for_submit}','')")
+                    # Use __doPostBack for both search and pagination for consistency
+                    await page.evaluate(f"javascript:__doPostBack('{event_target_for_submit}','')")
             except PlaywrightTimeoutError:
                 await page.wait_for_timeout(2000) 
             
@@ -251,16 +249,17 @@ class KikApiClient:
         # ... (öncekiyle aynı) ...
         if not html_fragment: return None
         cleaned_html = self._clean_html_for_markdown(html_fragment)
-        markdown_output = None; temp_file_path = None
+        markdown_output = None
         try:
+            # Convert HTML string to bytes and create BytesIO stream
+            html_bytes = cleaned_html.encode('utf-8')
+            html_stream = io.BytesIO(html_bytes)
+            
+            # Pass BytesIO stream to MarkItDown to avoid temp file creation
             md_converter = MarkItDown(enable_plugins=True, remove_alt_whitespace=True, keep_underline=True)
-            with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".html", encoding="utf-8") as tmp_html_file:
-                tmp_html_file.write(cleaned_html); temp_file_path = tmp_html_file.name
-            markdown_output = md_converter.convert(temp_file_path).text_content
+            markdown_output = md_converter.convert(html_stream).text_content
             if markdown_output: markdown_output = re.sub(r'\n{3,}', '\n\n', markdown_output).strip()
         except Exception as e: logger.error(f"MarkItDown conversion error: {e}", exc_info=True)
-        finally:
-            if temp_file_path and os.path.exists(temp_file_path): os.remove(temp_file_path)
         return markdown_output
 
 

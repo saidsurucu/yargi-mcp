@@ -6,8 +6,7 @@ from typing import Dict, Any, List, Optional
 import logging
 import html
 import re
-import tempfile
-import os
+import io
 from markitdown import MarkItDown
 
 from .models import (
@@ -114,22 +113,18 @@ class EmsalApiClient:
         html_input_for_markdown = content 
 
         markdown_text = None
-        temp_file_path = None
         try:
+            # Convert HTML string to bytes and create BytesIO stream
+            html_bytes = html_input_for_markdown.encode('utf-8')
+            html_stream = io.BytesIO(html_bytes)
+            
+            # Pass BytesIO stream to MarkItDown to avoid temp file creation
             md_converter = MarkItDown()
-            
-            with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".html", encoding="utf-8") as tmp_file:
-                tmp_file.write(html_input_for_markdown)
-                temp_file_path = tmp_file.name
-            
-            conversion_result = md_converter.convert(temp_file_path)
+            conversion_result = md_converter.convert(html_stream)
             markdown_text = conversion_result.text_content
             logger.info("EmsalApiClient: HTML to Markdown conversion successful.")
         except Exception as e:
             logger.error(f"EmsalApiClient: Error during MarkItDown HTML to Markdown conversion for Emsal: {e}")
-        finally:
-            if temp_file_path and os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
         
         return markdown_text
 

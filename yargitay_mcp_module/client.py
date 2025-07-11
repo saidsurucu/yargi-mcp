@@ -6,8 +6,7 @@ from typing import Dict, Any, List, Optional
 import logging
 import html
 import re
-import tempfile
-import os
+import io
 from markitdown import MarkItDown
 
 from .models import (
@@ -108,25 +107,20 @@ class YargitayOfficialApiClient:
         html_to_convert = processed_html
 
         markdown_output = None
-        temp_file_path = None
         try:
-            md_converter = MarkItDown() # Plugins disabled as per basic usage
+            # Convert HTML string to bytes and create BytesIO stream
+            html_bytes = html_to_convert.encode('utf-8')
+            html_stream = io.BytesIO(html_bytes)
             
-            # Write the HTML to a temporary file for MarkItDown to process
-            with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".html", encoding="utf-8") as tmp_html_file:
-                tmp_html_file.write(html_to_convert)
-                temp_file_path = tmp_html_file.name
-            
-            conversion_result = md_converter.convert(temp_file_path)
+            # Pass BytesIO stream to MarkItDown to avoid temp file creation
+            md_converter = MarkItDown()
+            conversion_result = md_converter.convert(html_stream)
             markdown_output = conversion_result.text_content
             
             logger.info("Successfully converted HTML to Markdown.")
 
         except Exception as e:
             logger.error(f"Error during MarkItDown HTML to Markdown conversion: {e}")
-        finally:
-            if temp_file_path and os.path.exists(temp_file_path):
-                os.remove(temp_file_path) # Clean up the temporary file
         
         return markdown_output
 

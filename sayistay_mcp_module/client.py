@@ -6,8 +6,7 @@ from bs4 import BeautifulSoup
 from typing import Dict, Any, List, Optional, Tuple
 import logging
 import html
-import tempfile
-import os
+import io
 from urllib.parse import urlencode, urljoin
 from markitdown import MarkItDown
 
@@ -532,21 +531,18 @@ class SayistayApiClient:
             raise
 
     def _convert_html_to_markdown(self, html_content: str) -> Optional[str]:
-        """Convert HTML content to Markdown using MarkItDown."""
+        """Convert HTML content to Markdown using MarkItDown with BytesIO to avoid filename length issues."""
         if not html_content:
             return None
             
-        temp_file_path = None
         try:
+            # Convert HTML string to bytes and create BytesIO stream
+            html_bytes = html_content.encode('utf-8')
+            html_stream = io.BytesIO(html_bytes)
+            
+            # Pass BytesIO stream to MarkItDown to avoid temp file creation
             md_converter = MarkItDown()
-            
-            # Write HTML to temp file
-            with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".html", encoding="utf-8") as tmp:
-                tmp.write(html_content)
-                temp_file_path = tmp.name
-            
-            # Convert
-            result = md_converter.convert(temp_file_path)
+            result = md_converter.convert(html_stream)
             markdown_content = result.text_content
             
             logger.info("Successfully converted HTML to Markdown")
@@ -555,9 +551,6 @@ class SayistayApiClient:
         except Exception as e:
             logger.error(f"Error converting HTML to Markdown: {e}")
             return f"Error converting HTML content: {str(e)}"
-        finally:
-            if temp_file_path and os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
 
     async def get_document_as_markdown(self, decision_id: str, decision_type: str) -> SayistayDocumentMarkdown:
         """

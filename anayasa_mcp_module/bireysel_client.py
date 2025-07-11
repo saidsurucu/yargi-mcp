@@ -7,8 +7,7 @@ from typing import Dict, Any, List, Optional, Tuple
 import logging
 import html
 import re
-import tempfile
-import os
+import io
 from urllib.parse import urlencode, urljoin, quote
 from markitdown import MarkItDown
 import math # For math.ceil for pagination
@@ -230,23 +229,23 @@ class AnayasaBireyselBasvuruApiClient:
                     html_input_for_markdown = processed_html
         
         markdown_text = None
-        temp_file_path = None
         try:
-            md_converter = MarkItDown() 
-            with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".html", encoding="utf-8") as tmp_file:
-                if not html_input_for_markdown.strip().lower().startswith(("<html", "<!doctype")):
-                    tmp_file.write(f"<html><head><meta charset=\"UTF-8\"></head><body>{html_input_for_markdown}</body></html>")
-                else:
-                    tmp_file.write(html_input_for_markdown)
-                temp_file_path = tmp_file.name
+            # Ensure the content is wrapped in basic HTML structure if it's not already
+            if not html_input_for_markdown.strip().lower().startswith(("<html", "<!doctype")):
+                html_content = f"<html><head><meta charset=\"UTF-8\"></head><body>{html_input_for_markdown}</body></html>"
+            else:
+                html_content = html_input_for_markdown
             
-            conversion_result = md_converter.convert(temp_file_path)
+            # Convert HTML string to bytes and create BytesIO stream
+            html_bytes = html_content.encode('utf-8')
+            html_stream = io.BytesIO(html_bytes)
+            
+            # Pass BytesIO stream to MarkItDown to avoid temp file creation
+            md_converter = MarkItDown()
+            conversion_result = md_converter.convert(html_stream)
             markdown_text = conversion_result.text_content
         except Exception as e:
             logger.error(f"AnayasaBireyselBasvuruApiClient: MarkItDown conversion error: {e}")
-        finally:
-            if temp_file_path and os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
         return markdown_text
 
     async def get_decision_document_as_markdown(

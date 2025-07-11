@@ -97,7 +97,7 @@ class DanistayApiResponseInnerData(BaseModel):
 
 class DanistayApiResponse(BaseModel):
     """Model for the complete search response from the Danistay API."""
-    data: DanistayApiResponseInnerData
+    data: Optional[DanistayApiResponseInnerData] = Field(None, description="Response data, can be null when no results found")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Optional metadata (Meta Veri) from API.")
 
 class DanistayDocumentMarkdown(BaseModel):

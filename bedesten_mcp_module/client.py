@@ -5,8 +5,7 @@ import base64
 from typing import Optional
 import logging
 from markitdown import MarkItDown
-import tempfile
-import os
+import io
 
 from .models import (
     BedestenSearchRequest, BedestenSearchResponse,
@@ -125,17 +124,14 @@ class BedestenApiClient:
         if not html_content:
             return None
             
-        temp_file_path = None
         try:
+            # Convert HTML string to bytes and create BytesIO stream
+            html_bytes = html_content.encode('utf-8')
+            html_stream = io.BytesIO(html_bytes)
+            
+            # Pass BytesIO stream to MarkItDown to avoid temp file creation
             md_converter = MarkItDown()
-            
-            # Write HTML to temp file
-            with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".html", encoding="utf-8") as tmp:
-                tmp.write(html_content)
-                temp_file_path = tmp.name
-            
-            # Convert
-            result = md_converter.convert(temp_file_path)
+            result = md_converter.convert(html_stream)
             markdown_content = result.text_content
             
             logger.info("Successfully converted HTML to Markdown")
@@ -144,27 +140,19 @@ class BedestenApiClient:
         except Exception as e:
             logger.error(f"Error converting HTML to Markdown: {e}")
             return f"Error converting HTML content: {str(e)}"
-        finally:
-            if temp_file_path and os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
     
     def _convert_pdf_to_markdown(self, pdf_bytes: bytes) -> Optional[str]:
         """Convert PDF to Markdown using MarkItDown"""
         if not pdf_bytes:
             return None
             
-        temp_file_path = None
         try:
-            # MarkItDown supports PDF with markitdown[pdf]
+            # Create BytesIO stream from PDF bytes
+            pdf_stream = io.BytesIO(pdf_bytes)
+            
+            # Pass BytesIO stream to MarkItDown to avoid temp file creation
             md_converter = MarkItDown()
-            
-            # Write PDF to temp file
-            with tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=".pdf") as tmp:
-                tmp.write(pdf_bytes)
-                temp_file_path = tmp.name
-            
-            # Convert
-            result = md_converter.convert(temp_file_path)
+            result = md_converter.convert(pdf_stream)
             markdown_content = result.text_content
             
             logger.info("Successfully converted PDF to Markdown")
@@ -173,9 +161,6 @@ class BedestenApiClient:
         except Exception as e:
             logger.error(f"Error converting PDF to Markdown: {e}")
             return f"Error converting PDF content: {str(e)}. The document may be corrupted or in an unsupported format."
-        finally:
-            if temp_file_path and os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
     
     async def close_client_session(self):
         """Close HTTP client session"""

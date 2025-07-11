@@ -7,8 +7,7 @@ from typing import Dict, Any, List, Optional, Tuple
 import logging
 import html
 import re
-import tempfile
-import os
+import io
 from urllib.parse import urlencode, urljoin, quote
 from markitdown import MarkItDown
 import math # For math.ceil for pagination
@@ -82,6 +81,13 @@ class AnayasaMahkemesiApiClient:
         if params.has_dissenting_opinion and params.has_dissenting_opinion.value and params.has_dissenting_opinion.value != "ALL": query_params.append(("KarsiOy", params.has_dissenting_opinion.value))
         if params.has_different_reasoning and params.has_different_reasoning.value and params.has_different_reasoning.value != "ALL": query_params.append(("FarkliGerekce", params.has_different_reasoning.value))
         
+        # Add pagination and sorting parameters as query params instead of URL path
+        if params.results_per_page and params.results_per_page != 10:
+            query_params.append(("SatirSayisi", str(params.results_per_page)))
+            
+        if params.sort_by_criteria and params.sort_by_criteria != "KararTarihi":
+            query_params.append(("Siralama", params.sort_by_criteria))
+            
         if params.page_to_fetch and params.page_to_fetch > 1:
             query_params.append(("page", str(params.page_to_fetch)))
         return query_params
@@ -90,16 +96,8 @@ class AnayasaMahkemesiApiClient:
         self,
         params: AnayasaNormDenetimiSearchRequest
     ) -> AnayasaSearchResult:
-        path_segments = []
-        if params.results_per_page and params.results_per_page != 10: # Default is 10
-            path_segments.append(f"SatirSayisi/{params.results_per_page}")
-        
-        if params.sort_by_criteria and params.sort_by_criteria != "KararTarihi": # Default is KararTarihi
-             # Ensure correct quoting for criteria that might have Turkish chars or spaces
-            path_segments.append(f"Siralama/{quote(params.sort_by_criteria)}")
-
-        path_segments.append(self.SEARCH_PATH_SEGMENT)
-        request_path = "/" + "/".join(path_segments)
+        # Use simple /Ara endpoint - the complex path structure seems to cause 404s
+        request_path = f"/{self.SEARCH_PATH_SEGMENT}"
         
         final_query_params = self._build_search_query_params_for_aym(params)
         logger.info(f"AnayasaMahkemesiApiClient: Performing Norm Denetimi search. Path: {request_path}, Params: {final_query_params}")
@@ -222,24 +220,23 @@ class AnayasaMahkemesiApiClient:
                 html_input_for_markdown = str(body_tag) if body_tag else processed_html
         
         markdown_text = None
-        temp_file_path = None
         try:
-            md_converter = MarkItDown() 
-            with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".html", encoding="utf-8") as tmp_file:
-                # Ensure the content is wrapped in basic HTML structure if it's not already
-                if not html_input_for_markdown.strip().lower().startswith(("<html", "<!doctype")):
-                    tmp_file.write(f"<html><head><meta charset=\"UTF-8\"></head><body>{html_input_for_markdown}</body></html>")
-                else:
-                    tmp_file.write(html_input_for_markdown)
-                temp_file_path = tmp_file.name
+            # Ensure the content is wrapped in basic HTML structure if it's not already
+            if not html_input_for_markdown.strip().lower().startswith(("<html", "<!doctype")):
+                html_content = f"<html><head><meta charset=\"UTF-8\"></head><body>{html_input_for_markdown}</body></html>"
+            else:
+                html_content = html_input_for_markdown
             
-            conversion_result = md_converter.convert(temp_file_path)
+            # Convert HTML string to bytes and create BytesIO stream
+            html_bytes = html_content.encode('utf-8')
+            html_stream = io.BytesIO(html_bytes)
+            
+            # Pass BytesIO stream to MarkItDown to avoid temp file creation
+            md_converter = MarkItDown()
+            conversion_result = md_converter.convert(html_stream)
             markdown_text = conversion_result.text_content
         except Exception as e:
             logger.error(f"AnayasaMahkemesiApiClient: MarkItDown conversion error: {e}")
-        finally:
-            if temp_file_path and os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
         return markdown_text
 
     async def get_decision_document_as_markdown(
