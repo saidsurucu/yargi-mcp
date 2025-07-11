@@ -609,7 +609,7 @@ async def search_emsal_detailed_decisions(
         if api_response.data:
             return CompactEmsalSearchResult(
                 decisions=api_response.data.data,
-                total_records=api_response.data.totalRecords if api_response.data.totalRecords is not None else 0,
+                total_records=api_response.data.recordsTotal if api_response.data.recordsTotal is not None else 0,
                 requested_page=search_query.page_number,
                 page_size=search_query.page_size
             )
