@@ -48,6 +48,7 @@ production = [
 saas = [
     "clerk-backend-api>=3.0.0",
     "stripe>=9.1.0",
+    "upstash-redis>=1.1.0",
 ]
 
 [project.scripts]

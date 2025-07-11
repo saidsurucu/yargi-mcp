@@ -299,9 +299,9 @@ async def root():
 async def oauth_authorization_server():
     """OAuth 2.0 Authorization Server Metadata proxy to Clerk - MCP Auth Toolkit standard location"""
     return JSONResponse({
-        "issuer": CLERK_ISSUER,
-        "authorization_endpoint": f"{BASE_URL}/auth/login",
-        "token_endpoint": f"{BASE_URL}/auth/callback", 
+        "issuer": BASE_URL,
+        "authorization_endpoint": "https://yargimcp.com/mcp-callback",
+        "token_endpoint": f"{BASE_URL}/token", 
         "jwks_uri": f"{CLERK_ISSUER}/.well-known/jwks.json",
         "response_types_supported": ["code"],
         "grant_types_supported": ["authorization_code", "refresh_token"],
@@ -312,8 +312,44 @@ async def oauth_authorization_server():
         "claims_supported": ["sub", "iss", "aud", "exp", "iat", "email", "name"],
         "code_challenge_methods_supported": ["S256"],
         "service_documentation": f"{BASE_URL}/mcp",
-        "registration_endpoint": f"{BASE_URL}/auth/register",
+        "registration_endpoint": f"{BASE_URL}/register",
         "resource_documentation": f"{BASE_URL}/mcp"
+    })
+
+# Claude AI MCP specific endpoint format
+@app.get("/.well-known/oauth-authorization-server/mcp")
+async def oauth_authorization_server_mcp_suffix():
+    """OAuth 2.0 Authorization Server Metadata - Claude AI MCP specific format"""
+    return JSONResponse({
+        "issuer": BASE_URL,
+        "authorization_endpoint": "https://yargimcp.com/mcp-callback",
+        "token_endpoint": f"{BASE_URL}/token", 
+        "jwks_uri": f"{CLERK_ISSUER}/.well-known/jwks.json",
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code", "refresh_token"],
+        "token_endpoint_auth_methods_supported": ["client_secret_basic", "none"],
+        "scopes_supported": ["read", "search", "openid", "profile", "email"],
+        "subject_types_supported": ["public"],
+        "id_token_signing_alg_values_supported": ["RS256"],
+        "claims_supported": ["sub", "iss", "aud", "exp", "iat", "email", "name"],
+        "code_challenge_methods_supported": ["S256"],
+        "service_documentation": f"{BASE_URL}/mcp",
+        "registration_endpoint": f"{BASE_URL}/register",
+        "resource_documentation": f"{BASE_URL}/mcp"
+    })
+
+@app.get("/.well-known/oauth-protected-resource/mcp")
+async def oauth_protected_resource_mcp_suffix():
+    """OAuth 2.0 Protected Resource Metadata - Claude AI MCP specific format"""
+    return JSONResponse({
+        "resource": BASE_URL,
+        "authorization_servers": [
+            BASE_URL
+        ],
+        "scopes_supported": ["read", "search"],
+        "bearer_methods_supported": ["header"],
+        "resource_documentation": f"{BASE_URL}/mcp",
+        "resource_policy_uri": f"{BASE_URL}/privacy"
     })
 
 # Keep root level for compatibility with some MCP clients
@@ -321,9 +357,9 @@ async def oauth_authorization_server():
 async def oauth_authorization_server_root():
     """OAuth 2.0 Authorization Server Metadata proxy to Clerk - root level for compatibility"""
     return JSONResponse({
-        "issuer": CLERK_ISSUER,
-        "authorization_endpoint": f"{BASE_URL}/auth/login",
-        "token_endpoint": f"{BASE_URL}/auth/callback", 
+        "issuer": BASE_URL,
+        "authorization_endpoint": "https://yargimcp.com/mcp-callback",
+        "token_endpoint": f"{BASE_URL}/token", 
         "jwks_uri": f"{CLERK_ISSUER}/.well-known/jwks.json",
         "response_types_supported": ["code"],
         "grant_types_supported": ["authorization_code", "refresh_token"],
@@ -334,7 +370,7 @@ async def oauth_authorization_server_root():
         "claims_supported": ["sub", "iss", "aud", "exp", "iat", "email", "name"],
         "code_challenge_methods_supported": ["S256"],
         "service_documentation": f"{BASE_URL}/mcp",
-        "registration_endpoint": f"{BASE_URL}/auth/register",
+        "registration_endpoint": f"{BASE_URL}/register",
         "resource_documentation": f"{BASE_URL}/mcp"
     })
 
