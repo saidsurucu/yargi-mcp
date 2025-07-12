@@ -125,7 +125,7 @@ class BedestenSearchDataResponse(BaseModel):
     start: int
 
 class BedestenSearchResponse(BaseModel):
-    data: BedestenSearchDataResponse
+    data: Optional[BedestenSearchDataResponse]
     metadata: Dict[str, Any]
 
 # Document Request/Response Models

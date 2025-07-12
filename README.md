@@ -26,6 +26,7 @@ Bu proje, çeşitli Türk hukuk kaynaklarına (Yargıtay, Danıştay, Emsal Kara
     * **KİK (Kamu İhale Kurulu):** Çeşitli kriterlerle Kurul kararlarını arama; uzun karar metinlerini (varsayılan 5.000 karakterlik) sayfalanmış Markdown formatında getirme.
     * **Rekabet Kurumu:** Çeşitli kriterlerle Kurul kararlarını arama; karar metinlerini Markdown formatında getirme.
     * **Sayıştay:** 3 karar türü ile kapsamlı denetim kararlarına erişim + **8 Daire Filtreleme** + **Tarih Aralığı & İçerik Arama** (Genel Kurul yorumlayıcı kararları, Temyiz Kurulu itiraz kararları, Daire ilk derece denetim kararları)
+    * **KVKK (Kişisel Verilerin Korunması Kurulu):** Brave Search API ile veri koruma kararlarını arama; uzun karar metinlerini (5.000 karakterlik) sayfalanmış Markdown formatında getirme + **Türkçe Arama** + **Site Hedeflemeli Arama** (kvkk.gov.tr kararları)
 
 * Karar metinlerinin daha kolay işlenebilmesi için Markdown formatına çevrilmesi.
 * Claude Desktop uygulaması ile `fastmcp install` komutu kullanılarak kolay entegrasyon.
@@ -186,12 +187,16 @@ Bu FastMCP sunucusu aşağıdaki temel araçları sunar:
     * `get_sayistay_temyiz_kurulu_document_markdown(decision_id: str)`: Temyiz Kurulu kararının tam metnini Markdown formatında getirir  
     * `get_sayistay_daire_document_markdown(decision_id: str)`: Daire kararının tam metnini Markdown formatında getirir
 
+* **KVKK Araçları (Brave Search API + Türkçe Arama):**
+    * `search_kvkk_decisions(keywords, page, pageSize, ...)`: KVKK (Kişisel Verilerin Korunması Kurulu) kararlarını Brave Search API ile arar. **Türkçe arama** + **Site hedeflemeli** (`site:kvkk.gov.tr "karar özeti"`) + **Sayfalama desteği**
+    * `get_kvkk_document_markdown(decision_url: str, page_number: Optional[int] = 1)`: KVKK kararının tam metnini **sayfalanmış Markdown** formatında getirir (5.000 karakterlik sayfa)
+
 
 ---
 
 ### **📊 Kapsamlı İstatistikler**
-- **Toplam Mahkeme/Kurum:** 12 farklı hukuki kurum
-- **Toplam MCP Tool:** 36+ arama ve belge getirme aracı  
+- **Toplam Mahkeme/Kurum:** 13 farklı hukuki kurum (KVKK dahil)
+- **Toplam MCP Tool:** 38+ arama ve belge getirme aracı  
 - **Daire/Kurul Filtreleme:** 87 farklı seçenek (52 Yargıtay + 27 Danıştay + 8 Sayıştay)
 - **Tarih Filtreleme:** 5 Bedesten API aracında ISO 8601 formatında tam tarih aralığı desteği
 - **Kesin Cümle Arama:** 5 Bedesten API aracında çift tırnak ile tam cümle arama (`"\"mülkiyet kararı\""` formatı)

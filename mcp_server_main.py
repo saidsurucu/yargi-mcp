@@ -1553,6 +1553,16 @@ async def search_yargitay_bedesten(
     try:
         response = await bedesten_client_instance.search_documents(search_request)
         
+        # Handle potential None data
+        if response.data is None:
+            return {
+                "decisions": [],
+                "total_records": 0,
+                "requested_page": pageNumber,
+                "page_size": pageSize,
+                "error": "No data returned from Bedesten API"
+            }
+        
         # Return simplified response format
         return {
             "decisions": [d.model_dump() for d in response.data.emsalKararList],
@@ -1656,6 +1666,16 @@ async def search_danistay_bedesten(
     try:
         response = await bedesten_client_instance.search_documents(search_request)
         
+        # Handle potential None data
+        if response.data is None:
+            return {
+                "decisions": [],
+                "total_records": 0,
+                "requested_page": pageNumber,
+                "page_size": pageSize,
+                "error": "No data returned from Bedesten API"
+            }
+        
         # Return simplified response format
         return {
             "decisions": [d.model_dump() for d in response.data.emsalKararList],
@@ -1748,6 +1768,16 @@ async def search_yerel_hukuk_bedesten(
     
     try:
         response = await bedesten_client_instance.search_documents(search_request)
+        
+        # Handle potential None data
+        if response.data is None:
+            return {
+                "decisions": [],
+                "total_records": 0,
+                "requested_page": pageNumber,
+                "page_size": pageSize,
+                "error": "No data returned from Bedesten API"
+            }
         
         # Return simplified response format
         return {
@@ -1856,6 +1886,16 @@ async def search_istinaf_hukuk_bedesten(
     
     try:
         response = await bedesten_client_instance.search_documents(search_request)
+        
+        # Handle potential None data
+        if response.data is None:
+            return {
+                "decisions": [],
+                "total_records": 0,
+                "requested_page": pageNumber,
+                "page_size": pageSize,
+                "error": "No data returned from Bedesten API"
+            }
         
         # Return simplified response format
         return {
@@ -1986,6 +2026,16 @@ async def search_kyb_bedesten(
     
     try:
         response = await bedesten_client_instance.search_documents(search_request)
+        
+        # Handle potential None data
+        if response.data is None:
+            return {
+                "decisions": [],
+                "total_records": 0,
+                "requested_page": pageNumber,
+                "page_size": pageSize,
+                "error": "No data returned from Bedesten API"
+            }
         
         # Return simplified response format
         return {
@@ -2828,6 +2878,11 @@ async def search(
                     )
                 )
                 
+                # Handle potential None data
+                if search_results.data is None:
+                    logger.warning(f"No data returned from Bedesten API for {court_name}")
+                    continue
+                
                 # Add results from this court type (limit to top 5 per court)
                 for decision in search_results.data.emsalKararList[:5]:
                     # For ChatGPT Deep Research, fetch document content for preview
@@ -2872,7 +2927,10 @@ async def search(
                             "url": f"https://mevzuat.adalet.gov.tr/ictihat/{decision.documentId}"
                         })
                     
-                logger.info(f"Found {len(search_results.data.emsalKararList)} results from {court_name}")
+                if search_results.data:
+                    logger.info(f"Found {len(search_results.data.emsalKararList)} results from {court_name}")
+                else:
+                    logger.info(f"Found 0 results from {court_name} (no data returned)")
                 
             except Exception as e:
                 logger.warning(f"Bedesten API search error for {court_name}: {e}")
@@ -2980,7 +3038,7 @@ async def fetch(
                 )
             )
             
-            if search_results.data.emsalKararList:
+            if search_results.data and search_results.data.emsalKararList:
                 decision = search_results.data.emsalKararList[0]
                 if decision.documentId == id:
                     # Build a proper title from metadata
