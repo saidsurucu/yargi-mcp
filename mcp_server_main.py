@@ -552,7 +552,7 @@ async def search_emsal_detailed_decisions(
     end_date: Optional[str] = Field(None, description="End date for decision (DD.MM.YYYY)."),
     sort_criteria: str = Field("1", description="Sorting criteria (e.g., 1: Esas No)."),
     sort_direction: str = Field("desc", description="Sorting direction ('asc' or 'desc')."),
-    page_number: int = Field(1, ge=1, description="Page number."),
+    page_number: int = Field(1, ge=1, description="Page number (accepts int)."),
     page_size: int = Field(10, ge=1, le=100, description="Results per page.")
 ) -> CompactEmsalSearchResult:
     """
@@ -984,7 +984,7 @@ async def search_anayasa_norm_denetimi_decisions(
 )
 async def get_anayasa_norm_denetimi_document_markdown(
     document_url: str = Field(..., description="The URL path (e.g., /ND/YYYY/NN) or full https URL of the AYM Norm Denetimi decision from normkararlarbilgibankasi.anayasa.gov.tr."),
-    page_number: Optional[int] = Field(1, ge=1, description="Page number for paginated Markdown content (1-indexed). Default is 1 (first 5,000 characters).")
+    page_number: Optional[int] = Field(1, ge=1, description="Page number for paginated Markdown content (1-indexed, accepts int). Default is 1 (first 5,000 characters).")
 ) -> AnayasaDocumentMarkdown:
     """
     Retrieves the full text of a Constitutional Court norm control decision in paginated Markdown format.
@@ -1104,7 +1104,7 @@ async def search_anayasa_bireysel_basvuru_report(
 )
 async def get_anayasa_bireysel_basvuru_document_markdown(
     document_url_path: str = Field(..., description="The URL path (e.g., /BB/YYYY/NNNN) of the AYM Bireysel Başvuru decision from kararlarbilgibankasi.anayasa.gov.tr."),
-    page_number: Union[int, str] = Field(1, description="Page number for paginated Markdown content (1-indexed). Default is 1 (first 5,000 characters). Accepts int.")
+    page_number: Union[int, str] = Field(1, description="Page number for paginated Markdown content (1-indexed, accepts int). Default is 1 (first 5,000 characters).")
 ) -> AnayasaBireyselBasvuruDocumentMarkdown:
     """
     Retrieves the full text of a Constitutional Court individual application decision in paginated Markdown format.
@@ -1263,7 +1263,7 @@ async def search_kik_decisions(
 )
 async def get_kik_document_markdown(
     karar_id: str = Field(..., description="The Base64 encoded KIK decision identifier."),
-    page_number: Optional[int] = Field(1, ge=1, description="Page number for paginated Markdown content (1-indexed). Default is 1.")
+    page_number: Optional[int] = Field(1, ge=1, description="Page number for paginated Markdown content (1-indexed, accepts int). Default is 1.")
 ) -> KikDocumentMarkdown:
     """
     Retrieves the full text of a KIK (Public Procurement Authority) decision in paginated Markdown format.
@@ -1438,7 +1438,7 @@ async def search_rekabet_kurumu_decisions(
 )
 async def get_rekabet_kurumu_document(
     karar_id: str = Field(..., description="GUID (kararId) of the Rekabet Kurumu decision. This ID is obtained from search results."),
-    page_number: Optional[int] = Field(1, ge=1, description="Requested page number for the Markdown content converted from PDF (1-indexed). Default is 1.")
+    page_number: Optional[int] = Field(1, ge=1, description="Requested page number for the Markdown content converted from PDF (1-indexed, accepts int). Default is 1.")
 ) -> RekabetDocument:
     """
     Retrieves the full text of a Turkish Competition Authority decision in paginated Markdown format.
@@ -2594,7 +2594,7 @@ async def get_kvkk_document_markdown(
         
         Note: The URL should be a complete KVKK decision page URL, not just a decision ID.
     """),
-    page_number: Union[int, str] = Field(1, description="Page number for paginated Markdown content (1-indexed). Default is 1 (first 5,000 characters). Accepts int.")
+    page_number: Union[int, str] = Field(1, description="Page number for paginated Markdown content (1-indexed, accepts int). Default is 1 (first 5,000 characters).")
 ) -> KvkkDocumentMarkdown:
     """
     Retrieves the full text of a KVKK decision document in paginated Markdown format.
@@ -3056,9 +3056,43 @@ async def fetch(
         logger.exception(f"Error fetching ChatGPT Deep Research document {id}")
         raise
 
+def ensure_playwright_browsers():
+    """Ensure Playwright browsers are installed for KIK tool functionality."""
+    try:
+        import subprocess
+        import os
+        
+        # Check if chromium is already installed
+        chromium_path = os.path.expanduser("~/Library/Caches/ms-playwright/chromium-1179")
+        if os.path.exists(chromium_path):
+            logger.info("Playwright Chromium browser already installed.")
+            return
+        
+        logger.info("Installing Playwright Chromium browser for KIK tool...")
+        result = subprocess.run(
+            ["python", "-m", "playwright", "install", "chromium"],
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minutes timeout
+        )
+        
+        if result.returncode == 0:
+            logger.info("Playwright Chromium browser installed successfully.")
+        else:
+            logger.warning(f"Failed to install Playwright browser: {result.stderr}")
+            logger.warning("KIK tool may not work properly without Playwright browsers.")
+            
+    except Exception as e:
+        logger.warning(f"Could not auto-install Playwright browsers: {e}")
+        logger.warning("KIK tool may not work properly. Manual installation: 'playwright install chromium'")
+
 def main():
     logger.info(f"Starting {app.name} server via main() function...")
     logger.info(f"Logs will be written to: {LOG_FILE_PATH}")
+    
+    # Ensure Playwright browsers are installed
+    ensure_playwright_browsers()
+    
     try:
         app.run()
     except KeyboardInterrupt: 
