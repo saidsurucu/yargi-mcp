@@ -1627,7 +1627,7 @@ async def search_rekabet_kurumu_decisions(
     YayinlanmaTarihi: Optional[str] = Field(None, description="Publication date (Yayım Tarihi), e.g., DD.MM.YYYY."),
     PdfText: Optional[str] = Field(
         None,
-        description='Search in decision text (Metin). For an exact phrase match, enclose the phrase in double quotes (e.g., "\\"vertical agreement\\" competition). The website indicates that using "" provides more precise results for phrases.'
+        description='Search in decision text. Use "\\"kesin cümle\\"" for precise matching.'
     ),
     KararTuru: Literal[ 
         "ALL", 
