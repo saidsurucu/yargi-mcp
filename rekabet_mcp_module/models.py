@@ -26,31 +26,30 @@ class RekabetKararTuruAdiEnum(str, Enum):
 class RekabetKurumuSearchRequest(BaseModel):
     """Model for Rekabet Kurumu (Turkish Competition Authority) search request."""
     sayfaAdi: Optional[str] = Field(None, description="Title")
-    YayinlanmaTarihi: Optional[str] = Field(None, description="Pub date")
-    PdfText: Optional[str] = Field(None, description="Search text")
-    # This field uses the GUID enum as it's used by the client to make the actual web request.
+    YayinlanmaTarihi: Optional[str] = Field(None, description="Date")
+    PdfText: Optional[str] = Field(None, description="Text")
     KararTuruID: Optional[RekabetKararTuruGuidEnum] = Field(RekabetKararTuruGuidEnum.TUMU, description="Type")
-    KararSayisi: Optional[str] = Field(None, description="Number")
+    KararSayisi: Optional[str] = Field(None, description="No")
     KararTarihi: Optional[str] = Field(None, description="Date")
     page: int = Field(1, ge=1, description="Page")
 
 class RekabetDecisionSummary(BaseModel):
     """Model for a single Rekabet Kurumu decision summary from search results."""
-    publication_date: Optional[str] = Field(None, description="Publication Date (Yayımlanma Tarihi).")
-    decision_number: Optional[str] = Field(None, description="Decision Number (Karar Sayısı).")
-    decision_date: Optional[str] = Field(None, description="Decision Date (Karar Tarihi).")
-    decision_type_text: Optional[str] = Field(None, description="Decision Type as text (Karar Türü - metin olarak).")
-    title: Optional[str] = Field(None, description="Decision title or summary text.")
-    decision_url: Optional[HttpUrl] = Field(None, description="URL to the decision's landing page (e.g., /Karar?kararId=...).")
-    karar_id: Optional[str] = Field(None, description="GUID of the decision, extracted from its URL.")
-    related_cases_url: Optional[HttpUrl] = Field(None, description="URL to related court cases page, if available.")
+    publication_date: Optional[str] = Field(None, description="Pub date")
+    decision_number: Optional[str] = Field(None, description="Number")
+    decision_date: Optional[str] = Field(None, description="Date")
+    decision_type_text: Optional[str] = Field(None, description="Type")
+    title: Optional[str] = Field(None, description="Title")
+    decision_url: Optional[HttpUrl] = Field(None, description="URL")
+    karar_id: Optional[str] = Field(None, description="ID")
+    related_cases_url: Optional[HttpUrl] = Field(None, description="Cases URL")
 
 class RekabetSearchResult(BaseModel):
     """Model for the overall search result for Rekabet Kurumu decisions."""
     decisions: List[RekabetDecisionSummary]
-    total_records_found: Optional[int] = Field(None, description="Total number of records found matching the query.")
-    retrieved_page_number: int = Field(description="The page number of the results that were retrieved.")
-    total_pages: Optional[int] = Field(None, description="Total number of pages available for the query.")
+    total_records_found: Optional[int] = Field(None, description="Total")
+    retrieved_page_number: int = Field(description="Page")
+    total_pages: Optional[int] = Field(None, description="Pages")
 
 class RekabetDocument(BaseModel):
     """
@@ -58,16 +57,15 @@ class RekabetDocument(BaseModel):
     Contains metadata from the landing page, a link to the PDF,
     and the PDF's content converted to paginated Markdown.
     """
-    source_landing_page_url: HttpUrl = Field(description="The URL of the decision's landing page from which the PDF was identified.")
-    karar_id: str = Field(description="GUID of the decision.")
+    source_landing_page_url: HttpUrl = Field(description="Source URL")
+    karar_id: str = Field(description="ID")
     
-    title_on_landing_page: Optional[str] = Field(None, description="Title as found on the landing page (e.g., from <title> tag or a main heading). Could be a generic title if direct PDF.")
-    pdf_url: Optional[HttpUrl] = Field(None, description="Direct URL to the decision PDF document, if successfully found and resolved.")
+    title_on_landing_page: Optional[str] = Field(None, description="Title")
+    pdf_url: Optional[HttpUrl] = Field(None, description="PDF URL")
     
-    # Fields for Markdown content derived from the PDF
-    markdown_chunk: Optional[str] = Field(None, description="A 5,000 character chunk of the Markdown content derived from the decision PDF.")
-    current_page: int = Field(1, description="The current page number of the PDF-derived markdown chunk (1-indexed).")
-    total_pages: int = Field(1, description="Total number of pages for the full PDF-derived markdown content. Will be 0 if content could not be processed.")
-    is_paginated: bool = Field(False, description="True if the full PDF-derived markdown content is split into multiple pages.")
+    markdown_chunk: Optional[str] = Field(None, description="Content")
+    current_page: int = Field(1, description="Page")
+    total_pages: int = Field(1, description="Total pages")
+    is_paginated: bool = Field(False, description="Paginated")
     
-    error_message: Optional[str] = Field(None, description="Contains an error message if the document retrieval or processing failed at any stage.")
+    error_message: Optional[str] = Field(None, description="Error")

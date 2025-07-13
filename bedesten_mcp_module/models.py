@@ -33,65 +33,15 @@ DanistayBirimEnum = Literal[
 
 # Search Request Models
 class BedestenSearchData(BaseModel):
-    pageSize: int = Field(..., description="""Number of results per page.
-        Range: 1-100 results per page
-        Recommended: 10-50 for balanced performance
-        Higher values for comprehensive analysis""")
-    pageNumber: int = Field(..., description="""Page number to retrieve (1-indexed).
-        Start with 1 for first page
-        Calculate total pages from response.data.total / pageSize
-        Navigate: pageNumber=2 gets next set of results""")
-    itemTypeList: List[str] = Field(..., description="""Court type filter - determines which court decisions to search:
-        • ["YARGITAYKARARI"]: Court of Cassation (Yargıtay) - supreme court civil/criminal decisions
-        • ["DANISTAYKARAR"]: Council of State (Danıştay) - administrative court decisions
-        • ["YERELHUKUK"]: Local Civil Courts (Yerel Hukuk Mahkemeleri) - first instance civil decisions
-        • ["ISTINAFHUKUK"]: Civil Courts of Appeals (İstinaf Hukuk Mahkemeleri) - appellate court decisions
-        • ["KYB"]: Extraordinary Appeal (Kanun Yararına Bozma) - extraordinary appeal decisions
-        Note: Use single-item list for specific court type targeting""")
-    phrase: str = Field(..., description="""Search phrase/keyword with advanced search support:
-        • Regular search: "mülkiyet kararı" - searches words separately
-        • Exact phrase: "\"mülkiyet kararı\"" - searches exact phrase (more precise)
-        • Legal concepts: "\"idari işlem\"", "\"sözleşme ihlali\"", "\"tazminat davası\""
-        • Empty string: searches all documents (use with filters)
-        Exact phrases significantly reduce false positives for precise legal research""")
-    birimAdi: Optional[Union[YargitayBirimEnum, DanistayBirimEnum]] = Field(None, description="""
-        Chamber/Department (Daire) filter (optional). Available options depend on itemTypeList:
-        
-        For YARGITAYKARARI - Court of Cassation (52 options):
-        - None/null for ALL chambers
-        - 'Civil General Assembly (Hukuk Genel Kurulu)', '1st Civil Chamber (1. Hukuk Dairesi)' through '23rd Civil Chamber (23. Hukuk Dairesi)'
-        - 'Criminal General Assembly (Ceza Genel Kurulu)', '1st Criminal Chamber (1. Ceza Dairesi)' through '23rd Criminal Chamber (23. Ceza Dairesi)'  
-        - 'Civil Chambers Presidents Board (Hukuk Daireleri Başkanlar Kurulu)', 'Criminal Chambers Presidents Board (Ceza Daireleri Başkanlar Kurulu)'
-        - 'Grand General Assembly (Büyük Genel Kurulu)'
-        
-        For DANISTAYKARAR - Council of State (27 options):
-        - None/null for ALL chambers
-        - 'Grand General Assembly (Büyük Gen.Kur.)', 'Administrative Cases Chambers Council (İdare Dava Daireleri Kurulu)', 'Tax Cases Chambers Council (Vergi Dava Daireleri Kurulu)'
-        - '1st Chamber (1. Daire)' through '17th Chamber (17. Daire)'
-        - 'Precedents Unification Council (İçtihatları Birleştirme Kurulu)', 'Administrative Affairs Council (İdari İşler Kurulu)', 'Presidents Council (Başkanlar Kurulu)'
-        - Military courts: 'Military High Administrative Court (Askeri Yüksek İdare Mahkemesi)' variants
-    """)
-    kararTarihiStart: Optional[str] = Field(None, description="""Decision start date (Karar Tarihi Başlangıç) filter (optional).
-        Format: YYYY-MM-DDTHH:MM:SS.000Z (ISO 8601 with Z timezone)
-        Examples:
-        • "2024-01-01T00:00:00.000Z" - from beginning of 2024
-        • "2023-06-15T00:00:00.000Z" - from June 15, 2023
-        • "2024-03-01T00:00:00.000Z" - from March 1, 2024
-        Use with kararTarihiEnd for date range, or alone for "from date" filtering""")
-    kararTarihiEnd: Optional[str] = Field(None, description="""Decision end date (Karar Tarihi Bitiş) filter (optional).
-        Format: YYYY-MM-DDTHH:MM:SS.000Z (ISO 8601 with Z timezone)
-        Examples:
-        • "2024-12-31T23:59:59.999Z" - until end of 2024
-        • "2023-12-31T23:59:59.999Z" - until end of 2023  
-        • "2024-06-30T23:59:59.999Z" - until end of June 2024
-        Use with kararTarihiStart for date range, or alone for "until date" filtering""")
-    sortFields: List[str] = Field(default=["KARAR_TARIHI"], description="""Sorting field (Sıralama Alanı) specification.
-        ["KARAR_TARIHI"]: Sort by decision date (Karar Tarihi) [DEFAULT]
-        Most common use case for chronological ordering""")
-    sortDirection: str = Field(default="desc", description="""Sort direction (Sıralama Yönü) for results.
-        "desc": Descending order - newest decisions first [DEFAULT]
-        "asc": Ascending order - oldest decisions first
-        Recommended: "desc" for latest legal developments""")
+    pageSize: int = Field(..., description="Results per page (1-10)")
+    pageNumber: int = Field(..., description="Page number (1-indexed)")
+    itemTypeList: List[str] = Field(..., description="Court type filter (YARGITAYKARARI/DANISTAYKARAR/YERELHUKUK/ISTINAFHUKUK/KYB)")
+    phrase: str = Field(..., description="Search phrase (use \"exact phrase\" for precise matching)")
+    birimAdi: Optional[Union[YargitayBirimEnum, DanistayBirimEnum]] = Field(None, description="Chamber filter (optional)")
+    kararTarihiStart: Optional[str] = Field(None, description="Start date (ISO 8601 format)")
+    kararTarihiEnd: Optional[str] = Field(None, description="End date (ISO 8601 format)")
+    sortFields: List[str] = Field(default=["KARAR_TARIHI"], description="Sort fields")
+    sortDirection: str = Field(default="desc", description="Sort direction (asc/desc)")
 
 class BedestenSearchRequest(BaseModel):
     data: BedestenSearchData

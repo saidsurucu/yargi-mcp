@@ -5,7 +5,7 @@ from typing import List, Optional, Dict, Any
 
 class DanistayBaseSearchRequest(BaseModel):
     """Base model for common search parameters for Danistay."""
-    pageSize: int = Field(default=10, ge=1, le=100)
+    pageSize: int = Field(default=10, ge=1, le=10)
     pageNumber: int = Field(default=1, ge=1)
     # siralama and siralamaDirection are part of detailed search, not necessarily keyword search
     # as per user's provided payloads.
@@ -21,11 +21,11 @@ class DanistayKeywordSearchRequestData(BaseModel):
 
 class DanistayKeywordSearchRequest(BaseModel): # This is the model the MCP tool will accept
     """Model for keyword-based search request for Danistay."""
-    andKelimeler: List[str] = Field(default_factory=list, description="Keywords for AND logic (VE Mantığı), e.g., ['word1', 'word2']")
-    orKelimeler: List[str] = Field(default_factory=list, description="Keywords for OR logic (VEYA Mantığı).")
-    notAndKelimeler: List[str] = Field(default_factory=list, description="Keywords for NOT AND logic (VE DEĞİL Mantığı).")
-    notOrKelimeler: List[str] = Field(default_factory=list, description="Keywords for NOT OR logic (VEYA DEĞİL Mantığı).")
-    pageSize: int = Field(default=10, ge=1, le=100)
+    andKelimeler: List[str] = Field(default_factory=list, description="AND keywords")
+    orKelimeler: List[str] = Field(default_factory=list, description="OR keywords")
+    notAndKelimeler: List[str] = Field(default_factory=list, description="NOT AND keywords")
+    notOrKelimeler: List[str] = Field(default_factory=list, description="NOT OR keywords")
+    pageSize: int = Field(default=10, ge=1, le=10)
     pageNumber: int = Field(default=1, ge=1)
 
 class DanistayDetailedSearchRequestData(BaseModel): # Internal data model for detailed search payload
@@ -51,20 +51,20 @@ class DanistayDetailedSearchRequestData(BaseModel): # Internal data model for de
 
 class DanistayDetailedSearchRequest(DanistayBaseSearchRequest): # MCP tool will accept this
     """Model for detailed search request for Danistay."""
-    daire: Optional[str] = Field(None, description="Chamber/Department name (e.g., '1. Daire').")
-    esasYil: Optional[str] = Field(None, description="Case year for 'Esas No'.")
-    esasIlkSiraNo: Optional[str] = Field(None, description="Starting sequence for 'Esas No'.")
-    esasSonSiraNo: Optional[str] = Field(None, description="Ending sequence for 'Esas No'.")
-    kararYil: Optional[str] = Field(None, description="Decision year for 'Karar No'.")
-    kararIlkSiraNo: Optional[str] = Field(None, description="Starting sequence for 'Karar No'.")
-    kararSonSiraNo: Optional[str] = Field(None, description="Ending sequence for 'Karar No'.")
-    baslangicTarihi: Optional[str] = Field(None, description="Start date for decision (DD.MM.YYYY).")
-    bitisTarihi: Optional[str] = Field(None, description="End date for decision (DD.MM.YYYY).")
-    mevzuatNumarasi: Optional[str] = Field(None, description="Legislation number.")
-    mevzuatAdi: Optional[str] = Field(None, description="Legislation name.")
-    madde: Optional[str] = Field(None, description="Article number.")
-    siralama: str = Field("1", description="Sorting criteria (e.g., 1: Esas No, 3: Karar Tarihi).")
-    siralamaDirection: str = Field("desc", description="Sorting direction ('asc' or 'desc').")
+    daire: Optional[str] = Field(None, description="Chamber")
+    esasYil: Optional[str] = Field(None, description="Case year")
+    esasIlkSiraNo: Optional[str] = Field(None, description="Start case no")
+    esasSonSiraNo: Optional[str] = Field(None, description="End case no")
+    kararYil: Optional[str] = Field(None, description="Decision year")
+    kararIlkSiraNo: Optional[str] = Field(None, description="Start decision no")
+    kararSonSiraNo: Optional[str] = Field(None, description="End decision no")
+    baslangicTarihi: Optional[str] = Field(None, description="Start date")
+    bitisTarihi: Optional[str] = Field(None, description="End date")
+    mevzuatNumarasi: Optional[str] = Field(None, description="Law number")
+    mevzuatAdi: Optional[str] = Field(None, description="Law name")
+    madde: Optional[str] = Field(None, description="Article")
+    siralama: str = Field("1", description="Sort by")
+    siralamaDirection: str = Field("desc", description="Direction")
     # Add a general keyword field if detailed search also supports it
     # arananKelime: Optional[str] = Field(None, description="General keyword for detailed search.")
 
@@ -76,15 +76,15 @@ class DanistayApiDecisionEntry(BaseModel):
     id: str
     # The API response for keyword search uses "daireKurul", detailed search example uses "daire".
     # We use an alias to handle both and map to a consistent field name "chamber".
-    chamber: Optional[str] = Field(None, alias="daire", description="The chamber or board.")
+    chamber: Optional[str] = Field(None, alias="daire", description="Chamber")
     esasNo: Optional[str] = Field(None)
     kararNo: Optional[str] = Field(None)
     kararTarihi: Optional[str] = Field(None)
-    arananKelime: Optional[str] = Field(None, description="Matched keyword (Aranan Kelime) if provided in response.")
+    arananKelime: Optional[str] = Field(None, description="Keyword")
     # index: Optional[int] = None # Present in response, can be added if needed by MCP tool
     # siraNo: Optional[int] = None # Present in detailed response, can be added
 
-    document_url: Optional[HttpUrl] = Field(None, description="URL (Belge URL) to the full document, constructed by the client.")
+    document_url: Optional[HttpUrl] = Field(None, description="Document URL")
 
     model_config = ConfigDict(populate_by_name=True, extra='ignore')  # Important for alias to work and ignore extra fields
 
@@ -93,7 +93,7 @@ class DanistayApiResponseInnerData(BaseModel):
     data: List[DanistayApiDecisionEntry]
     recordsTotal: int
     recordsFiltered: int
-    draw: Optional[int] = Field(None, description="Draw counter (Çizim Sayıcısı) from API, usually for DataTables.")
+    draw: Optional[int] = Field(None, description="Draw counter")
 
 class DanistayApiResponse(BaseModel):
     """Model for the complete search response from the Danistay API."""

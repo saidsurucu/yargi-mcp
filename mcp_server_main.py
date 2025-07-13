@@ -972,7 +972,7 @@ async def search_yargitay_detailed(
     bitisTarihi: str = Field("", description="End date for decision search (DD.MM.YYYY)."),
     siralama: str = Field("3", description="Sorting criteria (1: Esas No, 2: Karar No, 3: Karar Tarihi)."),
     siralamaDirection: str = Field("desc", description="Sorting direction ('asc' or 'desc')."),
-    pageSize: int = Field(10, ge=1, le=100, description="Number of results per page."),
+    pageSize: int = Field(10, ge=1, le=10, description="Number of results per page."),
     pageNumber: int = Field(1, ge=1, description="Page number to retrieve.")
 ) -> CompactYargitaySearchResult:
     """Search Yargıtay decisions using primary API with 52 chamber filtering and advanced operators."""
@@ -1047,7 +1047,7 @@ async def search_danistay_by_keyword(
     notAndKelimeler: List[str] = Field(default_factory=list, description="Keywords for NOT AND logic."),
     notOrKelimeler: List[str] = Field(default_factory=list, description="Keywords for NOT OR logic."),
     pageNumber: int = Field(1, ge=1, description="Page number."),
-    pageSize: int = Field(10, ge=1, le=100, description="Results per page.")
+    pageSize: int = Field(10, ge=1, le=10, description="Results per page.")
 ) -> CompactDanistaySearchResult:
     """Search Danıştay decisions with keyword logic."""
     
@@ -1099,7 +1099,7 @@ async def search_danistay_detailed(
     siralama: str = Field("1", description="Sorting criteria (e.g., 1: Esas No, 3: Karar Tarihi)."),
     siralamaDirection: str = Field("desc", description="Sorting direction ('asc' or 'desc')."),
     pageNumber: int = Field(1, ge=1, description="Page number."),
-    pageSize: int = Field(10, ge=1, le=100, description="Results per page.")
+    pageSize: int = Field(10, ge=1, le=10, description="Results per page.")
 ) -> CompactDanistaySearchResult:
     """Search Danıştay decisions with detailed filtering."""
     
@@ -1179,7 +1179,7 @@ async def search_emsal_detailed_decisions(
     sort_criteria: str = Field("1", description="Sorting criteria (e.g., 1: Esas No)."),
     sort_direction: str = Field("desc", description="Sorting direction ('asc' or 'desc')."),
     page_number: int = Field(1, ge=1, description="Page number (accepts int)."),
-    page_size: int = Field(10, ge=1, le=100, description="Results per page.")
+    page_size: int = Field(10, ge=1, le=10, description="Results per page.")
 ) -> CompactEmsalSearchResult:
     """Search Emsal precedent decisions with detailed criteria."""
     
@@ -1690,7 +1690,7 @@ async def get_rekabet_kurumu_document(
 )
 async def search_yargitay_bedesten(
     phrase: str = Field(..., description="Search phrase with advanced operators"),
-    pageSize: int = Field(10, ge=1, le=100, description="Sayfa başına sonuç sayısı"),
+    pageSize: int = Field(10, ge=1, le=10, description="Sayfa başına sonuç sayısı"),
     pageNumber: int = Field(1, ge=1, description="Sayfa numarası"),
     birimAdi: Optional[YargitayBirimEnum] = Field(None, description="See docs for details"),
     kararTarihiStart: Optional[str] = Field(None, description="Start date for filtering (ISO 8601 format)"),
@@ -1769,7 +1769,7 @@ async def get_yargitay_bedesten_document_markdown(
 )
 async def search_danistay_bedesten(
     phrase: str = Field(..., description="Search phrase with advanced operators"),
-    pageSize: int = Field(10, ge=1, le=100, description="Sayfa başına sonuç sayısı"),
+    pageSize: int = Field(10, ge=1, le=10, description="Sayfa başına sonuç sayısı"),
     pageNumber: int = Field(1, ge=1, description="Sayfa numarası"),
     birimAdi: Optional[DanistayBirimEnum] = Field(None, description="See docs for details"),
     kararTarihiStart: Optional[str] = Field(None, description="Start date for filtering (ISO 8601 format)"),
@@ -1848,7 +1848,7 @@ async def get_danistay_bedesten_document_markdown(
 )
 async def search_yerel_hukuk_bedesten(
     phrase: str = Field(..., description="Search phrase with advanced operators"),
-    pageSize: int = Field(10, ge=1, le=100, description="Sayfa başına sonuç sayısı"),
+    pageSize: int = Field(10, ge=1, le=10, description="Sayfa başına sonuç sayısı"),
     pageNumber: int = Field(1, ge=1, description="Sayfa numarası"),
     kararTarihiStart: Optional[str] = Field(None, description="Start date for filtering (ISO 8601 format)"),
     kararTarihiEnd: Optional[str] = Field(None, description="End date for filtering (ISO 8601 format)")
@@ -1925,7 +1925,7 @@ async def get_yerel_hukuk_bedesten_document_markdown(
 )
 async def search_istinaf_hukuk_bedesten(
     phrase: str = Field(..., description="Search phrase with advanced operators"),
-    pageSize: int = Field(10, ge=1, le=100, description="Sayfa başına sonuç sayısı"),
+    pageSize: int = Field(10, ge=1, le=10, description="Sayfa başına sonuç sayısı"),
     pageNumber: int = Field(1, ge=1, description="Sayfa numarası"),
     kararTarihiStart: Optional[str] = Field(None, description="Start date for filtering (ISO 8601 format)"),
     kararTarihiEnd: Optional[str] = Field(None, description="End date for filtering (ISO 8601 format)")
@@ -2001,7 +2001,7 @@ async def get_istinaf_hukuk_bedesten_document_markdown(
 )
 async def search_kyb_bedesten(
     phrase: str = Field(..., description="Search phrase with advanced operators"),
-    pageSize: int = Field(10, ge=1, le=100, description="Sayfa başına sonuç sayısı"),
+    pageSize: int = Field(10, ge=1, le=10, description="Sayfa başına sonuç sayısı"),
     pageNumber: int = Field(1, ge=1, description="Sayfa numarası"),
     kararTarihiStart: Optional[str] = Field(None, description="Start date for filtering (ISO 8601 format)"),
     kararTarihiEnd: Optional[str] = Field(None, description="End date for filtering (ISO 8601 format)")

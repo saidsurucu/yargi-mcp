@@ -11,21 +11,21 @@ class KvkkSearchRequest(BaseModel):
         Examples: "açık rıza", "veri güvenliği", "kişisel veri işleme"
     """)
     page: int = Field(1, ge=1, le=50, description="Page number for search results (1-50).")
-    pageSize: int = Field(10, ge=1, le=20, description="Number of results per page (1-20).")
+    pageSize: int = Field(10, ge=1, le=10, description="Number of results per page (1-10).")
 
 class KvkkDecisionSummary(BaseModel):
     """Model for a single KVKK decision summary from Brave search results."""
     title: Optional[str] = Field(None, description="Decision title from search results.")
     url: Optional[HttpUrl] = Field(None, description="URL to the KVKK decision page.")
     description: Optional[str] = Field(None, description="Brief description or snippet from search results.")
-    decision_id: Optional[str] = Field(None, description="Extracted decision ID from URL (e.g., Icerik/7288/2021-1303).")
-    publication_date: Optional[str] = Field(None, description="Publication date if extractable from title or description.")
-    decision_number: Optional[str] = Field(None, description="Decision number if extractable from title or description.")
+    decision_id: Optional[str] = Field(None, description="Value")
+    publication_date: Optional[str] = Field(None, description="Value")
+    decision_number: Optional[str] = Field(None, description="Value")
 
 class KvkkSearchResult(BaseModel):
     """Model for the overall search result for KVKK decisions."""
     decisions: List[KvkkDecisionSummary] = Field(default_factory=list, description="List of KVKK decisions found.")
-    total_results: Optional[int] = Field(None, description="Total number of results available (if provided by Brave API).")
+    total_results: Optional[int] = Field(None, description="Value")
     page: int = Field(1, description="Current page number of results.")
     pageSize: int = Field(10, description="Number of results per page.")
     query: Optional[str] = Field(None, description="The actual search query sent to Brave API.")
@@ -41,7 +41,7 @@ class KvkkDocumentMarkdown(BaseModel):
     current_page: int = Field(description="The current page number of the markdown chunk (1-indexed).")
     total_pages: int = Field(description="Total number of pages for the full markdown content.")
     is_paginated: bool = Field(description="True if the full markdown content is split into multiple pages.")
-    error_message: Optional[str] = Field(None, description="Error message if document retrieval or conversion failed.")
+    error_message: Optional[str] = Field(None, description="Value")
     
     class Config:
         json_encoders = {

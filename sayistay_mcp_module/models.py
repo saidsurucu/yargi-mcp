@@ -16,30 +16,18 @@ class GenelKurulSearchRequest(BaseModel):
     of the Turkish Court of Accounts, typically addressing interpretation of
     audit and accountability regulations.
     """
-    karar_no: Optional[str] = Field(None, description="Decision number (e.g., '5415')")
-    karar_ek: Optional[str] = Field(None, description="Decision appendix number (max 99)")
+    karar_no: Optional[str] = Field(None, description="Decision no")
+    karar_ek: Optional[str] = Field(None, description="Appendix no")
     
-    karar_tarih_baslangic: Optional[str] = Field(None, description="""
-        Decision start year for date range filtering.
-        Available years: 2006-2024. Format: 'YYYY' (e.g., '2020')
-        Use with karar_tarih_bitis for date range filtering.
-    """)
+    karar_tarih_baslangic: Optional[str] = Field(None, description="Start year (YYYY)")
     
-    karar_tarih_bitis: Optional[str] = Field(None, description="""
-        Decision end year for date range filtering.
-        Available years: 2006-2024. Format: 'YYYY' (e.g., '2024')
-        Use with karar_tarih_baslangic for date range filtering.
-    """)
+    karar_tarih_bitis: Optional[str] = Field(None, description="End year")
     
-    karar_tamami: Optional[str] = Field(None, description="""
-        Content/text search within decision summaries (max 400 characters).
-        Searches in decision abstracts and main content.
-        Example: 'belediye taşınmaz tahsis'
-    """)
+    karar_tamami: Optional[str] = Field(None, description="Value")
     
     # DataTables pagination
     start: int = Field(0, description="Starting record for pagination (0-based)")
-    length: int = Field(10, description="Number of records per page (1-100)")
+    length: int = Field(10, description="Number of records per page (1-10)")
 
 class GenelKurulDecision(BaseModel):
     """Single Genel Kurul decision entry from search results."""
@@ -66,62 +54,27 @@ class TemyizKuruluSearchRequest(BaseModel):
     Temyiz Kurulu reviews appeals against audit chamber decisions,
     providing higher-level review of audit findings and sanctions.
     """
-    ilam_dairesi: DaireEnum = Field("ALL", description="""
-        Chamber/Department filter for appeals board decisions.
-        • ALL: All chambers (default)
-        • 1-8: Specific chamber number (1. Daire through 8. Daire)
-        Each chamber specializes in different types of public institutions.
-    """)
+    ilam_dairesi: DaireEnum = Field("ALL", description="Value")
     
-    yili: Optional[str] = Field(None, description="""
-        Account year filter (Hesap Yılı).
-        Available years: 1993-2022. Format: 'YYYY' (e.g., '2020')
-        Refers to the fiscal year being audited, not decision date.
-    """)
+    yili: Optional[str] = Field(None, description="Value")
     
-    karar_tarih_baslangic: Optional[str] = Field(None, description="""
-        Decision start year for date range filtering.
-        Available years: 2000, 2006-2024. Format: 'YYYY' (e.g., '2020')
-        Use with karar_tarih_bitis for date range filtering.
-    """)
+    karar_tarih_baslangic: Optional[str] = Field(None, description="Value")
     
-    karar_tarih_bitis: Optional[str] = Field(None, description="""
-        Decision end year for date range filtering. 
-        Available years: 2000, 2006-2024. Format: 'YYYY' (e.g., '2024')
-        Use with karar_tarih_baslangic for date range filtering.
-    """)
+    karar_tarih_bitis: Optional[str] = Field(None, description="End year")
     
-    kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="""
-        Public administration type filter:
-        • ALL: All institutions (default)
-        • Genel Bütçe Kapsamındaki İdareler: General budget administrations
-        • Yüksek Öğretim Kurumları: Higher education institutions
-        • Belediyeler ve Bağlı İdareler: Municipalities and affiliates
-        • Other specific institution types
-    """)
+    kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="Value")
     
     ilam_no: Optional[str] = Field(None, description="Audit report number (İlam No, max 50 chars)")
     dosya_no: Optional[str] = Field(None, description="File number for the case")
     temyiz_tutanak_no: Optional[str] = Field(None, description="Appeals board meeting minutes number")
     
-    temyiz_karar: Optional[str] = Field(None, description="""
-        Content search within appeals decisions.
-        Searches decision text and reasoning.
-        Example: 'araç kiralama kasko'
-    """)
+    temyiz_karar: Optional[str] = Field(None, description="Value")
     
-    web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="""
-        Decision subject category filter:
-        • ALL: All subjects (default)
-        • İhale Mevzuatı ile İlgili Kararlar: Procurement legislation
-        • Personel Mevzuatı ile İlgili Kararlar: Personnel legislation
-        • Harcırah Mevzuatı ile İlgili Kararlar: Travel allowance legislation
-        • Other specialized legal areas
-    """)
+    web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="Value")
     
     # DataTables pagination
     start: int = Field(0, description="Starting record for pagination (0-based)")
-    length: int = Field(10, description="Number of records per page (1-100)")
+    length: int = Field(10, description="Number of records per page (1-10)")
 
 class TemyizKuruluDecision(BaseModel):
     """Single Temyiz Kurulu decision entry from search results."""
@@ -148,60 +101,25 @@ class DaireSearchRequest(BaseModel):
     Daire decisions are first-instance audit findings and sanctions
     issued by individual audit chambers before potential appeals.
     """
-    yargilama_dairesi: DaireEnum = Field("ALL", description="""
-        Audit chamber filter:
-        • ALL: All chambers (default)
-        • 1-8: Specific chamber number (1. Daire through 8. Daire)
-        Each chamber audits different types of public institutions.
-    """)
+    yargilama_dairesi: DaireEnum = Field("ALL", description="Value")
     
-    karar_tarih_baslangic: Optional[str] = Field(None, description="""
-        Decision start year for date range filtering.
-        Available years: 2012-2025. Format: 'YYYY' (e.g., '2020')
-        Use with karar_tarih_bitis for date range filtering.
-    """)
+    karar_tarih_baslangic: Optional[str] = Field(None, description="Value")
     
-    karar_tarih_bitis: Optional[str] = Field(None, description="""
-        Decision end year for date range filtering.
-        Available years: 2012-2025. Format: 'YYYY' (e.g., '2024')
-        Use with karar_tarih_baslangic for date range filtering.
-    """)
+    karar_tarih_bitis: Optional[str] = Field(None, description="End year")
     
     ilam_no: Optional[str] = Field(None, description="Audit report number (İlam No, max 50 chars)")
     
-    kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="""
-        Public administration type filter:
-        • ALL: All institutions (default)
-        • Genel Bütçe Kapsamındaki İdareler: General budget administrations
-        • Yüksek Öğretim Kurumları: Higher education institutions
-        • Belediyeler ve Bağlı İdareler: Municipalities and affiliates
-        • Other specific institution types
-    """)
+    kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="Value")
     
-    hesap_yili: Optional[str] = Field(None, description="""
-        Account year filter (Hesap Yılı).
-        Available years: 2005, 2008-2023. Format: 'YYYY' (e.g., '2020')
-        Refers to the fiscal year being audited, not decision date.
-    """)
+    hesap_yili: Optional[str] = Field(None, description="Value")
     
-    web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="""
-        Decision subject category filter:
-        • ALL: All subjects (default)
-        • İhale Mevzuatı ile İlgili Kararlar: Procurement legislation
-        • Personel Mevzuatı ile İlgili Kararlar: Personnel legislation
-        • Vergi Resmi Harç ve Diğer Gelirlerle İlgili Kararlar: Tax and fee legislation
-        • Other specialized legal areas
-    """)
+    web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="Value")
     
-    web_karar_metni: Optional[str] = Field(None, description="""
-        Content search within chamber decisions.
-        Searches decision text and audit findings.
-        Example: 'birim fiyat revize edilmemesi'
-    """)
+    web_karar_metni: Optional[str] = Field(None, description="Value")
     
     # DataTables pagination
     start: int = Field(0, description="Starting record for pagination (0-based)")
-    length: int = Field(10, description="Number of records per page (1-100)")
+    length: int = Field(10, description="Number of records per page (1-10)")
 
 class DaireDecision(BaseModel):
     """Single Daire decision entry from search results."""
@@ -235,7 +153,7 @@ class SayistayDocumentMarkdown(BaseModel):
     decision types (Genel Kurul, Temyiz Kurulu, Daire).
     """
     decision_id: str = Field(..., description="Unique decision identifier")
-    decision_type: str = Field(..., description="Type of decision: 'genel_kurul', 'temyiz_kurulu', or 'daire'")
+    decision_type: str = Field(..., description="Value")
     source_url: str = Field(..., description="Original URL where the document was retrieved")
     markdown_content: Optional[str] = Field(None, description="Full decision text converted to Markdown format")
     retrieval_date: Optional[str] = Field(None, description="Date when document was retrieved (ISO format)")

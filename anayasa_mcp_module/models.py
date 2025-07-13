@@ -114,7 +114,7 @@ class AnayasaNormDenetimiSearchRequest(BaseModel):
     review_outcomes: Optional[List[AnayasaIncelemeSonucuEnum]] = Field(default_factory=list, description="List of review types and outcomes (IncelemeTuruKararSonuclar_id[]).")
     reason_for_final_outcome: Optional[AnayasaSonucGerekcesiEnum] = Field(default=AnayasaSonucGerekcesiEnum.TUMU, description="Main reason for the decision outcome (KararSonucununGerekcesi).")
     basis_constitution_article_numbers: Optional[List[str]] = Field(default_factory=list, description="List of supporting Constitution article numbers (DayanakHukmu[]).")
-    results_per_page: Optional[int] = Field(10, description="Number of results per page. Options: 10, 20, 30, 40, 50.")
+    results_per_page: Optional[int] = Field(10, ge=1, le=10, description="Results per page.")
     page_to_fetch: Optional[int] = Field(1, ge=1, description="Page number to fetch for results list.")
     sort_by_criteria: Optional[str] = Field("KararTarihi", description="Sort criteria. Options: 'KararTarihi', 'YayinTarihi', 'Toplam' (keyword count).")
 

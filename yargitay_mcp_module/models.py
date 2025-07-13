@@ -34,86 +34,41 @@ class YargitayDetailedSearchRequest(BaseModel):
     to Yargitay's detailed search endpoint (e.g., /aramadetaylist).
     Based on the payload provided by the user.
     """
-    arananKelime: Optional[str] = Field("", description="""Keyword to search for with advanced operators support:
-        • Simple words: 'arsa payı' (OR logic - finds documents with ANY word)
-        • Exact phrases: '"arsa payı"' (finds exact phrase)
-        • AND logic: 'arsa+payı' (both words required)
-        • Wildcards: 'bozma*' (matches bozma, bozması, bozmanın, etc.)
-        • Multiple required: '+"arsa payı" +"bozma sebebi"'
-        • Exclusion: '+"arsa payı" -"inşaat sözleşmesi"'
-        Examples: arsa payı | "arsa payı" | +"mülkiyet hakkı" +"bozma sebebi" | hukuk*""")
+    arananKelime: Optional[str] = Field("", description="Turkish keywords (supports +word -word \"phrase\" operators)")
     # Department/Board selection - Complete Court of Cassation chamber hierarchy
-    birimYrgKurulDaire: Optional[str] = Field("ALL", description="""
-        Court of Cassation (Yargıtay) chamber/board selection. Options include:
-        - 'ALL' for all chambers
-        - Civil: 'Civil General Assembly (Hukuk Genel Kurulu)', '1st Civil Chamber (1. Hukuk Dairesi)' through '23rd Civil Chamber (23. Hukuk Dairesi)', 'Civil Chambers Presidents Board (Hukuk Daireleri Başkanlar Kurulu)'
-        - Criminal: 'Criminal General Assembly (Ceza Genel Kurulu)', '1st Criminal Chamber (1. Ceza Dairesi)' through '23rd Criminal Chamber (23. Ceza Dairesi)', 'Criminal Chambers Presidents Board (Ceza Daireleri Başkanlar Kurulu)'
-        - General: 'Grand General Assembly (Büyük Genel Kurulu)'
-        Total: 52 possible values (including 'ALL' for all chambers)
-    """)
-    birimYrgHukukDaire: Optional[str] = Field("", description="Legacy field - use birimYrgKurulDaire instead for chamber selection")
-    birimYrgCezaDaire: Optional[str] = Field("", description="Legacy field - use birimYrgKurulDaire instead for chamber selection")
+    birimYrgKurulDaire: Optional[str] = Field("ALL", description="Chamber (ALL or specific chamber name)")
+    birimYrgHukukDaire: Optional[str] = Field("", description="Legacy field")
+    birimYrgCezaDaire: Optional[str] = Field("", description="Legacy field")
     
-    esasYil: Optional[str] = Field("", description="""Case year for 'Esas No' filtering. 
-        Format: YYYY (e.g., '2024')
-        Use with sequence numbers for precise case targeting""")
-    esasIlkSiraNo: Optional[str] = Field("", description="""Starting sequence number for 'Esas No' range filtering.
-        Format: numeric string (e.g., '1', '100')
-        Use with esasSonSiraNo for range: cases 100-200 in specified year""")
-    esasSonSiraNo: Optional[str] = Field("", description="""Ending sequence number for 'Esas No' range filtering.
-        Format: numeric string (e.g., '500', '1000')
-        Creates range from esasIlkSiraNo to this number""")
+    esasYil: Optional[str] = Field("", description="Case year (YYYY)")
+    esasIlkSiraNo: Optional[str] = Field("", description="Start case no")
+    esasSonSiraNo: Optional[str] = Field("", description="End case no")
     
-    kararYil: Optional[str] = Field("", description="""Decision year for 'Karar No' filtering.
-        Format: YYYY (e.g., '2024')
-        Filters decisions by the year they were issued""")
-    kararIlkSiraNo: Optional[str] = Field("", description="""Starting sequence number for 'Karar No' range filtering.
-        Format: numeric string (e.g., '1', '50')
-        Use with kararSonSiraNo for decision number ranges""")
-    kararSonSiraNo: Optional[str] = Field("", description="""Ending sequence number for 'Karar No' range filtering.
-        Format: numeric string (e.g., '100', '500')
-        Creates range from kararIlkSiraNo to this number""")
+    kararYil: Optional[str] = Field("", description="Decision year (YYYY)")
+    kararIlkSiraNo: Optional[str] = Field("", description="Start decision no")
+    kararSonSiraNo: Optional[str] = Field("", description="End decision no")
     
-    baslangicTarihi: Optional[str] = Field("", description="""Start date for decision search.
-        Format: DD.MM.YYYY (e.g., '01.01.2024')
-        Use with bitisTarihi for date range filtering
-        Examples: '01.01.2024', '15.06.2023'""")
-    bitisTarihi: Optional[str] = Field("", description="""End date for decision search.
-        Format: DD.MM.YYYY (e.g., '31.12.2024')
-        Creates date range from baslangicTarihi to this date
-        Examples: '31.12.2024', '30.06.2023'""")
+    baslangicTarihi: Optional[str] = Field("", description="Start date (DD.MM.YYYY)")
+    bitisTarihi: Optional[str] = Field("", description="End date (DD.MM.YYYY)")
     
-    siralama: Optional[str] = Field("3", description="""Sorting criteria for search results:
-        • '1': Esas No (Case Number) - sorts by case registration order
-        • '2': Karar No (Decision Number) - sorts by decision issuance order  
-        • '3': Karar Tarihi (Decision Date) - sorts by chronological order [DEFAULT]
-        Recommended: Use '3' for most recent decisions first""")
-    siralamaDirection: Optional[str] = Field("desc", description="""Sorting direction for results:
-        • 'desc': Descending order (newest/highest first) [DEFAULT]
-        • 'asc': Ascending order (oldest/lowest first)
-        Most common: 'desc' for latest decisions first""")
+    siralama: Optional[str] = Field("3", description="Sort by (1=case, 2=decision, 3=date)")
+    siralamaDirection: Optional[str] = Field("desc", description="Direction (asc/desc)")
     
-    pageSize: int = Field(10, ge=1, le=100, description="""Number of results per page.
-        Range: 1-100 results per page
-        Recommended: 10-50 for balanced performance and coverage
-        Large values (50-100) for comprehensive analysis""")
-    pageNumber: int = Field(1, ge=1, description="""Page number to retrieve (1-indexed).
-        Start with 1 for first page
-        Use with pageSize to navigate through large result sets
-        Example: pageSize=50, pageNumber=3 gets results 101-150""")
+    pageSize: int = Field(10, ge=1, le=10, description="Results per page (1-100)")
+    pageNumber: int = Field(1, ge=1, description="Page number (1-indexed)")
 
 class YargitayApiDecisionEntry(BaseModel):
     """Model for an individual decision entry from the Yargitay API search response."""
     id: str # Unique system ID of the decision
-    daire: Optional[str] = Field(None, description="The chamber (Daire) that made the decision.")
-    esasNo: Optional[str] = Field(None, alias="esasNo", description="Case registry number (Esas No).")
-    kararNo: Optional[str] = Field(None, alias="kararNo", description="Decision number (Karar No).")
-    kararTarihi: Optional[str] = Field(None, alias="kararTarihi", description="Date of the decision (Karar Tarihi).")
-    arananKelime: Optional[str] = Field(None, alias="arananKelime", description="Matched keyword (Aranan Kelime) in the search result item.")
+    daire: Optional[str] = Field(None, description="Chamber")
+    esasNo: Optional[str] = Field(None, alias="esasNo", description="Case no")
+    kararNo: Optional[str] = Field(None, alias="kararNo", description="Decision no")
+    kararTarihi: Optional[str] = Field(None, alias="kararTarihi", description="Date")
+    arananKelime: Optional[str] = Field(None, alias="arananKelime", description="Keyword")
     # 'index' and 'siraNo' from API response are not critical for MCP tool, so omitted for brevity
     
     # This field will be populated by the client after fetching the search list
-    document_url: Optional[HttpUrl] = Field(None, description="Direct URL (Belge URL) to the decision document.")
+    document_url: Optional[HttpUrl] = Field(None, description="Document URL")
 
     model_config = ConfigDict(populate_by_name=True)  # To allow populating by alias from API response
 
@@ -132,9 +87,9 @@ class YargitayApiSearchResponse(BaseModel):
 
 class YargitayDocumentMarkdown(BaseModel):
     """Model for a Yargitay decision document, containing only Markdown content."""
-    id: str = Field(..., description="The unique ID (Belge Kimliği) of the document.")
-    markdown_content: Optional[str] = Field(None, description="The decision content (Karar İçeriği) converted to Markdown.")
-    source_url: HttpUrl = Field(..., description="The source URL (Kaynak URL) of the original document.")
+    id: str = Field(..., description="Document ID")
+    markdown_content: Optional[str] = Field(None, description="Content")
+    source_url: HttpUrl = Field(..., description="Source URL")
 
 class CompactYargitaySearchResult(BaseModel):
     """A more compact search result model for the MCP tool to return."""

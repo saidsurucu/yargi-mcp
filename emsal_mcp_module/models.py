@@ -17,7 +17,7 @@ class EmsalDetailedSearchRequestData(BaseModel):
     # Add other specific court type fields from the form if they are separate keys in payload
     # E.g., "Ceza Mahkemeleri", "İdari Mahkemeler" etc.
     
-    birimHukukMah: Optional[str] = Field("", description="List of selected Regional Civil Chambers (Bölge Hukuk Mahkemeleri), '+' separated.") 
+    birimHukukMah: Optional[str] = Field("", description="Regional chambers (+ separated)") 
 
     esasYil: Optional[str] = ""
     esasIlkSiraNo: Optional[str] = ""
@@ -36,42 +36,42 @@ class EmsalDetailedSearchRequestData(BaseModel):
 
 class EmsalSearchRequest(BaseModel): # This is the model the MCP tool will accept
     """Model for Emsal detailed search request, with user-friendly field names."""
-    keyword: Optional[str] = Field(None, description="Keyword (Anahtar Kelime) to search.")
+    keyword: Optional[str] = Field(None, description="Keyword")
     
-    selected_bam_civil_court: Optional[str] = Field(None, description="Selected BAM Civil Court (Seçilen BAM Hukuk Mahkemesi) (maps to 'Bam Hukuk Mahkemeleri' payload key).")
-    selected_civil_court: Optional[str] = Field(None, description="Selected Civil Court (Seçilen Hukuk Mahkemesi) (maps to 'Hukuk Mahkemeleri' payload key).")
-    selected_regional_civil_chambers: Optional[List[str]] = Field(default_factory=list, description="Selected Regional Civil Chambers (Seçilen Bölge Hukuk Daireleri) (for 'birimHukukMah', joined by '+').")
+    selected_bam_civil_court: Optional[str] = Field(None, description="BAM Civil Court")
+    selected_civil_court: Optional[str] = Field(None, description="Civil Court")
+    selected_regional_civil_chambers: Optional[List[str]] = Field(default_factory=list, description="Regional chambers")
 
-    case_year_esas: Optional[str] = Field(None, description="Case year (Dava Yılı) for 'Esas No'.")
-    case_start_seq_esas: Optional[str] = Field(None, description="Starting sequence (Başlangıç Sırası) for 'Esas No'.")
-    case_end_seq_esas: Optional[str] = Field(None, description="Ending sequence (Bitiş Sırası) for 'Esas No'.")
+    case_year_esas: Optional[str] = Field(None, description="Case year")
+    case_start_seq_esas: Optional[str] = Field(None, description="Start case no")
+    case_end_seq_esas: Optional[str] = Field(None, description="End case no")
     
-    decision_year_karar: Optional[str] = Field(None, description="Decision year (Karar Yılı) for 'Karar No'.")
-    decision_start_seq_karar: Optional[str] = Field(None, description="Starting sequence (Başlangıç Sırası) for 'Karar No'.")
-    decision_end_seq_karar: Optional[str] = Field(None, description="Ending sequence (Bitiş Sırası) for 'Karar No'.")
+    decision_year_karar: Optional[str] = Field(None, description="Decision year")
+    decision_start_seq_karar: Optional[str] = Field(None, description="Start decision no")
+    decision_end_seq_karar: Optional[str] = Field(None, description="End decision no")
     
-    start_date: Optional[str] = Field(None, description="Start date (Başlangıç Tarihi) for decision (DD.MM.YYYY).")
-    end_date: Optional[str] = Field(None, description="End date (Bitiş Tarihi) for decision (DD.MM.YYYY).")
+    start_date: Optional[str] = Field(None, description="Start date (DD.MM.YYYY)")
+    end_date: Optional[str] = Field(None, description="End date (DD.MM.YYYY)")
     
-    sort_criteria: str = Field("1", description="Sorting criteria (Sıralama Kriteri) (e.g., 1: Esas No).")
-    sort_direction: str = Field("desc", description="Sorting direction (Sıralama Yönü) ('asc' or 'desc').")
+    sort_criteria: str = Field("1", description="Sort by")
+    sort_direction: str = Field("desc", description="Direction")
     
     page_number: int = Field(default=1, ge=1)
-    page_size: int = Field(default=10, ge=1, le=100)
+    page_size: int = Field(default=10, ge=1, le=10)
 
 
 class EmsalApiDecisionEntry(BaseModel):
     """Model for an individual decision entry from the Emsal API search response."""
     id: str
-    daire: Optional[str] = Field(None, description="The chamber/court (Daire/Mahkeme) that made the decision.")
+    daire: Optional[str] = Field(None, description="Chamber")
     esasNo: Optional[str] = Field(None)
     kararNo: Optional[str] = Field(None)
     kararTarihi: Optional[str] = Field(None)
-    arananKelime: Optional[str] = Field(None, description="Matched keyword (Aranan Kelime) from the search.")
-    durum: Optional[str] = Field(None, description="Status (Durum) of the decision (e.g., 'KESİNLEŞMEDİ').")
+    arananKelime: Optional[str] = Field(None, description="Keyword")
+    durum: Optional[str] = Field(None, description="Status")
     # index: Optional[int] = None # Present in Emsal response, can be added if tool needs it
 
-    document_url: Optional[HttpUrl] = Field(None, description="URL (Belge URL) to the full document, constructed by the client.")
+    document_url: Optional[HttpUrl] = Field(None, description="Document URL")
 
     model_config = ConfigDict(extra='ignore')
 
