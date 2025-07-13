@@ -808,121 +808,32 @@ Mali konu -> İlgili daire seçimi -> Derinlemesine arama
 async def get_kvkk_tools_documentation() -> str:
     """Get document content as Markdown."""
     return """
-# KVKK (Personal Data Protection Authority) Tools Documentation
+# KVKK (Personal Data Protection Authority) Tools
 
-## KVKK'nın Konumu
-Kişisel Verilerin Korunması Kanunu'nun (KVKK) uygulanmasını denetleyen otorite.
-Türkiye'nin GDPR equivalent'ı olarak işlev görür.
+## Overview
+KVKK (Kişisel Verilerin Korunması Kurulu) - Turkey's GDPR equivalent authority.
 
-## Brave Search API Sistemi
-**Özellik**: Brave Search API ile kvkk.gov.tr sitesi taraması
-- **Site hedeflemeli**: Otomatik `site:kvkk.gov.tr "karar özeti"`
-- **Türkçe optimize**: Türkçe hukuki terimler için optimize
-- **Sayfalama**: page ve pageSize parametreleri
+## Search Features
+- **Brave Search API**: Searches kvkk.gov.tr with Turkish terms
+- **Site-targeted**: Auto `site:kvkk.gov.tr "karar özeti"`
+- **Pagination**: page and pageSize parameters
+- **5,000-char pages**: Paginated Markdown documents
 
-## KVKK Karar Türleri
+## Common Search Terms
+**Violations**: "veri ihlali", "açık rıza", "idari para cezası"
+**Compliance**: "GDPR uyum", "veri koruma", "güvenlik tedbirleri"
+**Sectors**: "e-ticaret", "bankacılık", "sağlık", "mobil uygulama"
 
-### İdari Para Cezaları
-- **Veri ihlalleri**: Kişisel veri güvenliği ihlalleri
-- **Rıza eksiklikleri**: Açık rıza alınmaması
-- **Bilgilendirme yetersizliği**: Veri sahibi bilgilendirme
-- **Yurtdışı aktarım**: İzinsiz veri transferi
+## Key Decision Types
+- **Fines**: Data breaches, consent violations
+- **Compliance**: GDPR alignment, corporate policies  
+- **Breach notifications**: 24-hour rule violations
 
-### Uyum Değerlendirmeleri
-- **GDPR uyumluluğu**: AB mevzuatı ile uyum
-- **Veri koruma politikaları**: Kurumsal politika değerlendirme
-- **Teknik önlemler**: Güvenlik tedbirleri yeterliliği
-
-### Veri İhlali Bildirimları
-- **24 saat kuralı**: İhlal bildirimi süreleri
-- **Etki değerlendirmesi**: İhlal büyüklüğü analizi
-- **Düzeltici tedbirler**: İhlal sonrası alınacak önlemler
-
-## Arama Stratejileri
-
-### Türkçe Hukuki Terimler
-```
-Temel: "açık rıza", "veri ihlali", "kişisel veri"
-Teknik: "veri koruma", "güvenlik tedbirleri", "şifreleme"  
-Süreç: "bildirimi", "değerlendirme", "denetim"
-GDPR: "GDPR uyum", "Avrupa Birliği", "yeterlilik kararı"
-```
-
-### Sektör Bazlı Aramalar
-```
-Teknoloji: "e-ticaret", "mobil uygulama", "web sitesi"
-Sağlık: "hasta bilgileri", "tıbbi veriler"
-Finans: "bankacılık", "kredi kartı", "müşteri bilgileri"
-Eğitim: "öğrenci verileri", "elektronik okul"
-```
-
-### Ceza Türü Aramalar
-```
-İdari ceza: "idari para cezası", "ihlal tespiti"
-Uyarı: "uyarı kararı", "önlem alınması"
-Red: "şikayet redi", "yetki dışı"
-```
-
-## Paginated Content (5,000 characters)
-KVKK belgeleri sayfalanmış Markdown formatında:
-- **page_number**: Sayfa numarası (1'den başlar)
-- **total_pages**: Toplam sayfa sayısı  
-- **current_page**: Mevcut sayfa
-- **is_paginated**: Sayfalanma durumu
-
-## Usage Scenarios
-
-### Veri Koruma Uyumu
-- **GDPR compliance**: AB mevzuatı ile uyum kontrolü
-- **Şirket politikaları**: Kurumsal veri koruma
-- **Teknik önlemler**: Güvenlik tedbirleri benchmarking
-- **Uluslararası transfer**: Yurtdışı veri aktarımı kuralları
-
-### İhlal Analizi
-- **Benzer vakalar**: Aynı türde ihlal örnekleri
-- **Ceza miktarları**: İhlal türüne göre ceza analizi
-- **Düzeltici tedbirler**: İhlal sonrası yapılması gerekenler
-- **Önleme stratejileri**: Proaktif koruma tedbirleri
-
-### Sektörel Araştırma
-- **E-ticaret**: Online mağaza veri koruma
-- **Sağlık**: Hasta verileri güvenliği
-- **Finans**: Müşteri bilgileri koruma
-- **Teknoloji**: Uygulama ve platform sorumlulukları
-
-## KVKK Hukuki Framework
-
-### Temel İlkeler
-1. **Hukuka uygunluk**: Kanuna uygun işleme
-2. **Dürüstlük**: İyi niyet ilkesi
-3. **Şeffaflık**: Açık bilgilendirme
-4. **Amaçla sınırlılık**: Belirli amaçla işleme
-5. **Veri minimizasyonu**: Gerekli minimum veri
-6. **Doğruluk**: Güncel ve doğru veri
-
-### Veri Sahibi Hakları
-- **Bilgi alma**: Veri işlendiğini öğrenme
-- **Erişim**: Verilerine erişim talep etme
-- **Düzeltme**: Yanlış verileri düzeltme
-- **Silme**: Verilerin silinmesini isteme
-- **İtiraz**: Veri işlemeye karşı çıkma
-
-## Best Practices
-1. **Türkçe terimler**: Orijinal hukuki terminoloji
-2. **Sektör odaklı**: İlgili sektörle filtreleme
-3. **Güncel gelişmeler**: Son 2-3 yıl öncelikli
-4. **GDPR referansı**: AB mevzuatı ile karşılaştırma
-5. **Sayfa yönetimi**: Uzun kararları bölümler halinde
-
-## Yaygın KVKK Terimleri Sözlüğü
-- **Açık rıza**: Explicit consent
-- **Veri sorumlusu**: Data controller  
-- **Veri işleyici**: Data processor
-- **Kişisel veri**: Personal data
-- **Özel nitelikli veri**: Special categories of data
-- **Veri ihlali**: Data breach
-- **Veri koruma**: Data protection
-- **Yurtdışı aktarım**: International transfer
+## Usage Tips
+1. Use Turkish legal terms for best results
+2. Combine sector + violation type searches
+3. Use page_number for long decisions
+4. Focus on recent 2-3 years for current practices
 """
 
 
