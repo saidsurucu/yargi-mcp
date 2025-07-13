@@ -65,6 +65,19 @@ class YargitayOfficialApiClient:
             response.raise_for_status() # Raise an exception for HTTP 4xx or 5xx status codes
             response_json_data = response.json()
             
+            logger.debug(f"YargitayOfficialApiClient: Raw API response: {response_json_data}")
+            
+            # Handle None or empty data response from API
+            if response_json_data is None:
+                logger.warning("YargitayOfficialApiClient: API returned None response")
+                response_json_data = {"data": {"data": [], "recordsTotal": 0, "recordsFiltered": 0}}
+            elif not isinstance(response_json_data, dict):
+                logger.warning(f"YargitayOfficialApiClient: API returned unexpected response type: {type(response_json_data)}")
+                response_json_data = {"data": {"data": [], "recordsTotal": 0, "recordsFiltered": 0}}
+            elif response_json_data.get("data") is None:
+                logger.warning("YargitayOfficialApiClient: API response data field is None")
+                response_json_data["data"] = {"data": [], "recordsTotal": 0, "recordsFiltered": 0}
+            
             # Validate and parse the response using Pydantic models
             api_response = YargitayApiSearchResponse(**response_json_data)
 

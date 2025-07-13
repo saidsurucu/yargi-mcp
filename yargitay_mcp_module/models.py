@@ -74,14 +74,14 @@ class YargitayApiDecisionEntry(BaseModel):
 
 class YargitayApiResponseInnerData(BaseModel):
     """Model for the inner 'data' object in the Yargitay API search response."""
-    data: List[YargitayApiDecisionEntry]
+    data: List[YargitayApiDecisionEntry] = Field(default_factory=list)
     # draw: Optional[int] = None # Typically used by DataTables, not essential for MCP
-    recordsTotal: int # Total number of records matching the query
-    recordsFiltered: int # Total number of records after filtering (usually same as recordsTotal)
+    recordsTotal: int = Field(default=0) # Total number of records matching the query
+    recordsFiltered: int = Field(default=0) # Total number of records after filtering (usually same as recordsTotal)
 
 class YargitayApiSearchResponse(BaseModel):
     """Model for the complete search response from the Yargitay API."""
-    data: YargitayApiResponseInnerData
+    data: Optional[YargitayApiResponseInnerData] = Field(default_factory=lambda: YargitayApiResponseInnerData())
     # metadata: Optional[Dict[str, Any]] = None # Optional metadata from API
 
 class YargitayDocumentMarkdown(BaseModel):

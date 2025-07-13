@@ -1003,7 +1003,7 @@ async def search_yargitay_detailed(
     logger.info(f"Tool 'search_yargitay_detailed' called: {search_query.model_dump_json(exclude_none=True, indent=2)}")
     try:
         api_response = await yargitay_client_instance.search_detailed_decisions(search_query)
-        if api_response.data:
+        if api_response and api_response.data and api_response.data.data:
             # Convert to clean decision entries without arananKelime field
             clean_decisions = [
                 CleanYargitayDecisionEntry(
@@ -1018,7 +1018,7 @@ async def search_yargitay_detailed(
             ]
             return CompactYargitaySearchResult(
                 decisions=clean_decisions,
-                total_records=api_response.data.recordsTotal,
+                total_records=api_response.data.recordsTotal if api_response.data else 0,
                 requested_page=search_query.pageNumber,
                 page_size=search_query.pageSize)
         logger.warning("API response for Yargitay search did not contain expected data structure.")
@@ -2320,6 +2320,148 @@ def perform_cleanup():
     logger.info("MCP Server atexit cleanup process finished.")
 
 atexit.register(perform_cleanup)
+
+# --- Health Check Tools ---
+@app.tool(
+    description="Check if Turkish government legal database servers are operational",
+    annotations={
+        "readOnlyHint": True,
+        "idempotentHint": True
+    }
+)
+async def check_government_servers_health() -> Dict[str, Any]:
+    """Check health status of Turkish government legal database servers."""
+    logger.info("Health check tool called for government servers")
+    
+    health_results = {}
+    
+    # Check Yargıtay server
+    try:
+        yargitay_payload = {
+            "data": {
+                "aranan": "karar",
+                "arananKelime": "karar", 
+                "pageSize": 10,
+                "pageNumber": 1
+            }
+        }
+        
+        async with httpx.AsyncClient(
+            headers={
+                "Accept": "*/*",
+                "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+                "Connection": "keep-alive",
+                "Content-Type": "application/json; charset=UTF-8",
+                "Origin": "https://karararama.yargitay.gov.tr",
+                "Referer": "https://karararama.yargitay.gov.tr/",
+                "Sec-Fetch-Dest": "empty",
+                "Sec-Fetch-Mode": "cors", 
+                "Sec-Fetch-Site": "same-origin",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            timeout=30.0,
+            verify=False
+        ) as client:
+            response = await client.post(
+                "https://karararama.yargitay.gov.tr/aramalist",
+                json=yargitay_payload
+            )
+            
+            if response.status_code == 200:
+                response_data = response.json()
+                records_total = response_data.get("data", {}).get("recordsTotal", 0)
+                
+                if records_total > 0:
+                    health_results["yargitay"] = {
+                        "status": "healthy",
+                        "records_total": records_total,
+                        "response_time_ms": response.elapsed.total_seconds() * 1000
+                    }
+                else:
+                    health_results["yargitay"] = {
+                        "status": "unhealthy",
+                        "reason": "recordsTotal is 0 or missing",
+                        "response_time_ms": response.elapsed.total_seconds() * 1000
+                    }
+            else:
+                health_results["yargitay"] = {
+                    "status": "unhealthy", 
+                    "reason": f"HTTP {response.status_code}",
+                    "response_time_ms": response.elapsed.total_seconds() * 1000
+                }
+                
+    except Exception as e:
+        health_results["yargitay"] = {
+            "status": "unhealthy",
+            "reason": f"Connection error: {str(e)}"
+        }
+    
+    # Check Bedesten API server
+    try:
+        bedesten_payload = {
+            "phrase": "karar",
+            "itemTypeList": ["YARGITAYKARARI"], 
+            "pageSize": 5,
+            "page": 1
+        }
+        
+        async with httpx.AsyncClient(
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": "Mozilla/5.0 Health Check"
+            },
+            timeout=30.0,
+            verify=False
+        ) as client:
+            response = await client.post(
+                "https://bedesten.adalet.gov.tr/api/search",
+                json=bedesten_payload
+            )
+            
+            if response.status_code == 200:
+                response_data = response.json()
+                total_found = response_data.get("totalFound", 0)
+                
+                if total_found > 0:
+                    health_results["bedesten"] = {
+                        "status": "healthy", 
+                        "total_found": total_found,
+                        "response_time_ms": response.elapsed.total_seconds() * 1000
+                    }
+                else:
+                    health_results["bedesten"] = {
+                        "status": "unhealthy",
+                        "reason": "totalFound is 0 or missing",
+                        "response_time_ms": response.elapsed.total_seconds() * 1000
+                    }
+            else:
+                health_results["bedesten"] = {
+                    "status": "unhealthy",
+                    "reason": f"HTTP {response.status_code}",
+                    "response_time_ms": response.elapsed.total_seconds() * 1000
+                }
+                
+    except Exception as e:
+        health_results["bedesten"] = {
+            "status": "unhealthy", 
+            "reason": f"Connection error: {str(e)}"
+        }
+    
+    # Overall health assessment
+    healthy_servers = sum(1 for server in health_results.values() if server["status"] == "healthy")
+    total_servers = len(health_results)
+    
+    overall_status = "healthy" if healthy_servers == total_servers else "degraded" if healthy_servers > 0 else "unhealthy"
+    
+    return {
+        "overall_status": overall_status,
+        "healthy_servers": healthy_servers,
+        "total_servers": total_servers,
+        "servers": health_results,
+        "check_timestamp": f"{__import__('datetime').datetime.now().isoformat()}"
+    }
 
 # --- MCP Tools for KVKK ---
 @app.tool(
