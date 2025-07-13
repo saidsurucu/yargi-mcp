@@ -123,56 +123,41 @@ Yargı MCP'yi Gemini CLI ile kullanmak için:
 
 🛠️ **Kullanılabilir Araçlar (MCP Tools)**
 
-Bu FastMCP sunucusu aşağıdaki temel araçları sunar:
+Bu FastMCP sunucusu **30 MCP aracı** sunar:
 
-### **Yargıtay Araçları (Dual API + 52 Daire Filtreleme)**
-* **Ana API:**
-    * `search_yargitay_detailed(arananKelime, birimYrgKurulDaire, ...)`: Yargıtay kararlarını detaylı kriterlerle arar. **52 daire/kurul seçeneği** (Hukuk/Ceza Daireleri 1-23, Genel Kurullar, Başkanlar Kurulu)
-    * `get_yargitay_document_markdown(id: str)`: Belirli bir Yargıtay kararının metnini Markdown formatında getirir.
-* **Bedesten API (Alternatif):**
-    * `search_yargitay_bedesten(phrase, birimAdi, kararTarihiStart, kararTarihiEnd, ...)`: Bedesten API ile Yargıtay kararlarını arar. **Aynı 52 daire filtreleme** + **Tarih Filtreleme** + **Kesin Cümle Arama** (`"\"mülkiyet kararı\""`)
-    * `get_yargitay_bedesten_document_markdown(documentId: str)`: Bedesten'den karar metni (HTML/PDF → Markdown)
+### **Yargıtay Araçları (Ana API + 52 Daire Filtreleme)**
+1. `search_yargitay_detailed(arananKelime, birimYrgKurulDaire, ...)`: Yargıtay kararlarını detaylı kriterlerle arar. **52 daire/kurul seçeneği** (Hukuk/Ceza Daireleri 1-23, Genel Kurullar, Başkanlar Kurulu)
+2. `get_yargitay_document_markdown(id: str)`: Belirli bir Yargıtay kararının metnini Markdown formatında getirir.
 
-### **Danıştay Araçları (Triple API + 27 Daire Filtreleme)**
-* **Ana API'lar:**
-    * `search_danistay_by_keyword(andKelimeler, orKelimeler, ...)`: Danıştay kararlarını anahtar kelimelerle arar.
-    * `search_danistay_detailed(daire, esasYil, ...)`: Danıştay kararlarını detaylı kriterlerle arar.
-    * `get_danistay_document_markdown(id: str)`: Belirli bir Danıştay kararının metnini Markdown formatında getirir.
-* **Bedesten API (Alternatif):**
-    * `search_danistay_bedesten(phrase, birimAdi, kararTarihiStart, kararTarihiEnd, ...)`: Bedesten API ile Danıştay kararlarını arar. **27 daire/kurul seçeneği** + **Tarih Filtreleme** + **Kesin Cümle Arama** (`"\"idari işlem\""`) (1-17. Daireler, Vergi/İdare Kurulları, Askeri Mahkemeler)
-    * `get_danistay_bedesten_document_markdown(documentId: str)`: Bedesten'den karar metni
+### **Danıştay Araçları (Dual API + 27 Daire Filtreleme)**
+3. `search_danistay_by_keyword(andKelimeler, orKelimeler, ...)`: Danıştay kararlarını anahtar kelimelerle arar.
+4. `search_danistay_detailed(daire, esasYil, ...)`: Danıştay kararlarını detaylı kriterlerle arar.
+5. `get_danistay_document_markdown(id: str)`: Belirli bir Danıştay kararının metnini Markdown formatında getirir.
 
-### **Diğer Mahkemeler (Bedesten API + Gelişmiş Arama)**
-* **Yerel Hukuk Mahkemeleri:**
-    * `search_yerel_hukuk_bedesten(phrase, kararTarihiStart, kararTarihiEnd, ...)`: Yerel hukuk mahkemesi kararlarını arar + **Tarih & Kesin Cümle Arama** (`"\"sözleşme ihlali\""`)
-    * `get_yerel_hukuk_bedesten_document_markdown(documentId: str)`: Karar metni
-* **İstinaf Hukuk Mahkemeleri:**
-    * `search_istinaf_hukuk_bedesten(phrase, kararTarihiStart, kararTarihiEnd, ...)`: İstinaf mahkemesi kararlarını arar + **Tarih & Kesin Cümle Arama** (`"\"temyiz incelemesi\""`)
-    * `get_istinaf_hukuk_bedesten_document_markdown(documentId: str)`: Karar metni
-* **Kanun Yararına Bozma (KYB):**
-    * `search_kyb_bedesten(phrase, kararTarihiStart, kararTarihiEnd, ...)`: Olağanüstü kanun yolu kararlarını arar + **Tarih & Kesin Cümle Arama** (`"\"kanun yararına bozma\""`)
-    * `get_kyb_bedesten_document_markdown(documentId: str)`: Karar metni
+### **Birleşik Bedesten API Araçları (5 Mahkeme)**
+6. `search_bedesten_unified(phrase, court_types, birimAdi, kararTarihiStart, kararTarihiEnd, ...)`: **5 mahkeme türünü** birleşik arama (Yargıtay, Danıştay, Yerel Hukuk, İstinaf Hukuk, KYB) + **79 daire filtreleme** + **Tarih & Kesin Cümle Arama**
+7. `get_bedesten_document_markdown(documentId: str)`: Bedesten API'den herhangi bir belgeyi Markdown formatında getirir (HTML/PDF → Markdown)
 
-* **Emsal Karar Araçları:**
-    * `search_emsal_detailed_decisions(search_query: EmsalSearchRequest) -> CompactEmsalSearchResult`: Emsal (UYAP) kararlarını detaylı kriterlerle arar.
-    * `get_emsal_document_markdown(id: str) -> EmsalDocumentMarkdown`: Belirli bir Emsal kararının metnini Markdown formatında getirir.
+### **Emsal Karar Araçları (UYAP)**
+8. `search_emsal_detailed_decisions(keyword, ...)`: Emsal (UYAP) kararlarını detaylı kriterlerle arar.
+9. `get_emsal_document_markdown(id: str)`: Belirli bir Emsal kararının metnini Markdown formatında getirir.
 
-* **Uyuşmazlık Mahkemesi Araçları:**
-    * `search_uyusmazlik_decisions(search_params: UyusmazlikSearchRequest) -> UyusmazlikSearchResponse`: Uyuşmazlık Mahkemesi kararlarını çeşitli form kriterleriyle arar.
-    * `get_uyusmazlik_document_markdown_from_url(document_url: HttpUrl) -> UyusmazlikDocumentMarkdown`: Bir Uyuşmazlık kararını tam URL'sinden alıp Markdown formatında getirir.
+### **Uyuşmazlık Mahkemesi Araçları**
+10. `search_uyusmazlik_decisions(icerik, ...)`: Uyuşmazlık Mahkemesi kararlarını çeşitli form kriterleriyle arar.
+11. `get_uyusmazlik_document_markdown_from_url(document_url)`: Bir Uyuşmazlık kararını tam URL'sinden alıp Markdown formatında getirir.
 
-* **Anayasa Mahkemesi (Norm Denetimi) Araçları:**
-    * `search_anayasa_norm_denetimi_decisions(search_query: AnayasaNormDenetimiSearchRequest) -> AnayasaSearchResult`: AYM Norm Denetimi kararlarını kapsamlı kriterlerle arar.
-    * `get_anayasa_norm_denetimi_document_markdown(document_url: str, page_number: Optional[int] = 1) -> AnayasaDocumentMarkdown`: Belirli bir AYM Norm Denetimi kararını URL'sinden alır ve 5.000 karakterlik sayfalanmış Markdown içeriğini getirir.
+### **Anayasa Mahkemesi Araçları (Norm Denetimi)**
+12. `search_anayasa_norm_denetimi_decisions(keywords_all, ...)`: AYM Norm Denetimi kararlarını kapsamlı kriterlerle arar.
+13. `get_anayasa_norm_denetimi_document_markdown(document_url, page_number)`: Belirli bir AYM Norm Denetimi kararını URL'sinden alır ve **sayfalanmış Markdown** içeriğini getirir.
 
-* **Anayasa Mahkemesi (Bireysel Başvuru) Araçları:**
-    * `search_anayasa_bireysel_basvuru_report(search_query: AnayasaBireyselReportSearchRequest) -> AnayasaBireyselReportSearchResult`: AYM Bireysel Başvuru "Karar Arama Raporu" oluşturur.
-    * `get_anayasa_bireysel_basvuru_document_markdown(document_url_path: str, page_number: Optional[int] = 1) -> AnayasaBireyselBasvuruDocumentMarkdown`: Belirli bir AYM Bireysel Başvuru kararını URL path'inden alır ve 5.000 karakterlik sayfalanmış Markdown içeriğini getirir.
+### **Anayasa Mahkemesi Araçları (Bireysel Başvuru)**
+14. `search_anayasa_bireysel_basvuru_report(keywords, ...)`: AYM Bireysel Başvuru "Karar Arama Raporu" oluşturur.
+15. `get_anayasa_bireysel_basvuru_document_markdown(document_url_path, page_number)`: Belirli bir AYM Bireysel Başvuru kararını URL path'inden alır ve **sayfalanmış Markdown** içeriğini getirir.
 
-* **KİK (Kamu İhale Kurulu) Araçları:**
-    * `search_kik_decisions(search_query: KikSearchRequest) -> KikSearchResult`: KİK (Kamu İhale Kurulu) kararlarını arar. 
-    * `get_kik_document_markdown(karar_id: str, page_number: Optional[int] = 1) -> KikDocumentMarkdown`: Belirli bir KİK kararını, Base64 ile encode edilmiş `karar_id`'sini kullanarak alır ve 5.000 karakterlik sayfalanmış Markdown içeriğini getirir.
-* **Rekabet Kurumu Araçları:**
+### **KİK (Kamu İhale Kurulu) Araçları**
+16. `search_kik_decisions(karar_tipi, ...)`: KİK (Kamu İhale Kurulu) kararlarını arar. 
+17. `get_kik_document_markdown(karar_id, page_number)`: Belirli bir KİK kararını, Base64 ile encode edilmiş `karar_id`'sini kullanarak alır ve **sayfalanmış Markdown** içeriğini getirir.
+### **Rekabet Kurumu Araçları**
     * `search_rekabet_kurumu_decisions(KararTuru: Literal[...], ...) -> RekabetSearchResult`: Rekabet Kurumu kararlarını arar. `KararTuru` için kullanıcı dostu isimler kullanılır (örn: "Birleşme ve Devralma").
     * `get_rekabet_kurumu_document(karar_id: str, page_number: Optional[int] = 1) -> RekabetDocument`: Belirli bir Rekabet Kurumu kararını `karar_id` ile alır. Kararın PDF formatındaki orijinalinden istenen sayfayı ayıklar ve Markdown formatında döndürür.
 
@@ -196,10 +181,11 @@ Bu FastMCP sunucusu aşağıdaki temel araçları sunar:
 
 ### **📊 Kapsamlı İstatistikler**
 - **Toplam Mahkeme/Kurum:** 13 farklı hukuki kurum (KVKK dahil)
-- **Toplam MCP Tool:** 38+ arama ve belge getirme aracı  
+- **Toplam MCP Tool:** 30 arama ve belge getirme aracı  
 - **Daire/Kurul Filtreleme:** 87 farklı seçenek (52 Yargıtay + 27 Danıştay + 8 Sayıştay)
-- **Tarih Filtreleme:** 5 Bedesten API aracında ISO 8601 formatında tam tarih aralığı desteği
-- **Kesin Cümle Arama:** 5 Bedesten API aracında çift tırnak ile tam cümle arama (`"\"mülkiyet kararı\""` formatı)
+- **Tarih Filtreleme:** Birleşik Bedesten API aracında ISO 8601 formatında tam tarih aralığı desteği
+- **Kesin Cümle Arama:** Birleşik Bedesten API aracında çift tırnak ile tam cümle arama (`"\"mülkiyet kararı\""` formatı)
+- **Birleşik API:** 10 ayrı Bedesten aracı → 2 birleşik araç (search_bedesten_unified + get_bedesten_document_markdown)
 - **API Kaynağı:** Dual/Triple API desteği ile maksimum kapsama
 - **Tam Türk Adalet Sistemi:** Yerel mahkemelerden en yüksek mahkemelere kadar
 
