@@ -2376,7 +2376,6 @@ async def check_government_servers_health() -> Dict[str, Any]:
                 if records_total > 0:
                     health_results["yargitay"] = {
                         "status": "healthy",
-                        "records_total": records_total,
                         "response_time_ms": response.elapsed.total_seconds() * 1000
                     }
                 else:
@@ -2401,10 +2400,16 @@ async def check_government_servers_health() -> Dict[str, Any]:
     # Check Bedesten API server
     try:
         bedesten_payload = {
-            "phrase": "karar",
-            "itemTypeList": ["YARGITAYKARARI"], 
-            "pageSize": 5,
-            "page": 1
+            "data": {
+                "pageSize": 5,
+                "pageNumber": 1,
+                "itemTypeList": ["YARGITAYKARARI"], 
+                "phrase": "karar",
+                "sortFields": ["KARAR_TARIHI"],
+                "sortDirection": "desc"
+            },
+            "applicationName": "UyapMevzuat",
+            "paging": True
         }
         
         async with httpx.AsyncClient(
@@ -2423,18 +2428,25 @@ async def check_government_servers_health() -> Dict[str, Any]:
             
             if response.status_code == 200:
                 response_data = response.json()
-                total_found = response_data.get("totalFound", 0)
+                logger.debug(f"Bedesten API response: {response_data}")
+                if response_data and isinstance(response_data, dict):
+                    data_section = response_data.get("data")
+                    if data_section and isinstance(data_section, dict):
+                        total_found = data_section.get("total", 0)
+                    else:
+                        total_found = 0
+                else:
+                    total_found = 0
                 
                 if total_found > 0:
                     health_results["bedesten"] = {
                         "status": "healthy", 
-                        "total_found": total_found,
                         "response_time_ms": response.elapsed.total_seconds() * 1000
                     }
                 else:
                     health_results["bedesten"] = {
                         "status": "unhealthy",
-                        "reason": "totalFound is 0 or missing",
+                        "reason": "total is 0 or missing in data field",
                         "response_time_ms": response.elapsed.total_seconds() * 1000
                     }
             else:
