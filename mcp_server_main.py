@@ -950,7 +950,7 @@ KARAR_TURU_ADI_TO_GUID_ENUM_MAP = {
 
 # --- MCP Tools for Yargitay ---
 @app.tool(
-    description="Parameter description",
+    description="Search Yargıtay decisions using primary API with 52 chamber filtering and advanced operators. Before using, read docs://tools/yargitay",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1341,7 +1341,7 @@ async def get_uyusmazlik_document_markdown_from_url(
 
 # --- MCP Tools for Anayasa Mahkemesi (Norm Denetimi) ---
 @app.tool(
-    description="Parameter description",
+    description="Search Constitutional Court norm control decisions with comprehensive filtering and legal criteria. Before using, read docs://tools/constitutional_court",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
