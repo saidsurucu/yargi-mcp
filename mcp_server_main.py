@@ -48,7 +48,7 @@ from yargitay_mcp_module.models import (
 from bedesten_mcp_module.client import BedestenApiClient
 from bedesten_mcp_module.models import (
     BedestenSearchRequest, BedestenSearchData,
-    BedestenDocumentMarkdown, DanistayBirimEnum
+    BedestenDocumentMarkdown, DanistayBirimEnum, BedestenCourtTypeEnum
 )
 from danistay_mcp_module.client import DanistayApiClient
 from danistay_mcp_module.models import (
@@ -125,7 +125,7 @@ Yargıtay is Turkey's highest civil and criminal court. It serves as the final a
 
 **Dual API System:**
 - **Primary API (search_yargitay_detailed)**: Official karararama.yargitay.gov.tr
-- **Bedesten API (search_yargitay_bedesten)**: Alternative bedesten.adalet.gov.tr
+- **Bedesten API (search_bedesten_unified)**: Unified access to bedesten.adalet.gov.tr (see docs://tools/bedesten_unified)
 
 ## Chamber Filtering Options (52 Total)
 
@@ -154,10 +154,11 @@ Wildcard: "mülk*"
 Exact phrase: "\"mülkiyet hakkı\""
 ```
 
-### Bedesten API (search_yargitay_bedesten)
+### Bedesten API (search_bedesten_unified)
+For detailed usage, see docs://tools/bedesten_unified
 ```
-Regular search: phrase="mülkiyet kararı"
-Exact phrase: phrase="\"mülkiyet kararı\""
+Regular search: phrase="mülkiyet kararı", court_types=["YARGITAYKARARI"]
+Exact phrase: phrase="\"mülkiyet kararı\"", court_types=["YARGITAYKARARI"]
 Date filtering: kararTarihiStart="2024-01-01T00:00:00.000Z"
 ```
 
@@ -198,7 +199,7 @@ Danıştay is Turkey's highest administrative court. It makes final decisions on
 **Triple API System:**
 - **Keyword API (search_danistay_by_keyword)**: AND/OR/NOT logic
 - **Detailed API (search_danistay_detailed)**: Comprehensive criteria  
-- **Bedesten API (search_danistay_bedesten)**: Alternative access
+- **Bedesten API (search_bedesten_unified)**: Unified access (see docs://tools/bedesten_unified)
 
 ## Chamber Filtering Options (27 Total)
 
@@ -558,8 +559,8 @@ Rekabet hukuku ihlallerini inceleyen ve ceza veren idari otorite. Rekabet Kanunu
 4. **Sayfa yönetimi**: Uzun analizleri bölümler halinde
 """
 
-@app.resource("docs://tools/bedesten_api_courts")
-async def get_bedesten_api_courts_documentation() -> str:
+@app.resource("docs://tools/bedesten_unified")
+async def get_bedesten_unified_documentation() -> str:
     """Get document content as Markdown."""
     return """
 # Bedesten API Mahkemeleri Tools Documentation
@@ -1692,28 +1693,32 @@ async def get_rekabet_kurumu_document(
         logger.exception(f"Error in tool 'get_rekabet_kurumu_document'. Karar ID: {karar_id}")
         raise 
 
-# --- MCP Tools for Bedesten (Alternative Yargitay Search) ---
+# --- MCP Tools for Bedesten (Unified Search Across All Courts) ---
 @app.tool(
-    description="Search Yargıtay decisions using Bedesten API with chamber selection and date filtering. Before using, read docs://tools/yargitay",
+    description="Search Yargıtay, Danıştay, Local Courts, Appeals Courts, and KYB decisions",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
         "idempotentHint": True
     }
 )
-async def search_yargitay_bedesten(
-    phrase: str = Field(..., description="Search phrase with advanced operators"),
-    pageSize: int = Field(10, ge=1, le=10, description="Sayfa başına sonuç sayısı"),
-    pageNumber: int = Field(1, ge=1, description="Sayfa numarası"),
-    birimAdi: Optional[YargitayBirimEnum] = Field(None, description="See docs for details"),
-    kararTarihiStart: Optional[str] = Field(None, description="Start date for filtering (ISO 8601 format)"),
-    kararTarihiEnd: Optional[str] = Field(None, description="End date for filtering (ISO 8601 format)")
+async def search_bedesten_unified(
+    phrase: str = Field(..., description="Search phrase. Use \"exact phrase\" for precise matching"),
+    court_types: List[BedestenCourtTypeEnum] = Field(
+        default=["YARGITAYKARARI", "DANISTAYKARAR"], 
+        description="Court types: YARGITAYKARARI, DANISTAYKARAR, YERELHUKUK, ISTINAFHUKUK, KYB"
+    ),
+    pageSize: int = Field(10, ge=1, le=10, description="Results per page (1-10)"),
+    pageNumber: int = Field(1, ge=1, description="Page number"),
+    birimAdi: Optional[Union[YargitayBirimEnum, DanistayBirimEnum]] = Field(None, description="Chamber filter (optional)"),
+    kararTarihiStart: Optional[str] = Field(None, description="Start date (ISO 8601 format)"),
+    kararTarihiEnd: Optional[str] = Field(None, description="End date (ISO 8601 format)")
 ) -> dict:
-    """Search function for legal decisions."""
+    """Search Turkish legal databases via unified Bedesten API."""
     search_data = BedestenSearchData(
         pageSize=pageSize,
         pageNumber=pageNumber,
-        itemTypeList=["YARGITAYKARARI"],  # Only Yargıtay decisions
+        itemTypeList=court_types,
         phrase=phrase,
         birimAdi=birimAdi,
         kararTarihiStart=kararTarihiStart,
@@ -1722,353 +1727,44 @@ async def search_yargitay_bedesten(
     
     search_request = BedestenSearchRequest(data=search_data)
     
-    logger.info(f"Tool 'search_yargitay_bedesten' called: phrase='{phrase}', birimAdi='{birimAdi}', dateRange='{kararTarihiStart}' to '{kararTarihiEnd}', page={pageNumber}")
+    logger.info(f"Tool 'search_bedesten_unified' called: phrase='{phrase}', court_types={court_types}, birimAdi='{birimAdi}', page={pageNumber}")
     
     try:
         response = await bedesten_client_instance.search_documents(search_request)
         
-        # Handle potential None data
         if response.data is None:
             return {
                 "decisions": [],
                 "total_records": 0,
                 "requested_page": pageNumber,
                 "page_size": pageSize,
+                "searched_courts": court_types,
                 "error": "No data returned from Bedesten API"
             }
         
-        # Return simplified response format
         return {
             "decisions": [d.model_dump() for d in response.data.emsalKararList],
             "total_records": response.data.total,
             "requested_page": pageNumber,
-            "page_size": pageSize
+            "page_size": pageSize,
+            "searched_courts": court_types
         }
     except Exception as e:
-        logger.exception("Error in tool 'search_yargitay_bedesten'")
+        logger.exception("Error in tool 'search_bedesten_unified'")
         raise
 
 @app.tool(
-    description="Retrieve Yargıtay decision document from Bedesten API in Markdown format. Before using, read docs://tools/yargitay",
+    description="Retrieve legal decision document from Bedesten API in Markdown format",
     annotations={
         "readOnlyHint": True,
-        "openWorldHint": True,
         "idempotentHint": True
     }
 )
-async def get_yargitay_bedesten_document_markdown(
+async def get_bedesten_document_markdown(
     documentId: str = Field(..., description="Document ID from Bedesten search results")
 ) -> BedestenDocumentMarkdown:
-    """Get document as Markdown."""
-    logger.info(f"Tool 'get_yargitay_bedesten_document_markdown' called for ID: {documentId}")
-    
-    if not documentId or not documentId.strip():
-        raise ValueError("Document ID must be a non-empty string.")
-    
-    try:
-        return await bedesten_client_instance.get_document_as_markdown(documentId)
-    except Exception as e:
-        logger.exception("Error in tool 'get_yargitay_bedesten_document_markdown'")
-        raise
-
-# --- MCP Tools for Bedesten (Alternative Danıştay Search) ---
-@app.tool(
-    description="Search Danıştay decisions using Bedesten API with chamber selection and date filtering. Before using, read docs://tools/danistay",
-    annotations={
-        "readOnlyHint": True,
-        "openWorldHint": True,
-        "idempotentHint": True
-    }
-)
-async def search_danistay_bedesten(
-    phrase: str = Field(..., description="Search phrase with advanced operators"),
-    pageSize: int = Field(10, ge=1, le=10, description="Sayfa başına sonuç sayısı"),
-    pageNumber: int = Field(1, ge=1, description="Sayfa numarası"),
-    birimAdi: Optional[DanistayBirimEnum] = Field(None, description="See docs for details"),
-    kararTarihiStart: Optional[str] = Field(None, description="Start date for filtering (ISO 8601 format)"),
-    kararTarihiEnd: Optional[str] = Field(None, description="End date for filtering (ISO 8601 format)")
-) -> dict:
-    """Search function for legal decisions."""
-    search_data = BedestenSearchData(
-        pageSize=pageSize,
-        pageNumber=pageNumber,
-        itemTypeList=["DANISTAYKARAR"],  # Only Danıştay decisions
-        phrase=phrase,
-        birimAdi=birimAdi,
-        kararTarihiStart=kararTarihiStart,
-        kararTarihiEnd=kararTarihiEnd
-    )
-    
-    search_request = BedestenSearchRequest(data=search_data)
-    
-    logger.info(f"Tool 'search_danistay_bedesten' called: phrase='{phrase}', birimAdi='{birimAdi}', dateRange='{kararTarihiStart}' to '{kararTarihiEnd}', page={pageNumber}")
-    
-    try:
-        response = await bedesten_client_instance.search_documents(search_request)
-        
-        # Handle potential None data
-        if response.data is None:
-            return {
-                "decisions": [],
-                "total_records": 0,
-                "requested_page": pageNumber,
-                "page_size": pageSize,
-                "error": "No data returned from Bedesten API"
-            }
-        
-        # Return simplified response format
-        return {
-            "decisions": [d.model_dump() for d in response.data.emsalKararList],
-            "total_records": response.data.total,
-            "requested_page": pageNumber,
-            "page_size": pageSize
-        }
-    except Exception as e:
-        logger.exception("Error in tool 'search_danistay_bedesten'")
-        raise
-
-@app.tool(
-    description="Retrieve Danıştay decision document from Bedesten API in Markdown format. Before using, read docs://tools/danistay",
-    annotations={
-        "readOnlyHint": True,
-        "openWorldHint": True,
-        "idempotentHint": True
-    }
-)
-async def get_danistay_bedesten_document_markdown(
-    documentId: str = Field(..., description="Document ID from Bedesten search results")
-) -> BedestenDocumentMarkdown:
-    """Get document as Markdown."""
-    logger.info(f"Tool 'get_danistay_bedesten_document_markdown' called for ID: {documentId}")
-    
-    if not documentId or not documentId.strip():
-        raise ValueError("Document ID must be a non-empty string.")
-    
-    try:
-        return await bedesten_client_instance.get_document_as_markdown(documentId)
-    except Exception as e:
-        logger.exception("Error in tool 'get_danistay_bedesten_document_markdown'")
-        raise
-
-# --- MCP Tools for Bedesten (Yerel Hukuk Mahkemesi Search) ---
-@app.tool(
-    description="Search Local Civil Courts (Yerel Hukuk Mahkemeleri) decisions using Bedesten API. Before using, read docs://tools/bedesten_api_courts",
-    annotations={
-        "readOnlyHint": True,
-        "openWorldHint": True,
-        "idempotentHint": True
-    }
-)
-async def search_yerel_hukuk_bedesten(
-    phrase: str = Field(..., description="Search phrase with advanced operators"),
-    pageSize: int = Field(10, ge=1, le=10, description="Sayfa başına sonuç sayısı"),
-    pageNumber: int = Field(1, ge=1, description="Sayfa numarası"),
-    kararTarihiStart: Optional[str] = Field(None, description="Start date for filtering (ISO 8601 format)"),
-    kararTarihiEnd: Optional[str] = Field(None, description="End date for filtering (ISO 8601 format)")
-) -> dict:
-    """Search Local Civil Court decisions using Bedesten API."""
-    search_data = BedestenSearchData(
-        pageSize=pageSize,
-        pageNumber=pageNumber,
-        itemTypeList=["YERELHUKUK"],  # Local Civil Court decisions
-        phrase=phrase,
-        kararTarihiStart=kararTarihiStart,
-        kararTarihiEnd=kararTarihiEnd
-    )
-    
-    search_request = BedestenSearchRequest(data=search_data)
-    
-    logger.info(f"Tool 'search_yerel_hukuk_bedesten' called: phrase='{phrase}', dateRange='{kararTarihiStart}' to '{kararTarihiEnd}', page={pageNumber}")
-    
-    try:
-        response = await bedesten_client_instance.search_documents(search_request)
-        
-        # Handle potential None data
-        if response.data is None:
-            return {
-                "decisions": [],
-                "total_records": 0,
-                "requested_page": pageNumber,
-                "page_size": pageSize,
-                "error": "No data returned from Bedesten API"
-            }
-        
-        # Return simplified response format
-        return {
-            "decisions": [d.model_dump() for d in response.data.emsalKararList],
-            "total_records": response.data.total,
-            "requested_page": pageNumber,
-            "page_size": pageSize
-        }
-    except Exception as e:
-        logger.exception("Error in tool 'search_yerel_hukuk_bedesten'")
-        raise
-
-@app.tool(
-    description="Retrieve local civil court decision document from Bedesten API in Markdown format. Before using, read docs://tools/bedesten_api_courts",
-    annotations={
-        "readOnlyHint": True,
-        "openWorldHint": True,
-        "idempotentHint": True
-    }
-)
-async def get_yerel_hukuk_bedesten_document_markdown(
-    documentId: str = Field(..., description="Document ID from Bedesten search results")
-) -> BedestenDocumentMarkdown:
-    """Get Local Civil Court decision as Markdown."""
-    logger.info(f"Tool 'get_yerel_hukuk_bedesten_document_markdown' called for ID: {documentId}")
-    
-    if not documentId or not documentId.strip():
-        raise ValueError("Document ID must be a non-empty string.")
-    
-    try:
-        return await bedesten_client_instance.get_document_as_markdown(documentId)
-    except Exception as e:
-        logger.exception("Error in tool 'get_yerel_hukuk_bedesten_document_markdown'")
-        raise
-
-# --- MCP Tools for Bedesten (İstinaf Hukuk Mahkemesi Search) ---
-@app.tool(
-    description="Search Civil Courts of Appeals (İstinaf Hukuk Mahkemeleri) decisions using Bedesten API. Before using, read docs://tools/bedesten_api_courts",
-    annotations={
-        "readOnlyHint": True,
-        "openWorldHint": True,
-        "idempotentHint": True
-    }
-)
-async def search_istinaf_hukuk_bedesten(
-    phrase: str = Field(..., description="Search phrase with advanced operators"),
-    pageSize: int = Field(10, ge=1, le=10, description="Sayfa başına sonuç sayısı"),
-    pageNumber: int = Field(1, ge=1, description="Sayfa numarası"),
-    kararTarihiStart: Optional[str] = Field(None, description="Start date for filtering (ISO 8601 format)"),
-    kararTarihiEnd: Optional[str] = Field(None, description="End date for filtering (ISO 8601 format)")
-) -> dict:
-    """Search Civil Court of Appeals decisions using Bedesten API."""
-    search_data = BedestenSearchData(
-        pageSize=pageSize,
-        pageNumber=pageNumber,
-        itemTypeList=["ISTINAFHUKUK"],  # Civil Court of Appeals decisions
-        phrase=phrase,
-        kararTarihiStart=kararTarihiStart,
-        kararTarihiEnd=kararTarihiEnd
-    )
-    
-    search_request = BedestenSearchRequest(data=search_data)
-    
-    logger.info(f"Tool 'search_istinaf_hukuk_bedesten' called: phrase='{phrase}', dateRange='{kararTarihiStart}' to '{kararTarihiEnd}', page={pageNumber}")
-    
-    try:
-        response = await bedesten_client_instance.search_documents(search_request)
-        
-        # Handle potential None data
-        if response.data is None:
-            return {
-                "decisions": [],
-                "total_records": 0,
-                "requested_page": pageNumber,
-                "page_size": pageSize,
-                "error": "No data returned from Bedesten API"
-            }
-        
-        # Return simplified response format
-        return {
-            "decisions": [d.model_dump() for d in response.data.emsalKararList],
-            "total_records": response.data.total,
-            "requested_page": pageNumber,
-            "page_size": pageSize
-        }
-    except Exception as e:
-        logger.exception("Error in tool 'search_istinaf_hukuk_bedesten'")
-        raise
-
-@app.tool(
-    description="Retrieve İstinaf Hukuk Mahkemesi decision document from Bedesten API in Markdown format. Before using, read docs://tools/bedesten_api_courts",
-    annotations={
-        "readOnlyHint": True,
-        "idempotentHint": True
-    }
-)
-async def get_istinaf_hukuk_bedesten_document_markdown(
-    documentId: str = Field(..., description="Document ID from Bedesten search results")
-) -> BedestenDocumentMarkdown:
-    """Get Civil Court of Appeals decision as Markdown."""
-    logger.info(f"Tool 'get_istinaf_hukuk_bedesten_document_markdown' called for ID: {documentId}")
-    
-    if not documentId or not documentId.strip():
-        raise ValueError("Document ID must be a non-empty string.")
-    
-    try:
-        return await bedesten_client_instance.get_document_as_markdown(documentId)
-    except Exception as e:
-        logger.exception("Error in tool 'get_istinaf_hukuk_bedesten_document_markdown'")
-        raise
-
-# --- MCP Tools for Bedesten (Kanun Yararına Bozma Search) ---
-@app.tool(
-    description="Search Extraordinary Appeal (Kanun Yararına Bozma - KYB) decisions using Bedesten API. Before using, read docs://tools/bedesten_api_courts",
-    annotations={
-        "readOnlyHint": True,
-        "openWorldHint": True,
-        "idempotentHint": True
-    }
-)
-async def search_kyb_bedesten(
-    phrase: str = Field(..., description="Search phrase with advanced operators"),
-    pageSize: int = Field(10, ge=1, le=10, description="Sayfa başına sonuç sayısı"),
-    pageNumber: int = Field(1, ge=1, description="Sayfa numarası"),
-    kararTarihiStart: Optional[str] = Field(None, description="Start date for filtering (ISO 8601 format)"),
-    kararTarihiEnd: Optional[str] = Field(None, description="End date for filtering (ISO 8601 format)")
-) -> dict:
-    """Search Extraordinary Appeal (KYB) decisions using Bedesten API."""
-    search_data = BedestenSearchData(
-        pageSize=pageSize,
-        pageNumber=pageNumber,
-        itemTypeList=["KYB"],  # Kanun Yararına Bozma decisions
-        phrase=phrase,
-        kararTarihiStart=kararTarihiStart,
-        kararTarihiEnd=kararTarihiEnd
-    )
-    
-    search_request = BedestenSearchRequest(data=search_data)
-    
-    logger.info(f"Tool 'search_kyb_bedesten' called: phrase='{phrase}', dateRange='{kararTarihiStart}' to '{kararTarihiEnd}', page={pageNumber}")
-    
-    try:
-        response = await bedesten_client_instance.search_documents(search_request)
-        
-        # Handle potential None data
-        if response.data is None:
-            return {
-                "decisions": [],
-                "total_records": 0,
-                "requested_page": pageNumber,
-                "page_size": pageSize,
-                "error": "No data returned from Bedesten API"
-            }
-        
-        # Return simplified response format
-        return {
-            "decisions": [d.model_dump() for d in response.data.emsalKararList],
-            "total_records": response.data.total,
-            "requested_page": pageNumber,
-            "page_size": pageSize
-        }
-    except Exception as e:
-        logger.exception("Error in tool 'search_kyb_bedesten'")
-        raise
-
-@app.tool(
-    description="Retrieve Kanun Yararına Bozma (KYB) decision document from Bedesten API in Markdown format. Before using, read docs://tools/bedesten_api_courts",
-    annotations={
-        "readOnlyHint": True,
-        "idempotentHint": True
-    }
-)
-async def get_kyb_bedesten_document_markdown(
-    documentId: str = Field(..., description="Document ID from Bedesten search results")
-) -> BedestenDocumentMarkdown:
-    """Get Extraordinary Appeal (KYB) decision as Markdown."""
-    logger.info(f"Tool 'get_kyb_bedesten_document_markdown' called for ID: {documentId}")
+    """Get legal decision document as Markdown from Bedesten API."""
+    logger.info(f"Tool 'get_bedesten_document_markdown' called for ID: {documentId}")
     
     if not documentId or not documentId.strip():
         raise ValueError("Document ID must be a non-empty string.")
@@ -2651,7 +2347,7 @@ async def search(
     It supports advanced search operators and covers all major court types.
     
     USAGE RESTRICTION: Only for ChatGPT Deep Research workflows.
-    For regular legal research, use specific court tools like search_yargitay_bedesten.
+    For regular legal research, use search_bedesten_unified with specific court types.
     
     Returns:
     Object with "results" field containing a list of documents with id, title, text preview, and url

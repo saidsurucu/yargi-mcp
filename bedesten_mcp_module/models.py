@@ -7,6 +7,15 @@ from datetime import datetime
 # Import YargitayBirimEnum for chamber filtering
 from yargitay_mcp_module.models import YargitayBirimEnum
 
+# Court Type Options for Unified Search
+BedestenCourtTypeEnum = Literal[
+    "YARGITAYKARARI",  # Yargıtay (Court of Cassation)
+    "DANISTAYKARAR",   # Danıştay (Council of State)
+    "YERELHUKUK",      # Local Civil Courts
+    "ISTINAFHUKUK",    # Civil Courts of Appeals
+    "KYB"              # Extraordinary Appeals (Kanun Yararına Bozma)
+]
+
 # Danıştay Chamber/Board Options
 DanistayBirimEnum = Literal[
     "ALL",  # "ALL" for all chambers
