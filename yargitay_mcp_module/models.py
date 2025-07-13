@@ -64,7 +64,6 @@ class YargitayApiDecisionEntry(BaseModel):
     esasNo: Optional[str] = Field(None, alias="esasNo", description="Case no")
     kararNo: Optional[str] = Field(None, alias="kararNo", description="Decision no")
     kararTarihi: Optional[str] = Field(None, alias="kararTarihi", description="Date")
-    arananKelime: Optional[str] = Field(None, alias="arananKelime", description="Keyword")
     # 'index' and 'siraNo' from API response are not critical for MCP tool, so omitted for brevity
     
     # This field will be populated by the client after fetching the search list
@@ -91,9 +90,18 @@ class YargitayDocumentMarkdown(BaseModel):
     markdown_content: Optional[str] = Field(None, description="Content")
     source_url: HttpUrl = Field(..., description="Source URL")
 
+class CleanYargitayDecisionEntry(BaseModel):
+    """Clean decision entry without arananKelime field to reduce token usage."""
+    id: str
+    daire: Optional[str] = Field(None, description="Chamber")
+    esasNo: Optional[str] = Field(None, description="Case no")
+    kararNo: Optional[str] = Field(None, description="Decision no")
+    kararTarihi: Optional[str] = Field(None, description="Date")
+    document_url: Optional[HttpUrl] = Field(None, description="Document URL")
+
 class CompactYargitaySearchResult(BaseModel):
     """A more compact search result model for the MCP tool to return."""
-    decisions: List[YargitayApiDecisionEntry]
+    decisions: List[CleanYargitayDecisionEntry]
     total_records: int
     requested_page: int
     page_size: int

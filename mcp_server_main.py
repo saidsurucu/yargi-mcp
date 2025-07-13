@@ -42,7 +42,7 @@ def create_app():
 from yargitay_mcp_module.client import YargitayOfficialApiClient
 from yargitay_mcp_module.models import (
     YargitayDetailedSearchRequest, YargitayDocumentMarkdown, CompactYargitaySearchResult,
-    YargitayBirimEnum
+    YargitayBirimEnum, CleanYargitayDecisionEntry
 )
 from bedesten_mcp_module.client import BedestenApiClient
 from bedesten_mcp_module.models import (
@@ -1004,8 +1004,20 @@ async def search_yargitay_detailed(
     try:
         api_response = await yargitay_client_instance.search_detailed_decisions(search_query)
         if api_response.data:
+            # Convert to clean decision entries without arananKelime field
+            clean_decisions = [
+                CleanYargitayDecisionEntry(
+                    id=decision.id,
+                    daire=decision.daire,
+                    esasNo=decision.esasNo,
+                    kararNo=decision.kararNo,
+                    kararTarihi=decision.kararTarihi,
+                    document_url=decision.document_url
+                )
+                for decision in api_response.data.data
+            ]
             return CompactYargitaySearchResult(
-                decisions=api_response.data.data,
+                decisions=clean_decisions,
                 total_records=api_response.data.recordsTotal,
                 requested_page=search_query.pageNumber,
                 page_size=search_query.pageSize)
