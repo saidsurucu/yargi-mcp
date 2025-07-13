@@ -3,6 +3,7 @@ import asyncio
 import atexit
 import logging
 import os
+import httpx
 from pydantic import HttpUrl, Field 
 from typing import Optional, Dict, List, Literal, Any, Union
 import urllib.parse
