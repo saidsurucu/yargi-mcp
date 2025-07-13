@@ -2396,27 +2396,7 @@ def get_preview_text(markdown_content: str, skip_chars: int = 100, preview_chars
     return preview.strip()
 
 @app.tool(
-    description="""
-    Search Turkish legal databases for court decisions and legal precedents. 
-    This tool searches across all major Turkish courts and returns document IDs for ChatGPT Deep Research.
-    
-    SEARCH LANGUAGE: Queries must be in Turkish - English terms will not work.
-    
-    SEARCH STRATEGY:
-    - Use specific legal terms: "mülkiyet hakkı" (property rights), "sözleşme ihlali" (contract breach)
-    - Try exact phrases in quotes: "\"idari işlem\"" for precise administrative law terms
-    - Combine multiple concepts: "+\"mülkiyet hakkı\" +\"anayasa\"" for constitutional property rights
-    - Search by legal areas: "\"ticaret hukuku\"", "\"medeni hukuk\"", "\"ceza hukuku\""
-    
-    COURT COVERAGE:
-    - Yargıtay: Supreme Court (civil/criminal final appeals)
-    - Danıştay: Council of State (administrative law)
-    - Yerel Hukuk: Local Civil Courts (first instance)
-    - İstinaf Hukuk: Civil Appeals Courts (intermediate appeals)  
-    - KYB: Extraordinary appeals (rare prosecutorial challenges)
-    
-    Returns document IDs that can be fetched with the fetch tool for full text analysis.
-    """,
+    description="Search Turkish courts (Turkish keywords only). Supports: +term (must have), -term (exclude), \"exact phrase\", term1 OR term2",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
