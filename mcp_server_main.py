@@ -2417,7 +2417,7 @@ async def check_government_servers_health() -> Dict[str, Any]:
             verify=False
         ) as client:
             response = await client.post(
-                "https://bedesten.adalet.gov.tr/api/search",
+                "https://bedesten.adalet.gov.tr/emsal-karar/searchDocuments",
                 json=bedesten_payload
             )
             
