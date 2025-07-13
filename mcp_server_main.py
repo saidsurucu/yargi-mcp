@@ -325,6 +325,44 @@ Her iki tool da sayfalanmış Markdown döndürür:
 - **Temel hak ihlalleri**: Sistematik ihlal tespiti
 - **Emsal karar**: Benzer davalar için içtihat
 
+## Parameter Details
+### search_anayasa_norm_denetimi_decisions
+- **keywords_all**: Keywords for AND logic (all must be present)
+- **keywords_any**: Keywords for OR logic (any can be present) 
+- **keywords_exclude**: Keywords to exclude from results
+- **period**: Constitutional period - "ALL", "1" (1961 Constitution), "2" (1982 Constitution)
+- **case_number_esas**: Case registry number (e.g., '2023/123')
+- **decision_number_karar**: Decision number (e.g., '2023/456')
+- **first_review_date_start/end**: First review date range (DD/MM/YYYY)
+- **decision_date_start/end**: Decision date range (DD/MM/YYYY)
+- **application_type**: "ALL", "1" (İptal), "2" (İtiraz), "3" (Diğer)
+- **applicant_general_name**: General applicant name
+- **applicant_specific_name**: Specific applicant name
+- **official_gazette_date_start/end**: Official Gazette date range
+- **official_gazette_number_start/end**: Official Gazette number range
+- **has_press_release**: "ALL", "0" (No), "1" (Yes)
+- **has_dissenting_opinion**: "ALL", "0" (No), "1" (Yes)
+- **has_different_reasoning**: "ALL", "0" (No), "1" (Yes)
+- **attending_members_names**: List of attending members' exact names
+- **rapporteur_name**: Rapporteur's exact name
+- **norm_type**: Type of reviewed norm (law, decree, regulation, etc.)
+- **norm_id_or_name**: Number or name of the norm
+- **norm_article**: Article number of the norm
+- **review_outcomes**: List of review outcomes
+- **reason_for_final_outcome**: Main reason for decision outcome
+- **basis_constitution_article_numbers**: Supporting Constitution article numbers
+- **results_per_page**: Results per page (10, 20, 30, 40, 50)
+- **page_to_fetch**: Page number to fetch
+- **sort_by_criteria**: Sort criteria ('KararTarihi', 'YayinTarihi', 'Toplam')
+
+### search_anayasa_bireysel_basvuru_report
+- **keywords**: Keywords for AND logic (all must be present)
+- **page_to_fetch**: Page number for the report (default: 1)
+
+### Document Tools
+- **document_url**: URL path or full URL of the decision
+- **page_number**: Page number for paginated content (1-indexed, default: 1)
+
 ## Best Practices
 1. **Norm control önce**: Kanun iptal edilmiş mi kontrol
 2. **Bireysel başvuru ikinci**: Kişisel hak ihlalleri için
@@ -432,6 +470,25 @@ Kamu ihale uyuşmazlıklarının ilk ve son merci çözüm organı. Kamu İhale 
 3. **İhale sonrası**: Sonuç bildirimi, itirazlar
 4. **Sözleşme**: İmza, uygulama
 
+## Parameter Details
+### search_kik_decisions  
+- **karar_tipi**: Decision type - "rbUyusmazlik" (disputes), "rbDuzenleyici" (regulatory), "rbMahkeme" (court)
+- **karar_no**: Decision number (e.g., '2024/UH.II-1766')
+- **karar_tarihi_baslangic**: Decision start date (DD.MM.YYYY format)
+- **karar_tarihi_bitis**: Decision end date (DD.MM.YYYY format)
+- **basvuru_sahibi**: Applicant name/company
+- **ihaleyi_yapan_idare**: Procuring entity (ministry, municipality, etc.)
+- **basvuru_konusu_ihale**: Tender subject/description
+- **karar_metni**: Text search with operators: +word (AND), -word (exclude)
+- **yil**: Decision year
+- **resmi_gazete_tarihi**: Official Gazette date (DD.MM.YYYY)
+- **resmi_gazete_sayisi**: Official Gazette number
+- **page**: Results page number
+
+### get_kik_document_markdown
+- **karar_id**: Base64 encoded decision identifier from search results
+- **page_number**: Page number for paginated content (1-indexed, default: 1)
+
 ## Best Practices
 1. **İhale türü**: Açık, belli istekliler arası, pazarlık
 2. **Süreç aşaması**: Hangi aşamada sorun olduğu
@@ -478,6 +535,20 @@ Rekabet hukuku ihlallerini inceleyen ve ceza veren idari otorite. Rekabet Kanunu
 3. **Finans**: Bankacılık, sigorta
 4. **Perakende**: Zincir mağazalar
 5. **İnşaat**: Müteahhitlik sektörü
+
+## Parameter Details
+### search_rekabet_kurumu_decisions
+- **sayfaAdi**: Search in decision title (Başlık)
+- **YayinlanmaTarihi**: Publication date (DD.MM.YYYY format)
+- **PdfText**: Search text. For exact phrases use double quotes: "vertical agreement"
+- **KararTuru**: Decision type - "Birleşme ve Devralma", "Rekabet İhlali", etc.
+- **KararSayisi**: Decision number (Karar Sayısı)
+- **KararTarihi**: Decision date (DD.MM.YYYY format)
+- **page**: Page number for results list
+
+### get_rekabet_kurumu_document
+- **karar_id**: GUID from search results
+- **page_number**: Requested page for Markdown content (1-indexed, default: 1)
 
 ## Best Practices
 1. **Sektör odaklı**: İlgili sektörde arama yapın
@@ -1266,37 +1337,37 @@ async def get_uyusmazlik_document_markdown_from_url(
     }
 )
 async def search_anayasa_norm_denetimi_decisions(
-    keywords_all: List[str] = Field(default_factory=list, description="Keywords for AND logic."),
-    keywords_any: List[str] = Field(default_factory=list, description="Keywords for OR logic."),
-    keywords_exclude: List[str] = Field(default_factory=list, description="Keywords to exclude."),
-    period: Literal["ALL", "1", "2"] = Field("ALL", description="Constitutional period ('ALL': All, '1': 1961, '2': 1982)."),
-    case_number_esas: Optional[str] = Field(None, description="Case registry number (e.g., '2023/123')."),
-    decision_number_karar: Optional[str] = Field(None, description="Decision number (e.g., '2023/456')."),
-    first_review_date_start: Optional[str] = Field(None, description="First review start date (DD/MM/YYYY)."),
-    first_review_date_end: Optional[str] = Field(None, description="First review end date (DD/MM/YYYY)."),
-    decision_date_start: Optional[str] = Field(None, description="Decision start date (DD/MM/YYYY)."),
-    decision_date_end: Optional[str] = Field(None, description="Decision end date (DD/MM/YYYY)."),
-    application_type: Literal["ALL", "1", "2", "3"] = Field("ALL", description="Application type ('ALL': All, '1': İptal, '2': İtiraz, '3': Diğer)."),
-    applicant_general_name: Optional[str] = Field(None, description="General applicant name."),
-    applicant_specific_name: Optional[str] = Field(None, description="Specific applicant name."),
-    official_gazette_date_start: Optional[str] = Field(None, description="Official Gazette start date (DD/MM/YYYY)."),
-    official_gazette_date_end: Optional[str] = Field(None, description="Official Gazette end date (DD/MM/YYYY)."),
-    official_gazette_number_start: Optional[str] = Field(None, description="Official Gazette starting number."),
-    official_gazette_number_end: Optional[str] = Field(None, description="Official Gazette ending number."),
-    has_press_release: Literal["ALL", "0", "1"] = Field("ALL", description="Press release ('ALL': All, '0': No, '1': Yes)."),
-    has_dissenting_opinion: Literal["ALL", "0", "1"] = Field("ALL", description="Dissenting opinion ('ALL': All, '0': No, '1': Yes)."),
-    has_different_reasoning: Literal["ALL", "0", "1"] = Field("ALL", description="Different reasoning ('ALL': All, '0': No, '1': Yes)."),
-    attending_members_names: List[str] = Field(default_factory=list, description="List of attending members' exact names."),
-    rapporteur_name: Optional[str] = Field(None, description="Rapporteur's exact name."),
-    norm_type: Literal["ALL", "1", "2", "14", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "0", "13"] = Field("ALL", description="Type of reviewed norm."),
-    norm_id_or_name: Optional[str] = Field(None, description="Number or name of the norm."),
-    norm_article: Optional[str] = Field(None, description="Article number of the norm."),
-    review_outcomes: List[Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8", "12"]] = Field(default_factory=list, description="List of review outcomes."),
-    reason_for_final_outcome: Literal["ALL", "29", "1", "2", "30", "3", "4", "27", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26"] = Field("ALL", description="Main reason for decision outcome."),
-    basis_constitution_article_numbers: List[str] = Field(default_factory=list, description="List of supporting Constitution article numbers."),
-    results_per_page: int = Field(10, description="Results per page (10, 20, 30, 40, 50)."),
-    page_to_fetch: int = Field(1, ge=1, description="Page number to fetch."),
-    sort_by_criteria: str = Field("KararTarihi", description="Sort criteria ('KararTarihi', 'YayinTarihi', 'Toplam').")
+    keywords_all: List[str] = Field(default_factory=list, description="AND keywords"),
+    keywords_any: List[str] = Field(default_factory=list, description="OR keywords"),
+    keywords_exclude: List[str] = Field(default_factory=list, description="Exclude keywords"),
+    period: Literal["ALL", "1", "2"] = Field("ALL", description="Period"),
+    case_number_esas: Optional[str] = Field(None, description="Case number"),
+    decision_number_karar: Optional[str] = Field(None, description="Decision number"),
+    first_review_date_start: Optional[str] = Field(None, description="Review start date"),
+    first_review_date_end: Optional[str] = Field(None, description="Review end date"),
+    decision_date_start: Optional[str] = Field(None, description="Decision start"),
+    decision_date_end: Optional[str] = Field(None, description="Decision end"),
+    application_type: Literal["ALL", "1", "2", "3"] = Field("ALL", description="App type"),
+    applicant_general_name: Optional[str] = Field(None, description="Applicant"),
+    applicant_specific_name: Optional[str] = Field(None, description="Specific name"),
+    official_gazette_date_start: Optional[str] = Field(None, description="Gazette start"),
+    official_gazette_date_end: Optional[str] = Field(None, description="Gazette end"),
+    official_gazette_number_start: Optional[str] = Field(None, description="Gazette no start"),
+    official_gazette_number_end: Optional[str] = Field(None, description="Gazette no end"),
+    has_press_release: Literal["ALL", "0", "1"] = Field("ALL", description="Press release"),
+    has_dissenting_opinion: Literal["ALL", "0", "1"] = Field("ALL", description="Dissenting"),
+    has_different_reasoning: Literal["ALL", "0", "1"] = Field("ALL", description="Different reason"),
+    attending_members_names: List[str] = Field(default_factory=list, description="Members"),
+    rapporteur_name: Optional[str] = Field(None, description="Rapporteur"),
+    norm_type: Literal["ALL", "1", "2", "14", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "0", "13"] = Field("ALL", description="Norm type"),
+    norm_id_or_name: Optional[str] = Field(None, description="Norm name"),
+    norm_article: Optional[str] = Field(None, description="Article"),
+    review_outcomes: List[Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8", "12"]] = Field(default_factory=list, description="Outcomes"),
+    reason_for_final_outcome: Literal["ALL", "29", "1", "2", "30", "3", "4", "27", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26"] = Field("ALL", description="Reason"),
+    basis_constitution_article_numbers: List[str] = Field(default_factory=list, description="Articles"),
+    results_per_page: int = Field(10, description="Count"),
+    page_to_fetch: int = Field(1, ge=1, description="Page"),
+    sort_by_criteria: str = Field("KararTarihi", description="Sort")
 ) -> AnayasaSearchResult:
     """Search Constitutional Court norm control decisions with comprehensive filtering."""
     
@@ -2404,31 +2475,7 @@ def get_preview_text(markdown_content: str, skip_chars: int = 100, preview_chars
     }
 )
 async def search(
-    query: str = Field(..., description="""Search query for Turkish legal documents via Bedesten API. 
-
-    IMPORTANT: This tool is specifically designed for ChatGPT Deep Research. 
-    Do NOT use for regular questions - use specific court tools instead.
-
-    SEARCH LANGUAGE REQUIREMENT:
-    - Keywords MUST be in Turkish language only
-    - Turkish legal documents require Turkish search terms
-    - English terms will return no results - always translate to Turkish first
-    - Examples: "property rights" -> "mülkiyet hakkı", "contract violation" -> "sözleşme ihlali"
-
-    Bedesten API Search Operators:
-    - Regular search: "mülkiyet kararı" - searches words separately (OR logic)
-    - Exact phrase: "\"mülkiyet kararı\"" - searches exact phrase (more precise)
-    - Required terms: "+mülkiyet +hak" - both terms must be present (AND logic)
-    - Excluded terms: "+mülkiyet -kira" - first term required, second excluded
-    - Combined: "+\"mülkiyet hakkı\" -\"kira sözleşmesi\"" - exact phrase required, exclude another
-    - Legal concepts: "\"idari işlem\"", "\"sözleşme ihlali\"", "\"tazminat davası\""
-    
-    Searches across all Turkish courts via Bedesten unified API:
-    - Yargıtay (Court of Cassation) - Supreme court civil/criminal decisions  
-    - Danıştay (Council of State) - Administrative court decisions
-    - Yerel Hukuk (Local Civil Courts) - First instance civil decisions
-    - İstinaf Hukuk (Civil Appeals Courts) - Appellate court decisions
-    - Kanun Yararına Bozma (KYB) - Extraordinary appeal decisions""")
+    query: str = Field(..., description="Turkish search query")
 ) -> Dict[str, List[Dict[str, str]]]:
     """
     Bedesten API search tool for ChatGPT Deep Research compatibility.

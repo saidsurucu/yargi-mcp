@@ -25,17 +25,14 @@ class RekabetKararTuruAdiEnum(str, Enum):
 
 class RekabetKurumuSearchRequest(BaseModel):
     """Model for Rekabet Kurumu (Turkish Competition Authority) search request."""
-    sayfaAdi: Optional[str] = Field(None, description="Search in decision title (Başlık).")
-    YayinlanmaTarihi: Optional[str] = Field(None, description="Publication date (Yayım Tarihi), e.g., DD.MM.YYYY.")
-    PdfText: Optional[str] = Field(
-        None,
-        description='Search in decision text (Metin). For an exact phrase match, enclose the phrase in double quotes (e.g., "\\"vertical agreement\\" competition). The website indicates that using "" provides more precise results for phrases.'
-    )
+    sayfaAdi: Optional[str] = Field(None, description="Title")
+    YayinlanmaTarihi: Optional[str] = Field(None, description="Pub date")
+    PdfText: Optional[str] = Field(None, description="Search text")
     # This field uses the GUID enum as it's used by the client to make the actual web request.
-    KararTuruID: Optional[RekabetKararTuruGuidEnum] = Field(RekabetKararTuruGuidEnum.TUMU, description="Decision type (Karar Türü) GUID for internal client use, corresponding to the website's values.")
-    KararSayisi: Optional[str] = Field(None, description="Decision number (Karar Sayısı).")
-    KararTarihi: Optional[str] = Field(None, description="Decision date (Karar Tarihi), e.g., DD.MM.YYYY.")
-    page: int = Field(1, ge=1, description="Page number to fetch for results list.")
+    KararTuruID: Optional[RekabetKararTuruGuidEnum] = Field(RekabetKararTuruGuidEnum.TUMU, description="Type")
+    KararSayisi: Optional[str] = Field(None, description="Number")
+    KararTarihi: Optional[str] = Field(None, description="Date")
+    page: int = Field(1, ge=1, description="Page")
 
 class RekabetDecisionSummary(BaseModel):
     """Model for a single Rekabet Kurumu decision summary from search results."""

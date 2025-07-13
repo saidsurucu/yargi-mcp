@@ -12,18 +12,18 @@ class KikKararTipi(str, Enum):
 
 class KikSearchRequest(BaseModel):
     """Model for KIK Decision search criteria."""
-    karar_tipi: KikKararTipi = Field(KikKararTipi.UYUSMAZLIK, description="Type of KIK Decision.")
-    karar_no: Optional[str] = Field(None, description="Decision Number (e.g., '2024/UH.II-1766').")
-    karar_tarihi_baslangic: Optional[str] = Field(None, description="Decision Date Start (DD.MM.YYYY).", pattern=r"^\d{2}\.\d{2}\.\d{4}$")
-    karar_tarihi_bitis: Optional[str] = Field(None, description="Decision Date End (DD.MM.YYYY).", pattern=r"^\d{2}\.\d{2}\.\d{4}$")
-    resmi_gazete_sayisi: Optional[str] = Field(None, description="Official Gazette Number.")
-    resmi_gazete_tarihi: Optional[str] = Field(None, description="Official Gazette Date (DD.MM.YYYY).", pattern=r"^\d{2}\.\d{2}\.\d{4}$")
-    basvuru_konusu_ihale: Optional[str] = Field(None, description="Tender subject of the application.")
-    basvuru_sahibi: Optional[str] = Field(None, description="Applicant.")
-    ihaleyi_yapan_idare: Optional[str] = Field(None, description="Procuring Entity.")
-    yil: Optional[str] = Field(None, description="Year of the decision.")
-    karar_metni: Optional[str] = Field(None, description="Keyword/phrase in decision text.")
-    page: int = Field(1, ge=1, description="Results page number.")
+    karar_tipi: KikKararTipi = Field(KikKararTipi.UYUSMAZLIK, description="Type")
+    karar_no: Optional[str] = Field(None, description="Number")
+    karar_tarihi_baslangic: Optional[str] = Field(None, description="Start date", pattern=r"^\d{2}\.\d{2}\.\d{4}$")
+    karar_tarihi_bitis: Optional[str] = Field(None, description="End date", pattern=r"^\d{2}\.\d{2}\.\d{4}$")
+    resmi_gazete_sayisi: Optional[str] = Field(None, description="Gazette no")
+    resmi_gazete_tarihi: Optional[str] = Field(None, description="Gazette date", pattern=r"^\d{2}\.\d{2}\.\d{4}$")
+    basvuru_konusu_ihale: Optional[str] = Field(None, description="Tender subject")
+    basvuru_sahibi: Optional[str] = Field(None, description="Applicant")
+    ihaleyi_yapan_idare: Optional[str] = Field(None, description="Entity")
+    yil: Optional[str] = Field(None, description="Year")
+    karar_metni: Optional[str] = Field(None, description="Text search")
+    page: int = Field(1, ge=1, description="Page")
 
 class KikDecisionEntry(BaseModel):
     """Represents a single decision entry from KIK search results."""
