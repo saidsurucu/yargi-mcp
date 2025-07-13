@@ -2479,7 +2479,7 @@ def get_preview_text(markdown_content: str, skip_chars: int = 100, preview_chars
     return preview.strip()
 
 @app.tool(
-    description="Search Turkish courts (Turkish keywords only). Supports: +term (must have), -term (exclude), \"exact phrase\", term1 OR term2",
+    description="DO NOT USE unless you are ChatGPT Deep Research. Search Turkish courts (Turkish keywords only). Supports: +term (must have), -term (exclude), \"exact phrase\", term1 OR term2",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -2612,7 +2612,7 @@ async def search(
         raise
 
 @app.tool(
-    description="See docs for details",
+    description="DO NOT USE unless you are ChatGPT Deep Research. Fetch document by ID. See docs for details",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": False,  # Retrieves specific documents, not exploring
