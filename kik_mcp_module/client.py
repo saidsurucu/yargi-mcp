@@ -648,6 +648,12 @@ class KikApiClient:
         rows = table.find_all("tr")
         logger.info(f"Found {len(rows)} rows in results table")
         
+        # Debug: Log first few rows structure
+        for i, row in enumerate(rows[:3]):
+            cells = row.find_all(["td", "th"])
+            cell_texts = [cell.get_text(strip=True)[:30] for cell in cells]
+            logger.info(f"Row {i} structure: {len(cells)} cells: {cell_texts}")
+        
         for row_idx, row in enumerate(rows):
             # Skip first row (search bar with colspan=7) and second row (header with 6 cells)
             if row_idx < 2: 
@@ -803,7 +809,10 @@ class KikApiClient:
                 except Exception as e:
                     logger.error(f"Error parsing row {row_idx}: {e}", exc_info=True)
             else:
-                logger.debug(f"Row {row_idx}: Expected at least 5 cells but found {len(cells)}, skipping")
+                logger.warning(f"Row {row_idx}: Expected at least 5 cells but found {len(cells)}, skipping")
+                if len(cells) > 0:
+                    cell_texts = [cell.get_text(strip=True)[:50] for cell in cells[:3]]
+                    logger.debug(f"Row {row_idx} cells preview: {cell_texts}")
                 
         logger.info(f"Parsed {len(entries)} decision entries from {len(rows)} rows")
         return entries
@@ -901,6 +910,9 @@ class KikApiClient:
                     logger.info(f"Performing human-like search button click...")
                     
                     try:
+                        # Hide datepicker first to prevent interference
+                        await page.evaluate("$('#ui-datepicker-div').hide()")
+                        
                         # FAST Human-like click on search button
                         await self._human_click(search_button_selector, wait_before=True, wait_after=False, fast_mode=True)
                         
@@ -909,7 +921,8 @@ class KikApiClient:
                         logger.info("Search navigation completed successfully")
                     except Exception as e:
                         logger.warning(f"Human click failed, falling back to JavaScript: {e}")
-                        # Fallback to original method
+                        # Hide datepicker and use JavaScript fallback
+                        await page.evaluate("$('#ui-datepicker-div').hide()")
                         async with page.expect_navigation(wait_until="networkidle", timeout=self.request_timeout):
                             await page.evaluate(f"javascript:__doPostBack('{event_target_for_submit}','')")
                         logger.info("Search navigation completed via fallback")
