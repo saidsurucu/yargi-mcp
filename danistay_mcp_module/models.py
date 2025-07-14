@@ -51,20 +51,18 @@ class DanistayDetailedSearchRequestData(BaseModel): # Internal data model for de
 
 class DanistayDetailedSearchRequest(DanistayBaseSearchRequest): # MCP tool will accept this
     """Model for detailed search request for Danistay."""
-    daire: Optional[str] = Field(None, description="Chamber")
-    esasYil: Optional[str] = Field(None, description="Case year")
-    esasIlkSiraNo: Optional[str] = Field(None, description="Start case no")
-    esasSonSiraNo: Optional[str] = Field(None, description="End case no")
-    kararYil: Optional[str] = Field(None, description="Decision year")
-    kararIlkSiraNo: Optional[str] = Field(None, description="Start decision no")
-    kararSonSiraNo: Optional[str] = Field(None, description="End decision no")
-    baslangicTarihi: Optional[str] = Field(None, description="Start date")
-    bitisTarihi: Optional[str] = Field(None, description="End date")
-    mevzuatNumarasi: Optional[str] = Field(None, description="Law number")
-    mevzuatAdi: Optional[str] = Field(None, description="Law name")
-    madde: Optional[str] = Field(None, description="Article")
-    siralama: str = Field("1", description="Sort by")
-    siralamaDirection: str = Field("desc", description="Direction")
+    daire: str = Field("", description="Chamber")
+    esasYil: str = Field("", description="Case year")
+    esasIlkSiraNo: str = Field("", description="Start case no")
+    esasSonSiraNo: str = Field("", description="End case no")
+    kararYil: str = Field("", description="Decision year")
+    kararIlkSiraNo: str = Field("", description="Start decision no")
+    kararSonSiraNo: str = Field("", description="End decision no")
+    baslangicTarihi: str = Field("", description="Start date")
+    bitisTarihi: str = Field("", description="End date")
+    mevzuatNumarasi: str = Field("", description="Law number")
+    mevzuatAdi: str = Field("", description="Law name")
+    madde: str = Field("", description="Article")
     # Add a general keyword field if detailed search also supports it
     # arananKelime: Optional[str] = Field(None, description="General keyword for detailed search.")
 
@@ -76,11 +74,11 @@ class DanistayApiDecisionEntry(BaseModel):
     id: str
     # The API response for keyword search uses "daireKurul", detailed search example uses "daire".
     # We use an alias to handle both and map to a consistent field name "chamber".
-    chamber: Optional[str] = Field(None, alias="daire", description="Chamber")
-    esasNo: Optional[str] = Field(None)
-    kararNo: Optional[str] = Field(None)
-    kararTarihi: Optional[str] = Field(None)
-    arananKelime: Optional[str] = Field(None, description="Keyword")
+    chamber: str = Field("", alias="daire", description="Chamber")
+    esasNo: str = Field("", description="Case number")
+    kararNo: str = Field("", description="Decision number")
+    kararTarihi: str = Field("", description="Decision date")
+    arananKelime: str = Field("", description="Keyword")
     # index: Optional[int] = None # Present in response, can be added if needed by MCP tool
     # siraNo: Optional[int] = None # Present in detailed response, can be added
 
@@ -93,7 +91,7 @@ class DanistayApiResponseInnerData(BaseModel):
     data: List[DanistayApiDecisionEntry]
     recordsTotal: int
     recordsFiltered: int
-    draw: Optional[int] = Field(None, description="Draw counter")
+    draw: int = Field(0, description="Draw counter")
 
 class DanistayApiResponse(BaseModel):
     """Model for the complete search response from the Danistay API."""
@@ -103,7 +101,7 @@ class DanistayApiResponse(BaseModel):
 class DanistayDocumentMarkdown(BaseModel):
     """Model for a Danistay decision document, containing only Markdown content."""
     id: str
-    markdown_content: Optional[str] = Field(None, description="The decision content (Karar İçeriği) converted to Markdown.")
+    markdown_content: str = Field("", description="The decision content (Karar İçeriği) converted to Markdown.")
     source_url: HttpUrl
 
 class CompactDanistaySearchResult(BaseModel):

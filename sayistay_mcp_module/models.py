@@ -16,14 +16,14 @@ class GenelKurulSearchRequest(BaseModel):
     of the Turkish Court of Accounts, typically addressing interpretation of
     audit and accountability regulations.
     """
-    karar_no: Optional[str] = Field(None, description="Decision no")
-    karar_ek: Optional[str] = Field(None, description="Appendix no")
+    karar_no: str = Field("", description="Decision no")
+    karar_ek: str = Field("", description="Appendix no")
     
-    karar_tarih_baslangic: Optional[str] = Field(None, description="Start year (YYYY)")
+    karar_tarih_baslangic: str = Field("", description="Start year (YYYY)")
     
-    karar_tarih_bitis: Optional[str] = Field(None, description="End year")
+    karar_tarih_bitis: str = Field("", description="End year")
     
-    karar_tamami: Optional[str] = Field(None, description="Value")
+    karar_tamami: str = Field("", description="Value")
     
     # DataTables pagination
     start: int = Field(0, description="Starting record for pagination (0-based)")
@@ -56,19 +56,19 @@ class TemyizKuruluSearchRequest(BaseModel):
     """
     ilam_dairesi: DaireEnum = Field("ALL", description="Value")
     
-    yili: Optional[str] = Field(None, description="Value")
+    yili: str = Field("", description="Value")
     
-    karar_tarih_baslangic: Optional[str] = Field(None, description="Value")
+    karar_tarih_baslangic: str = Field("", description="Value")
     
-    karar_tarih_bitis: Optional[str] = Field(None, description="End year")
+    karar_tarih_bitis: str = Field("", description="End year")
     
     kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="Value")
     
-    ilam_no: Optional[str] = Field(None, description="Audit report number (İlam No, max 50 chars)")
-    dosya_no: Optional[str] = Field(None, description="File number for the case")
-    temyiz_tutanak_no: Optional[str] = Field(None, description="Appeals board meeting minutes number")
+    ilam_no: str = Field("", description="Audit report number (İlam No, max 50 chars)")
+    dosya_no: str = Field("", description="File number for the case")
+    temyiz_tutanak_no: str = Field("", description="Appeals board meeting minutes number")
     
-    temyiz_karar: Optional[str] = Field(None, description="Value")
+    temyiz_karar: str = Field("", description="Value")
     
     web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="Value")
     
@@ -103,19 +103,19 @@ class DaireSearchRequest(BaseModel):
     """
     yargilama_dairesi: DaireEnum = Field("ALL", description="Value")
     
-    karar_tarih_baslangic: Optional[str] = Field(None, description="Value")
+    karar_tarih_baslangic: str = Field("", description="Value")
     
-    karar_tarih_bitis: Optional[str] = Field(None, description="End year")
+    karar_tarih_bitis: str = Field("", description="End year")
     
-    ilam_no: Optional[str] = Field(None, description="Audit report number (İlam No, max 50 chars)")
+    ilam_no: str = Field("", description="Audit report number (İlam No, max 50 chars)")
     
     kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="Value")
     
-    hesap_yili: Optional[str] = Field(None, description="Value")
+    hesap_yili: str = Field("", description="Value")
     
     web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="Value")
     
-    web_karar_metni: Optional[str] = Field(None, description="Value")
+    web_karar_metni: str = Field("", description="Value")
     
     # DataTables pagination
     start: int = Field(0, description="Starting record for pagination (0-based)")
@@ -127,7 +127,7 @@ class DaireDecision(BaseModel):
     yargilama_dairesi: int = Field(..., description="Chamber number (1-8)")
     karar_tarih: str = Field(..., description="Decision date in DD.MM.YYYY format")
     karar_no: str = Field(..., description="Decision number")
-    ilam_no: Optional[str] = Field(None, description="Audit report number (may be null)")
+    ilam_no: str = Field("", description="Audit report number (may be null)")
     madde_no: int = Field(..., description="Article/item number within the decision")
     kamu_idaresi_turu: str = Field(..., description="Public administration type")
     hesap_yili: int = Field(..., description="Account year being audited")
@@ -155,6 +155,6 @@ class SayistayDocumentMarkdown(BaseModel):
     decision_id: str = Field(..., description="Unique decision identifier")
     decision_type: str = Field(..., description="Value")
     source_url: str = Field(..., description="Original URL where the document was retrieved")
-    markdown_content: Optional[str] = Field(None, description="Full decision text converted to Markdown format")
-    retrieval_date: Optional[str] = Field(None, description="Date when document was retrieved (ISO format)")
-    error_message: Optional[str] = Field(None, description="Error message if document retrieval failed")
+    markdown_content: str = Field("", description="Full decision text converted to Markdown format")
+    retrieval_date: str = Field("", description="Date when document was retrieved (ISO format)")
+    error_message: str = Field("", description="Error message if document retrieval failed")

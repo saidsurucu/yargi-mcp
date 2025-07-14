@@ -192,3 +192,23 @@ scripts/deploy-flyio.sh
 docs/DEPLOYMENT_FLYIO.md
 setup_jwt_template.py
 mcp_server_main.py.backup
+mcp_overhead_content.json
+ANTHROPIC_TEST_README.md
+extract_mcp_overhead.py
+mcp_overhead_content.txt
+mcp_overhead_summary.txt
+run_http_server.py
+run_local_test.py
+
+# MCP overhead analysis files
+mcp_overhead_*.json
+mcp_overhead_*.txt
+mcp_test_results_*.json
+mcp_quick_test_*.json
+
+# General text files (temporary notes, etc)
+*.txt
+analyze_playwright_mcp.py
+measure_mcp_directly.py
+playwright_mcp_overhead.json
+simple_test.py

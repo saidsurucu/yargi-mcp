@@ -76,8 +76,8 @@ class DanistayApiClient:
             mevzuatNumarasi=params.mevzuatNumarasi or "",
             mevzuatAdi=params.mevzuatAdi or "",
             madde=params.madde or "",
-            siralama=params.siralama,
-            siralamaDirection=params.siralamaDirection,
+            siralama="1",
+            siralamaDirection="desc",
             pageSize=params.pageSize,
             pageNumber=params.pageNumber
         )

@@ -12,8 +12,8 @@ class EmsalDetailedSearchRequestData(BaseModel):
     """
     arananKelime: Optional[str] = ""
     
-    Bam_Hukuk_Mahkemeleri: Optional[str] = Field(None, alias="Bam Hukuk Mahkemeleri")
-    Hukuk_Mahkemeleri: Optional[str] = Field(None, alias="Hukuk Mahkemeleri")
+    Bam_Hukuk_Mahkemeleri: str = Field("", alias="Bam Hukuk Mahkemeleri")
+    Hukuk_Mahkemeleri: str = Field("", alias="Hukuk Mahkemeleri")
     # Add other specific court type fields from the form if they are separate keys in payload
     # E.g., "Ceza Mahkemeleri", "İdari Mahkemeler" etc.
     
@@ -36,22 +36,22 @@ class EmsalDetailedSearchRequestData(BaseModel):
 
 class EmsalSearchRequest(BaseModel): # This is the model the MCP tool will accept
     """Model for Emsal detailed search request, with user-friendly field names."""
-    keyword: Optional[str] = Field(None, description="Keyword")
+    keyword: str = Field("", description="Keyword")
     
-    selected_bam_civil_court: Optional[str] = Field(None, description="BAM Civil Court")
-    selected_civil_court: Optional[str] = Field(None, description="Civil Court")
-    selected_regional_civil_chambers: Optional[List[str]] = Field(default_factory=list, description="Regional chambers")
+    selected_bam_civil_court: str = Field("", description="BAM Civil Court")
+    selected_civil_court: str = Field("", description="Civil Court")
+    selected_regional_civil_chambers: List[str] = Field(default_factory=list, description="Regional chambers")
 
-    case_year_esas: Optional[str] = Field(None, description="Case year")
-    case_start_seq_esas: Optional[str] = Field(None, description="Start case no")
-    case_end_seq_esas: Optional[str] = Field(None, description="End case no")
+    case_year_esas: str = Field("", description="Case year")
+    case_start_seq_esas: str = Field("", description="Start case no")
+    case_end_seq_esas: str = Field("", description="End case no")
     
-    decision_year_karar: Optional[str] = Field(None, description="Decision year")
-    decision_start_seq_karar: Optional[str] = Field(None, description="Start decision no")
-    decision_end_seq_karar: Optional[str] = Field(None, description="End decision no")
+    decision_year_karar: str = Field("", description="Decision year")
+    decision_start_seq_karar: str = Field("", description="Start decision no")
+    decision_end_seq_karar: str = Field("", description="End decision no")
     
-    start_date: Optional[str] = Field(None, description="Start date (DD.MM.YYYY)")
-    end_date: Optional[str] = Field(None, description="End date (DD.MM.YYYY)")
+    start_date: str = Field("", description="Start date (DD.MM.YYYY)")
+    end_date: str = Field("", description="End date (DD.MM.YYYY)")
     
     sort_criteria: str = Field("1", description="Sort by")
     sort_direction: str = Field("desc", description="Direction")
@@ -63,12 +63,12 @@ class EmsalSearchRequest(BaseModel): # This is the model the MCP tool will accep
 class EmsalApiDecisionEntry(BaseModel):
     """Model for an individual decision entry from the Emsal API search response."""
     id: str
-    daire: Optional[str] = Field(None, description="Chamber")
-    esasNo: Optional[str] = Field(None)
-    kararNo: Optional[str] = Field(None)
-    kararTarihi: Optional[str] = Field(None)
-    arananKelime: Optional[str] = Field(None, description="Keyword")
-    durum: Optional[str] = Field(None, description="Status")
+    daire: str = Field("", description="Chamber")
+    esasNo: str = Field("", description="Case number")
+    kararNo: str = Field("", description="Decision number")
+    kararTarihi: str = Field("", description="Decision date")
+    arananKelime: str = Field("", description="Keyword")
+    durum: str = Field("", description="Status")
     # index: Optional[int] = None # Present in Emsal response, can be added if tool needs it
 
     document_url: Optional[HttpUrl] = Field(None, description="Document URL")
@@ -80,7 +80,7 @@ class EmsalApiResponseInnerData(BaseModel):
     data: List[EmsalApiDecisionEntry]
     recordsTotal: int
     recordsFiltered: int
-    draw: Optional[int] = Field(None, description="Draw counter (Çizim Sayıcısı) from API, usually for DataTables.")
+    draw: int = Field(0, description="Draw counter (Çizim Sayıcısı) from API, usually for DataTables.")
 
 class EmsalApiResponse(BaseModel):
     """Model for the complete search response from the Emsal API."""
@@ -90,7 +90,7 @@ class EmsalApiResponse(BaseModel):
 class EmsalDocumentMarkdown(BaseModel):
     """Model for an Emsal decision document, containing only Markdown content."""
     id: str
-    markdown_content: Optional[str] = Field(None, description="The decision content (Karar İçeriği) converted to Markdown.")
+    markdown_content: str = Field("", description="The decision content (Karar İçeriği) converted to Markdown.")
     source_url: HttpUrl
 
 class CompactEmsalSearchResult(BaseModel):

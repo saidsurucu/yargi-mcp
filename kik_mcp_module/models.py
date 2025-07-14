@@ -13,16 +13,16 @@ class KikKararTipi(str, Enum):
 class KikSearchRequest(BaseModel):
     """Model for KIK Decision search criteria."""
     karar_tipi: KikKararTipi = Field(KikKararTipi.UYUSMAZLIK, description="Type")
-    karar_no: Optional[str] = Field(None, description="No")
-    karar_tarihi_baslangic: Optional[str] = Field(None, description="Start", pattern=r"^\d{2}\.\d{2}\.\d{4}$")
-    karar_tarihi_bitis: Optional[str] = Field(None, description="End", pattern=r"^\d{2}\.\d{2}\.\d{4}$")
-    resmi_gazete_sayisi: Optional[str] = Field(None, description="Gazette")
-    resmi_gazete_tarihi: Optional[str] = Field(None, description="Date", pattern=r"^\d{2}\.\d{2}\.\d{4}$")
-    basvuru_konusu_ihale: Optional[str] = Field(None, description="Subject")
-    basvuru_sahibi: Optional[str] = Field(None, description="Applicant")
-    ihaleyi_yapan_idare: Optional[str] = Field(None, description="Entity")
-    yil: Optional[str] = Field(None, description="Year")
-    karar_metni: Optional[str] = Field(None, description="Text")
+    karar_no: str = Field("", description="No")
+    karar_tarihi_baslangic: str = Field("", description="Start", pattern=r"^\d{2}\.\d{2}\.\d{4}$|^$")
+    karar_tarihi_bitis: str = Field("", description="End", pattern=r"^\d{2}\.\d{2}\.\d{4}$|^$")
+    resmi_gazete_sayisi: str = Field("", description="Gazette")
+    resmi_gazete_tarihi: str = Field("", description="Date", pattern=r"^\d{2}\.\d{2}\.\d{4}$|^$")
+    basvuru_konusu_ihale: str = Field("", description="Subject")
+    basvuru_sahibi: str = Field("", description="Applicant")
+    ihaleyi_yapan_idare: str = Field("", description="Entity")
+    yil: str = Field("", description="Year")
+    karar_metni: str = Field("", description="Text")
     page: int = Field(1, ge=1, description="Page")
 
 class KikDecisionEntry(BaseModel):
@@ -32,9 +32,9 @@ class KikDecisionEntry(BaseModel):
     karar_tipi: KikKararTipi = Field(..., description="Decision type")
     
     karar_tarihi_str: str = Field(..., alias="kararTarihi", description="Date")
-    idare_str: Optional[str] = Field(None, alias="idare", description="Entity")
-    basvuru_sahibi_str: Optional[str] = Field(None, alias="basvuruSahibi", description="Applicant")
-    ihale_konusu_str: Optional[str] = Field(None, alias="ihaleKonusu", description="Subject")
+    idare_str: str = Field("", alias="idare", description="Entity")
+    basvuru_sahibi_str: str = Field("", alias="basvuruSahibi", description="Applicant")
+    ihale_konusu_str: str = Field("", alias="ihaleKonusu", description="Subject")
 
     @computed_field
     @property

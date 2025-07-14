@@ -4,9 +4,14 @@ import atexit
 import logging
 import os
 import httpx
+import json
+import time
+from collections import defaultdict
 from pydantic import HttpUrl, Field 
 from typing import Optional, Dict, List, Literal, Any, Union
 import urllib.parse
+import tiktoken
+from fastmcp.server.middleware import Middleware, MiddlewareContext
 
 # --- Logging Configuration Start ---
 LOG_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
@@ -31,6 +36,197 @@ root_logger.addHandler(console_handler)
 
 logger = logging.getLogger(__name__)
 # --- Logging Configuration End ---
+
+# --- Token Counting Middleware ---
+class TokenCountingMiddleware(Middleware):
+    """Middleware for counting input/output tokens using tiktoken."""
+    
+    def __init__(self, model: str = "cl100k_base"):
+        """Initialize token counting middleware.
+        
+        Args:
+            model: Tiktoken model name (cl100k_base for GPT-4/Claude compatibility)
+        """
+        self.encoder = tiktoken.get_encoding(model)
+        self.model = model
+        self.token_stats = defaultdict(lambda: {"input": 0, "output": 0, "calls": 0})
+        self.logger = logging.getLogger("token_counter")
+        
+        # Create separate log file for token metrics
+        token_log_path = os.path.join(LOG_DIRECTORY, "token_metrics.log")
+        token_handler = logging.FileHandler(token_log_path, mode='a', encoding='utf-8')
+        token_formatter = logging.Formatter('%(asctime)s - %(message)s')
+        token_handler.setFormatter(token_formatter)
+        token_handler.setLevel(logging.INFO)
+        self.logger.addHandler(token_handler)
+        self.logger.setLevel(logging.INFO)
+    
+    def count_tokens(self, text: str) -> int:
+        """Count tokens in text using tiktoken."""
+        if not text:
+            return 0
+        try:
+            return len(self.encoder.encode(str(text)))
+        except Exception as e:
+            logger.warning(f"Token counting failed: {e}")
+            return 0
+    
+    def extract_text_content(self, data: Any) -> str:
+        """Extract text content from various data types."""
+        if isinstance(data, str):
+            return data
+        elif isinstance(data, dict):
+            # Extract text from common response fields
+            text_parts = []
+            for key, value in data.items():
+                if isinstance(value, str):
+                    text_parts.append(value)
+                elif isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, str):
+                            text_parts.append(item)
+                        elif isinstance(item, dict) and 'text' in item:
+                            text_parts.append(str(item['text']))
+            return ' '.join(text_parts)
+        elif isinstance(data, list):
+            text_parts = []
+            for item in data:
+                text_parts.append(self.extract_text_content(item))
+            return ' '.join(text_parts)
+        else:
+            return str(data)
+    
+    def log_token_usage(self, operation: str, input_tokens: int, output_tokens: int, 
+                       tool_name: str = None, duration_ms: float = None):
+        """Log token usage with structured format."""
+        log_data = {
+            "operation": operation,
+            "tool_name": tool_name,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": input_tokens + output_tokens,
+            "duration_ms": duration_ms,
+            "timestamp": time.time()
+        }
+        
+        # Update statistics
+        key = tool_name if tool_name else operation
+        self.token_stats[key]["input"] += input_tokens
+        self.token_stats[key]["output"] += output_tokens
+        self.token_stats[key]["calls"] += 1
+        
+        # Log as JSON for easy parsing
+        self.logger.info(json.dumps(log_data))
+        
+        # Also log human-readable format to main logger
+        logger.info(f"Token Usage - {operation}" + 
+                   (f" ({tool_name})" if tool_name else "") +
+                   f": {input_tokens} in + {output_tokens} out = {input_tokens + output_tokens} total")
+    
+    async def on_call_tool(self, context: MiddlewareContext, call_next):
+        """Count tokens for tool calls."""
+        start_time = time.perf_counter()
+        
+        # Extract tool name and arguments
+        tool_name = getattr(context.message, 'name', 'unknown_tool')
+        tool_args = getattr(context.message, 'arguments', {})
+        
+        # Count input tokens (tool arguments)
+        input_text = self.extract_text_content(tool_args)
+        input_tokens = self.count_tokens(input_text)
+        
+        try:
+            # Execute the tool
+            result = await call_next(context)
+            
+            # Count output tokens (tool result)
+            output_text = self.extract_text_content(result)
+            output_tokens = self.count_tokens(output_text)
+            
+            # Calculate duration
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            
+            # Log token usage
+            self.log_token_usage("tool_call", input_tokens, output_tokens, 
+                               tool_name, duration_ms)
+            
+            return result
+            
+        except Exception as e:
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            self.log_token_usage("tool_call_error", input_tokens, 0, 
+                               tool_name, duration_ms)
+            raise
+    
+    async def on_read_resource(self, context: MiddlewareContext, call_next):
+        """Count tokens for resource reads."""
+        start_time = time.perf_counter()
+        
+        # Extract resource URI
+        resource_uri = getattr(context.message, 'uri', 'unknown_resource')
+        
+        try:
+            # Execute the resource read
+            result = await call_next(context)
+            
+            # Count output tokens (resource content)
+            output_text = self.extract_text_content(result)
+            output_tokens = self.count_tokens(output_text)
+            
+            # Calculate duration
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            
+            # Log token usage (no input tokens for resource reads)
+            self.log_token_usage("resource_read", 0, output_tokens, 
+                               resource_uri, duration_ms)
+            
+            return result
+            
+        except Exception as e:
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            self.log_token_usage("resource_read_error", 0, 0, 
+                               resource_uri, duration_ms)
+            raise
+    
+    async def on_get_prompt(self, context: MiddlewareContext, call_next):
+        """Count tokens for prompt retrievals."""
+        start_time = time.perf_counter()
+        
+        # Extract prompt name
+        prompt_name = getattr(context.message, 'name', 'unknown_prompt')
+        
+        try:
+            # Execute the prompt retrieval
+            result = await call_next(context)
+            
+            # Count output tokens (prompt content)
+            output_text = self.extract_text_content(result)
+            output_tokens = self.count_tokens(output_text)
+            
+            # Calculate duration
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            
+            # Log token usage
+            self.log_token_usage("prompt_get", 0, output_tokens, 
+                               prompt_name, duration_ms)
+            
+            return result
+            
+        except Exception as e:
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            self.log_token_usage("prompt_get_error", 0, 0, 
+                               prompt_name, duration_ms)
+            raise
+    
+    def get_token_stats(self) -> Dict[str, Any]:
+        """Get current token usage statistics."""
+        return dict(self.token_stats)
+    
+    def reset_token_stats(self):
+        """Reset token usage statistics."""
+        self.token_stats.clear()
+
+# --- End Token Counting Middleware ---
 
 # Create FastMCP app directly without authentication wrapper
 from fastmcp import FastMCP
@@ -112,6 +308,11 @@ from kvkk_mcp_module.models import (
 
 
 app = create_app()
+
+# --- Add Token Counting Middleware ---
+token_counter = TokenCountingMiddleware()
+app.add_middleware(token_counter)
+logger.info("Token counting middleware added to MCP server")
 
 # --- Tool Documentation Resources ---
 @app.resource("docs://tools/yargitay")
@@ -863,7 +1064,7 @@ KARAR_TURU_ADI_TO_GUID_ENUM_MAP = {
 
 # --- MCP Tools for Yargitay ---
 @app.tool(
-    description="Search Yargıtay decisions using primary API with 52 chamber filtering and advanced operators. Before using, read docs://tools/yargitay",
+    description="Search Yargıtay decisions with 52 chamber filtering and advanced operators",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -871,10 +1072,8 @@ KARAR_TURU_ADI_TO_GUID_ENUM_MAP = {
     }
 )
 async def search_yargitay_detailed(
-    arananKelime: str = Field("", description="Search keyword with OR/AND/wildcard operators"),
+    arananKelime: str = Field("", description="Turkish search keyword. Supports +required -excluded \"exact phrase\" operators"),
     birimYrgKurulDaire: str = Field("ALL", description="Chamber selection (52 options: Civil/Criminal chambers, General Assemblies)"),
-    birimYrgHukukDaire: str = Field("", description="Legacy field - use birimYrgKurulDaire instead"),
-    birimYrgCezaDaire: str = Field("", description="Legacy field - use birimYrgKurulDaire instead"),
     esasYil: str = Field("", description="Case year for 'Esas No'."),
     esasIlkSiraNo: str = Field("", description="Starting sequence number for 'Esas No'."),
     esasSonSiraNo: str = Field("", description="Ending sequence number for 'Esas No'."),
@@ -883,8 +1082,6 @@ async def search_yargitay_detailed(
     kararSonSiraNo: str = Field("", description="Ending sequence number for 'Karar No'."),
     baslangicTarihi: str = Field("", description="Start date for decision search (DD.MM.YYYY)."),
     bitisTarihi: str = Field("", description="End date for decision search (DD.MM.YYYY)."),
-    siralama: str = Field("3", description="Sorting criteria (1: Esas No, 2: Karar No, 3: Karar Tarihi)."),
-    siralamaDirection: str = Field("desc", description="Sorting direction ('asc' or 'desc')."),
     pageSize: int = Field(10, ge=1, le=10, description="Number of results per page."),
     pageNumber: int = Field(1, ge=1, description="Page number to retrieve.")
 ) -> CompactYargitaySearchResult:
@@ -897,8 +1094,6 @@ async def search_yargitay_detailed(
     search_query = YargitayDetailedSearchRequest(
         arananKelime=arananKelime,
         birimYrgKurulDaire=birimYrgKurulDaire,
-        birimYrgHukukDaire=birimYrgHukukDaire,
-        birimYrgCezaDaire=birimYrgCezaDaire,
         esasYil=esasYil,
         esasIlkSiraNo=esasIlkSiraNo,
         esasSonSiraNo=esasSonSiraNo,
@@ -907,8 +1102,8 @@ async def search_yargitay_detailed(
         kararSonSiraNo=kararSonSiraNo,
         baslangicTarihi=baslangicTarihi,
         bitisTarihi=bitisTarihi,
-        siralama=siralama,
-        siralamaDirection=siralamaDirection,
+        siralama="3",
+        siralamaDirection="desc",
         pageSize=pageSize,
         pageNumber=pageNumber
     )
@@ -941,7 +1136,7 @@ async def search_yargitay_detailed(
         raise
 
 @app.tool(
-    description="Retrieve full text of a Yargıtay decision in Markdown format. Before using, read docs://tools/yargitay",
+    description="Get Yargıtay decision text in Markdown format",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -959,7 +1154,7 @@ async def get_yargitay_document_markdown(id: str) -> YargitayDocumentMarkdown:
 
 # --- MCP Tools for Danistay ---
 @app.tool(
-    description="Search Danıştay decisions using keyword logic with AND/OR/NOT operators. Before using, read docs://tools/danistay",
+    description="Search Danıştay decisions with keyword logic (AND/OR/NOT operators)",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1001,7 +1196,7 @@ async def search_danistay_by_keyword(
         raise
 
 @app.tool(
-    description="Search Danıştay decisions with detailed criteria including chamber selection and case numbers. Before using, read docs://tools/danistay",
+    description="Search Danıştay decisions with detailed criteria (chamber selection, case numbers)",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1009,20 +1204,18 @@ async def search_danistay_by_keyword(
     }
 )
 async def search_danistay_detailed(
-    daire: Optional[str] = Field(None, description="Chamber/Department name (e.g., '1. Daire')."),
-    esasYil: Optional[str] = Field(None, description="Case year for 'Esas No'."),
-    esasIlkSiraNo: Optional[str] = Field(None, description="Starting sequence for 'Esas No'."),
-    esasSonSiraNo: Optional[str] = Field(None, description="Ending sequence for 'Esas No'."),
-    kararYil: Optional[str] = Field(None, description="Decision year for 'Karar No'."),
-    kararIlkSiraNo: Optional[str] = Field(None, description="Starting sequence for 'Karar No'."),
-    kararSonSiraNo: Optional[str] = Field(None, description="Ending sequence for 'Karar No'."),
-    baslangicTarihi: Optional[str] = Field(None, description="Start date for decision (DD.MM.YYYY)."),
-    bitisTarihi: Optional[str] = Field(None, description="End date for decision (DD.MM.YYYY)."),
-    mevzuatNumarasi: Optional[str] = Field(None, description="Legislation number."),
-    mevzuatAdi: Optional[str] = Field(None, description="Legislation name."),
-    madde: Optional[str] = Field(None, description="Article number."),
-    siralama: str = Field("1", description="Sorting criteria (e.g., 1: Esas No, 3: Karar Tarihi)."),
-    siralamaDirection: str = Field("desc", description="Sorting direction ('asc' or 'desc')."),
+    daire: str = Field("", description="Chamber/Department name (e.g., '1. Daire')."),
+    esasYil: str = Field("", description="Case year for 'Esas No'."),
+    esasIlkSiraNo: str = Field("", description="Starting sequence for 'Esas No'."),
+    esasSonSiraNo: str = Field("", description="Ending sequence for 'Esas No'."),
+    kararYil: str = Field("", description="Decision year for 'Karar No'."),
+    kararIlkSiraNo: str = Field("", description="Starting sequence for 'Karar No'."),
+    kararSonSiraNo: str = Field("", description="Ending sequence for 'Karar No'."),
+    baslangicTarihi: str = Field("", description="Start date for decision (DD.MM.YYYY)."),
+    bitisTarihi: str = Field("", description="End date for decision (DD.MM.YYYY)."),
+    mevzuatNumarasi: str = Field("", description="Legislation number."),
+    mevzuatAdi: str = Field("", description="Legislation name."),
+    madde: str = Field("", description="Article number."),
     pageNumber: int = Field(1, ge=1, description="Page number."),
     pageSize: int = Field(10, ge=1, le=10, description="Results per page.")
 ) -> CompactDanistaySearchResult:
@@ -1041,8 +1234,8 @@ async def search_danistay_detailed(
         mevzuatNumarasi=mevzuatNumarasi,
         mevzuatAdi=mevzuatAdi,
         madde=madde,
-        siralama=siralama,
-        siralamaDirection=siralamaDirection,
+        siralama="3",
+        siralamaDirection="desc",
         pageNumber=pageNumber,
         pageSize=pageSize
     )
@@ -1063,7 +1256,7 @@ async def search_danistay_detailed(
         raise
 
 @app.tool(
-    description="Retrieve full text of a Danıştay decision in Markdown format. Before using, read docs://tools/danistay",
+    description="Get Danıştay decision text in Markdown format",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -1081,7 +1274,7 @@ async def get_danistay_document_markdown(id: str) -> DanistayDocumentMarkdown:
 
 # --- MCP Tools for Emsal ---
 @app.tool(
-    description="Search Emsal precedent decisions with detailed criteria across Turkish courts. Before using, read docs://tools/emsal",
+    description="Search Emsal precedent decisions with detailed criteria",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1089,18 +1282,18 @@ async def get_danistay_document_markdown(id: str) -> DanistayDocumentMarkdown:
     }
 )
 async def search_emsal_detailed_decisions(
-    keyword: Optional[str] = Field(None, description="Keyword to search."),
-    selected_bam_civil_court: Optional[str] = Field(None, description="Selected BAM Civil Court."),
-    selected_civil_court: Optional[str] = Field(None, description="Selected Civil Court."),
+    keyword: str = Field("", description="Keyword to search."),
+    selected_bam_civil_court: str = Field("", description="Selected BAM Civil Court."),
+    selected_civil_court: str = Field("", description="Selected Civil Court."),
     selected_regional_civil_chambers: List[str] = Field(default_factory=list, description="Selected Regional Civil Chambers."),
-    case_year_esas: Optional[str] = Field(None, description="Case year for 'Esas No'."),
-    case_start_seq_esas: Optional[str] = Field(None, description="Starting sequence for 'Esas No'."),
-    case_end_seq_esas: Optional[str] = Field(None, description="Ending sequence for 'Esas No'."),
-    decision_year_karar: Optional[str] = Field(None, description="Decision year for 'Karar No'."),
-    decision_start_seq_karar: Optional[str] = Field(None, description="Starting sequence for 'Karar No'."),
-    decision_end_seq_karar: Optional[str] = Field(None, description="Ending sequence for 'Karar No'."),
-    start_date: Optional[str] = Field(None, description="Start date for decision (DD.MM.YYYY)."),
-    end_date: Optional[str] = Field(None, description="End date for decision (DD.MM.YYYY)."),
+    case_year_esas: str = Field("", description="Case year for 'Esas No'."),
+    case_start_seq_esas: str = Field("", description="Starting sequence for 'Esas No'."),
+    case_end_seq_esas: str = Field("", description="Ending sequence for 'Esas No'."),
+    decision_year_karar: str = Field("", description="Decision year for 'Karar No'."),
+    decision_start_seq_karar: str = Field("", description="Starting sequence for 'Karar No'."),
+    decision_end_seq_karar: str = Field("", description="Ending sequence for 'Karar No'."),
+    start_date: str = Field("", description="Start date for decision (DD.MM.YYYY)."),
+    end_date: str = Field("", description="End date for decision (DD.MM.YYYY)."),
     sort_criteria: str = Field("1", description="Sorting criteria (e.g., 1: Esas No)."),
     sort_direction: str = Field("desc", description="Sorting direction ('asc' or 'desc')."),
     page_number: int = Field(1, ge=1, description="Page number (accepts int)."),
@@ -1144,7 +1337,7 @@ async def search_emsal_detailed_decisions(
         raise
 
 @app.tool(
-    description="Retrieve full text of an Emsal precedent decision in Markdown format. Before using, read docs://tools/emsal",
+    description="Get Emsal precedent decision text in Markdown format",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -1162,7 +1355,7 @@ async def get_emsal_document_markdown(id: str) -> EmsalDocumentMarkdown:
 
 # --- MCP Tools for Uyusmazlik ---
 @app.tool(
-    description="Search Uyuşmazlık Mahkemesi decisions for jurisdictional disputes between court systems. Before using, read docs://tools/uyusmazlik",
+    description="Search Uyuşmazlık Mahkemesi decisions for jurisdictional disputes",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1233,7 +1426,7 @@ async def search_uyusmazlik_decisions(
         raise
 
 @app.tool(
-    description="Retrieve full text of an Uyuşmazlık Mahkemesi decision from URL in Markdown format. Before using, read docs://tools/uyusmazlik",
+    description="Get Uyuşmazlık Mahkemesi decision text from URL in Markdown format",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -1254,7 +1447,7 @@ async def get_uyusmazlik_document_markdown_from_url(
 
 # --- MCP Tools for Anayasa Mahkemesi (Norm Denetimi) ---
 @app.tool(
-    description="Search Constitutional Court norm control decisions with comprehensive filtering and legal criteria. Before using, read docs://tools/constitutional_court",
+    description="Search Constitutional Court norm control decisions with comprehensive filtering",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1262,34 +1455,34 @@ async def get_uyusmazlik_document_markdown_from_url(
     }
 )
 async def search_anayasa_norm_denetimi_decisions(
-    keywords_all: List[str] = Field(default_factory=list, description="AND keywords"),
-    keywords_any: List[str] = Field(default_factory=list, description="OR keywords"),
-    keywords_exclude: List[str] = Field(default_factory=list, description="Exclude keywords"),
+    keywords_all: List[str] = Field(default_factory=list, description="AND"),
+    keywords_any: List[str] = Field(default_factory=list, description="OR"),
+    keywords_exclude: List[str] = Field(default_factory=list, description="NOT"),
     period: Literal["ALL", "1", "2"] = Field("ALL", description="Period"),
-    case_number_esas: Optional[str] = Field(None, description="Case number"),
-    decision_number_karar: Optional[str] = Field(None, description="Decision number"),
-    first_review_date_start: Optional[str] = Field(None, description="Review start date"),
-    first_review_date_end: Optional[str] = Field(None, description="Review end date"),
-    decision_date_start: Optional[str] = Field(None, description="Decision start"),
-    decision_date_end: Optional[str] = Field(None, description="Decision end"),
+    case_number_esas: str = Field("", description="Case number"),
+    decision_number_karar: str = Field("", description="Decision number"),
+    first_review_date_start: str = Field("", description="Start"),
+    first_review_date_end: str = Field("", description="End"),
+    decision_date_start: str = Field("", description="Start"),
+    decision_date_end: str = Field("", description="End"),
     application_type: Literal["ALL", "1", "2", "3"] = Field("ALL", description="App type"),
-    applicant_general_name: Optional[str] = Field(None, description="Applicant"),
-    applicant_specific_name: Optional[str] = Field(None, description="Specific name"),
-    official_gazette_date_start: Optional[str] = Field(None, description="Gazette start"),
-    official_gazette_date_end: Optional[str] = Field(None, description="Gazette end"),
-    official_gazette_number_start: Optional[str] = Field(None, description="Gazette no start"),
-    official_gazette_number_end: Optional[str] = Field(None, description="Gazette no end"),
-    has_press_release: Literal["ALL", "0", "1"] = Field("ALL", description="Press release"),
+    applicant_general_name: str = Field("", description="Applicant"),
+    applicant_specific_name: str = Field("", description="Name"),
+    official_gazette_date_start: str = Field("", description="Start"),
+    official_gazette_date_end: str = Field("", description="End"),
+    official_gazette_number_start: str = Field("", description="Start"),
+    official_gazette_number_end: str = Field("", description="End"),
+    has_press_release: Literal["ALL", "0", "1"] = Field("ALL", description="Press"),
     has_dissenting_opinion: Literal["ALL", "0", "1"] = Field("ALL", description="Dissenting"),
-    has_different_reasoning: Literal["ALL", "0", "1"] = Field("ALL", description="Different reason"),
+    has_different_reasoning: Literal["ALL", "0", "1"] = Field("ALL", description="Reason"),
     attending_members_names: List[str] = Field(default_factory=list, description="Members"),
-    rapporteur_name: Optional[str] = Field(None, description="Rapporteur"),
+    rapporteur_name: str = Field("", description="Rapporteur"),
     norm_type: Literal["ALL", "1", "2", "14", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "0", "13"] = Field("ALL", description="Norm type"),
-    norm_id_or_name: Optional[str] = Field(None, description="Norm name"),
-    norm_article: Optional[str] = Field(None, description="Article"),
+    norm_id_or_name: str = Field("", description="Norm name"),
+    norm_article: str = Field("", description="Article"),
     review_outcomes: List[Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8", "12"]] = Field(default_factory=list, description="Outcomes"),
     reason_for_final_outcome: Literal["ALL", "29", "1", "2", "30", "3", "4", "27", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26"] = Field("ALL", description="Reason"),
-    basis_constitution_article_numbers: List[str] = Field(default_factory=list, description="Articles"),
+    basis_constitution_article_numbers: List[str] = Field(default_factory=list, description="Arts"),
     results_per_page: int = Field(10, description="Count"),
     page_to_fetch: int = Field(1, ge=1, description="Page"),
     sort_by_criteria: str = Field("KararTarihi", description="Sort")
@@ -1348,7 +1541,7 @@ async def search_anayasa_norm_denetimi_decisions(
         raise
 
 @app.tool(
-    description="Retrieve full text of a Constitutional Court norm control decision in paginated Markdown format. Before using, read docs://tools/constitutional_court",
+    description="Get Constitutional Court norm control decision text in paginated Markdown format",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -1371,7 +1564,7 @@ async def get_anayasa_norm_denetimi_document_markdown(
 
 # --- MCP Tools for Anayasa Mahkemesi (Bireysel Başvuru Karar Raporu & Belgeler) ---
 @app.tool(
-    description="Search Constitutional Court individual application decisions for human rights violation reports. Before using, read docs://tools/constitutional_court",
+    description="Search Constitutional Court individual application decisions for human rights violations",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1397,7 +1590,7 @@ async def search_anayasa_bireysel_basvuru_report(
         raise
 
 @app.tool(
-    description="Parameter description",
+    description="Get Constitutional Court individual application decision text in paginated Markdown format",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -1427,7 +1620,7 @@ async def get_anayasa_bireysel_basvuru_document_markdown(
 
 # --- MCP Tools for KIK (Kamu İhale Kurulu) ---
 @app.tool(
-    description="Search Public Procurement Authority (KİK) decisions for procurement law and administrative disputes. Before using, read docs://tools/kik",
+    description="Search Public Procurement Authority (KİK) decisions for procurement law disputes",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1436,21 +1629,23 @@ async def get_anayasa_bireysel_basvuru_document_markdown(
 )
 async def search_kik_decisions(
     karar_tipi: Literal["rbUyusmazlik", "rbDuzenleyici", "rbMahkeme"] = Field("rbUyusmazlik", description="Type of KIK Decision."),
-    karar_no: Optional[str] = Field(None, description="Decision Number (e.g., '2024/UH.II-1766')."),
-    karar_tarihi_baslangic: Optional[str] = Field(None, description="Decision Date Start (DD.MM.YYYY)."),
-    karar_tarihi_bitis: Optional[str] = Field(None, description="Decision Date End (DD.MM.YYYY)."),
-    basvuru_sahibi: Optional[str] = Field(None, description="Applicant."),
-    ihaleyi_yapan_idare: Optional[str] = Field(None, description="Procuring Entity."),
-    basvuru_konusu_ihale: Optional[str] = Field(None, description="Tender subject of the application."),
-    karar_metni: Optional[str] = Field(None, description="""
+    karar_no: str = Field("", description="Decision Number (e.g., '2024/UH.II-1766')."),
+    karar_tarihi_baslangic: str = Field("", description="Decision Date Start (DD.MM.YYYY)."),
+    karar_tarihi_bitis: str = Field("", description="Decision Date End (DD.MM.YYYY)."),
+    basvuru_sahibi: str = Field("", description="Applicant."),
+    ihaleyi_yapan_idare: str = Field("", description="Procuring Entity."),
+    basvuru_konusu_ihale: str = Field("", description="Tender subject of the application."),
+    karar_metni: str = Field("", description="""
         Keyword/phrase in decision text. Advanced search operators supported:
         - word1+word2 = AND logic (+anayasa +mahkeme -> both words required)
         - +"required" -"excluded" = Include and exclude (+ihale -"iptal")
-        Examples: anayasa | +anayasa +mahkeme | +ihale -"iptal"
+        - "exact phrase" = Exact match ("kamu yararı" for exact phrase)
+        - OR/AND/wildcard operators supported
+        Examples: anayasa | +anayasa +mahkeme | +ihale -"iptal" | "tam cümle"
     """),
-    yil: Optional[str] = Field(None, description="Year of the decision."),
-    resmi_gazete_tarihi: Optional[str] = Field(None, description="Official Gazette Date (DD.MM.YYYY)."),
-    resmi_gazete_sayisi: Optional[str] = Field(None, description="Official Gazette Number."),
+    yil: str = Field("", description="Year of the decision."),
+    resmi_gazete_tarihi: str = Field("", description="Official Gazette Date (DD.MM.YYYY)."),
+    resmi_gazete_sayisi: str = Field("", description="Official Gazette Number."),
     page: int = Field(1, ge=1, description="Results page number.")
 ) -> KikSearchResult:
     """Search Public Procurement Authority (KIK) decisions."""
@@ -1486,7 +1681,7 @@ async def search_kik_decisions(
         return KikSearchResult(decisions=[], total_records=0, current_page=current_page_val)
 
 @app.tool(
-    description="Retrieve full text of a Public Procurement Authority (KİK) decision in paginated Markdown format. Before using, read docs://tools/kik",
+    description="Get Public Procurement Authority (KİK) decision text in paginated Markdown format",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -1526,7 +1721,7 @@ async def get_kik_document_markdown(
             is_paginated=False
         )
 @app.tool(
-    description="Search Competition Authority (Rekabet Kurumu) decisions for competition law and antitrust research. Before using, read docs://tools/rekabet",
+    description="Search Competition Authority (Rekabet Kurumu) decisions for competition law and antitrust",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1534,10 +1729,10 @@ async def get_kik_document_markdown(
     }
 )
 async def search_rekabet_kurumu_decisions(
-    sayfaAdi: Optional[str] = Field(None, description="Search in decision title (Başlık)."),
-    YayinlanmaTarihi: Optional[str] = Field(None, description="Publication date (Yayım Tarihi), e.g., DD.MM.YYYY."),
-    PdfText: Optional[str] = Field(
-        None,
+    sayfaAdi: str = Field("", description="Search in decision title (Başlık)."),
+    YayinlanmaTarihi: str = Field("", description="Publication date (Yayım Tarihi), e.g., DD.MM.YYYY."),
+    PdfText: str = Field(
+        "",
         description='Search in decision text. Use "\\"kesin cümle\\"" for precise matching.'
     ),
     KararTuru: Literal[ 
@@ -1548,8 +1743,8 @@ async def search_rekabet_kurumu_decisions(
         "Özelleştirme",
         "Rekabet İhlali"
     ] = Field("ALL", description="Parameter description"),
-    KararSayisi: Optional[str] = Field(None, description="Decision number (Karar Sayısı)."),
-    KararTarihi: Optional[str] = Field(None, description="Decision date (Karar Tarihi), e.g., DD.MM.YYYY."),
+    KararSayisi: str = Field("", description="Decision number (Karar Sayısı)."),
+    KararTarihi: str = Field("", description="Decision date (Karar Tarihi), e.g., DD.MM.YYYY."),
     page: int = Field(1, ge=1, description="Page number to fetch for the results list.")
 ) -> RekabetSearchResult:
     """Search Competition Authority decisions."""
@@ -1582,7 +1777,7 @@ async def search_rekabet_kurumu_decisions(
         return RekabetSearchResult(decisions=[], retrieved_page_number=page, total_records_found=0, total_pages=0)
 
 @app.tool(
-    description="Retrieve full text of a Competition Authority decision in paginated Markdown format. Before using, read docs://tools/rekabet",
+    description="Get Competition Authority decision text in paginated Markdown format",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -1606,7 +1801,7 @@ async def get_rekabet_kurumu_document(
 
 # --- MCP Tools for Bedesten (Unified Search Across All Courts) ---
 @app.tool(
-    description="Search Yargıtay, Danıştay, Local Courts, Appeals Courts, and KYB decisions",
+    description="Search multiple Turkish courts (Yargıtay, Danıştay, Local Courts, Appeals Courts, KYB)",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1614,7 +1809,7 @@ async def get_rekabet_kurumu_document(
     }
 )
 async def search_bedesten_unified(
-    phrase: str = Field(..., description="Search phrase. Use \"exact phrase\" for precise matching"),
+    phrase: str = Field(..., description="Turkish search phrase. Supports +required -excluded \"exact phrase\" operators"),
     court_types: List[BedestenCourtTypeEnum] = Field(
         default=["YARGITAYKARARI", "DANISTAYKARAR"], 
         description="Court types: YARGITAYKARARI, DANISTAYKARAR, YERELHUKUK, ISTINAFHUKUK, KYB"
@@ -1622,8 +1817,8 @@ async def search_bedesten_unified(
     pageSize: int = Field(10, ge=1, le=10, description="Results per page (1-10)"),
     pageNumber: int = Field(1, ge=1, description="Page number"),
     birimAdi: Optional[Union[YargitayBirimEnum, DanistayBirimEnum]] = Field(None, description="Chamber filter (optional)"),
-    kararTarihiStart: Optional[str] = Field(None, description="Start date (ISO 8601 format)"),
-    kararTarihiEnd: Optional[str] = Field(None, description="End date (ISO 8601 format)")
+    kararTarihiStart: str = Field("", description="Start date (ISO 8601 format)"),
+    kararTarihiEnd: str = Field("", description="End date (ISO 8601 format)")
 ) -> dict:
     """Search Turkish legal databases via unified Bedesten API."""
     search_data = BedestenSearchData(
@@ -1665,7 +1860,7 @@ async def search_bedesten_unified(
         raise
 
 @app.tool(
-    description="Retrieve legal decision document from Bedesten API in Markdown format",
+    description="Get legal decision document from Bedesten API in Markdown format",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -1689,7 +1884,7 @@ async def get_bedesten_document_markdown(
 # --- MCP Tools for Sayıştay (Turkish Court of Accounts) ---
 
 @app.tool(
-    description="Search Sayıştay Genel Kurul decisions for audit and accountability regulations. Before using, read docs://tools/sayistay",
+    description="Search Sayıştay Genel Kurul decisions for audit and accountability regulations",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1697,11 +1892,11 @@ async def get_bedesten_document_markdown(
     }
 )
 async def search_sayistay_genel_kurul(
-    karar_no: Optional[str] = Field(None, description="Decision number to search for (e.g., '5415')"),
-    karar_ek: Optional[str] = Field(None, description="Decision appendix number (max 99, e.g., '1')"),
-    karar_tarih_baslangic: Optional[str] = Field(None, description="See docs for details"),
-    karar_tarih_bitis: Optional[str] = Field(None, description="See docs for details"),
-    karar_tamami: Optional[str] = Field(None, description="See docs for details"),
+    karar_no: str = Field("", description="Decision number to search for (e.g., '5415')"),
+    karar_ek: str = Field("", description="Decision appendix number (max 99, e.g., '1')"),
+    karar_tarih_baslangic: str = Field("", description="Start date (DD.MM.YYYY)"),
+    karar_tarih_bitis: str = Field("", description="End date (DD.MM.YYYY)"),
+    karar_tamami: str = Field("", description="Full text search"),
     start: int = Field(0, description="Starting record for pagination (0-based)"),
     length: int = Field(10, description="Number of records per page (1-100)")
 ) -> GenelKurulSearchResponse:
@@ -1724,7 +1919,7 @@ async def search_sayistay_genel_kurul(
         raise
 
 @app.tool(
-    description="Search Sayıştay Temyiz Kurulu decisions with chamber filtering and comprehensive search criteria. Before using, read docs://tools/sayistay",
+    description="Search Sayıştay Temyiz Kurulu decisions with chamber filtering and comprehensive criteria",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1732,16 +1927,16 @@ async def search_sayistay_genel_kurul(
     }
 )
 async def search_sayistay_temyiz_kurulu(
-    ilam_dairesi: DaireEnum = Field("ALL", description="See docs for details"),
-    yili: Optional[str] = Field(None, description="See docs for details"),
-    karar_tarih_baslangic: Optional[str] = Field(None, description="See docs for details"),
-    karar_tarih_bitis: Optional[str] = Field(None, description="See docs for details"),
-    kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="See docs for details"),
-    ilam_no: Optional[str] = Field(None, description="Audit report number (İlam No, max 50 chars)"),
-    dosya_no: Optional[str] = Field(None, description="File number for the case"),
-    temyiz_tutanak_no: Optional[str] = Field(None, description="Appeals board meeting minutes number"),
-    temyiz_karar: Optional[str] = Field(None, description="See docs for details"),
-    web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="See docs for details"),
+    ilam_dairesi: DaireEnum = Field("ALL", description="Audit chamber selection"),
+    yili: str = Field("", description="Year (YYYY)"),
+    karar_tarih_baslangic: str = Field("", description="Start date (DD.MM.YYYY)"),
+    karar_tarih_bitis: str = Field("", description="End date (DD.MM.YYYY)"),
+    kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="Public admin type"),
+    ilam_no: str = Field("", description="Audit report number (İlam No, max 50 chars)"),
+    dosya_no: str = Field("", description="File number for the case"),
+    temyiz_tutanak_no: str = Field("", description="Appeals board meeting minutes number"),
+    temyiz_karar: str = Field("", description="Appeals decision text"),
+    web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="Decision subject"),
     start: int = Field(0, description="Starting record for pagination (0-based)"),
     length: int = Field(10, description="Number of records per page (1-100)")
 ) -> TemyizKuruluSearchResponse:
@@ -1769,7 +1964,7 @@ async def search_sayistay_temyiz_kurulu(
         raise
 
 @app.tool(
-    description="Search Sayıştay Daire decisions with chamber filtering and subject categorization. Before using, read docs://tools/sayistay",
+    description="Search Sayıştay Daire decisions with chamber filtering and subject categorization",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1777,14 +1972,14 @@ async def search_sayistay_temyiz_kurulu(
     }
 )
 async def search_sayistay_daire(
-    yargilama_dairesi: DaireEnum = Field("ALL", description="See docs for details"),
-    karar_tarih_baslangic: Optional[str] = Field(None, description="See docs for details"),
-    karar_tarih_bitis: Optional[str] = Field(None, description="See docs for details"),
-    ilam_no: Optional[str] = Field(None, description="Audit report number (İlam No, max 50 chars)"),
-    kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="See docs for details"),
-    hesap_yili: Optional[str] = Field(None, description="See docs for details"),
-    web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="See docs for details"),
-    web_karar_metni: Optional[str] = Field(None, description="See docs for details"),
+    yargilama_dairesi: DaireEnum = Field("ALL", description="Chamber selection"),
+    karar_tarih_baslangic: str = Field("", description="Start date (DD.MM.YYYY)"),
+    karar_tarih_bitis: str = Field("", description="End date (DD.MM.YYYY)"),
+    ilam_no: str = Field("", description="Audit report number (İlam No, max 50 chars)"),
+    kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="Public admin type"),
+    hesap_yili: str = Field("", description="Fiscal year"),
+    web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="Decision subject"),
+    web_karar_metni: str = Field("", description="Decision text search"),
     start: int = Field(0, description="Starting record for pagination (0-based)"),
     length: int = Field(10, description="Number of records per page (1-100)")
 ) -> DaireSearchResponse:
@@ -1810,7 +2005,7 @@ async def search_sayistay_daire(
         raise
 
 @app.tool(
-    description="Retrieve Sayıştay Genel Kurul decision document in Markdown format. Before using, read docs://tools/sayistay",
+    description="Get Sayıştay Genel Kurul decision document in Markdown format",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": False,
@@ -1833,7 +2028,7 @@ async def get_sayistay_genel_kurul_document_markdown(
         raise
 
 @app.tool(
-    description="Retrieve Sayıştay Temyiz Kurulu decision document in Markdown format. Before using, read docs://tools/sayistay",
+    description="Get Sayıştay Temyiz Kurulu decision document in Markdown format",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": False,
@@ -1856,7 +2051,7 @@ async def get_sayistay_temyiz_kurulu_document_markdown(
         raise
 
 @app.tool(
-    description="Retrieve Sayıştay Daire decision document in Markdown format. Before using, read docs://tools/sayistay",
+    description="Get Sayıştay Daire decision document in Markdown format",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": False,
@@ -2085,7 +2280,7 @@ async def check_government_servers_health() -> Dict[str, Any]:
 
 # --- MCP Tools for KVKK ---
 @app.tool(
-    description="Search KVKK decisions using Brave Search API for data protection authority decisions. Before using, read docs://tools/kvkk",
+    description="Search KVKK data protection authority decisions",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -2093,7 +2288,7 @@ async def check_government_servers_health() -> Dict[str, Any]:
     }
 )
 async def search_kvkk_decisions(
-    keywords: str = Field(..., description="Turkish keywords for KVKK decision search"),
+    keywords: str = Field(..., description="Turkish keywords. Supports +required -excluded \"exact phrase\" operators"),
     page: int = Field(1, ge=1, le=50, description="Page number for results (1-50)."),
     pageSize: int = Field(10, ge=1, le=20, description="Number of results per page (1-20).")
 ) -> KvkkSearchResult:
@@ -2122,7 +2317,7 @@ async def search_kvkk_decisions(
         )
 
 @app.tool(
-    description="Retrieve KVKK decision document in Markdown format with metadata extraction. Before using, read docs://tools/kvkk",
+    description="Get KVKK decision document in Markdown format with metadata extraction",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": False,
@@ -2130,7 +2325,7 @@ async def search_kvkk_decisions(
     }
 )
 async def get_kvkk_document_markdown(
-    decision_url: str = Field(..., description="See docs for details"),
+    decision_url: str = Field(..., description="KVKK decision URL from search results"),
     page_number: Union[int, str] = Field(1, description="Page number for paginated Markdown content (1-indexed, accepts int). Default is 1 (first 5,000 characters).")
 ) -> KvkkDocumentMarkdown:
     """Get KVKK decision as paginated Markdown."""
@@ -2498,6 +2693,8 @@ async def fetch(
     except Exception as e:
         logger.exception(f"Error fetching ChatGPT Deep Research document {id}")
         raise
+
+# --- Token Metrics Tool Removed for Optimization ---
 
 def ensure_playwright_browsers():
     """Ensure Playwright browsers are installed for KIK tool functionality."""

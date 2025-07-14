@@ -37,8 +37,6 @@ class YargitayDetailedSearchRequest(BaseModel):
     arananKelime: Optional[str] = Field("", description="Turkish keywords (supports +word -word \"phrase\" operators)")
     # Department/Board selection - Complete Court of Cassation chamber hierarchy
     birimYrgKurulDaire: Optional[str] = Field("ALL", description="Chamber (ALL or specific chamber name)")
-    birimYrgHukukDaire: Optional[str] = Field("", description="Legacy field")
-    birimYrgCezaDaire: Optional[str] = Field("", description="Legacy field")
     
     esasYil: Optional[str] = Field("", description="Case year (YYYY)")
     esasIlkSiraNo: Optional[str] = Field("", description="Start case no")
@@ -51,8 +49,6 @@ class YargitayDetailedSearchRequest(BaseModel):
     baslangicTarihi: Optional[str] = Field("", description="Start date (DD.MM.YYYY)")
     bitisTarihi: Optional[str] = Field("", description="End date (DD.MM.YYYY)")
     
-    siralama: Optional[str] = Field("3", description="Sort by (1=case, 2=decision, 3=date)")
-    siralamaDirection: Optional[str] = Field("desc", description="Direction (asc/desc)")
     
     pageSize: int = Field(10, ge=1, le=10, description="Results per page (1-100)")
     pageNumber: int = Field(1, ge=1, description="Page number (1-indexed)")

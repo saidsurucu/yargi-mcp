@@ -25,31 +25,31 @@ class RekabetKararTuruAdiEnum(str, Enum):
 
 class RekabetKurumuSearchRequest(BaseModel):
     """Model for Rekabet Kurumu (Turkish Competition Authority) search request."""
-    sayfaAdi: Optional[str] = Field(None, description="Title")
-    YayinlanmaTarihi: Optional[str] = Field(None, description="Date")
-    PdfText: Optional[str] = Field(None, description="Text")
-    KararTuruID: Optional[RekabetKararTuruGuidEnum] = Field(RekabetKararTuruGuidEnum.TUMU, description="Type")
-    KararSayisi: Optional[str] = Field(None, description="No")
-    KararTarihi: Optional[str] = Field(None, description="Date")
+    sayfaAdi: str = Field("", description="Title")
+    YayinlanmaTarihi: str = Field("", description="Date")
+    PdfText: str = Field("", description="Text")
+    KararTuruID: RekabetKararTuruGuidEnum = Field(RekabetKararTuruGuidEnum.TUMU, description="Type")
+    KararSayisi: str = Field("", description="No")
+    KararTarihi: str = Field("", description="Date")
     page: int = Field(1, ge=1, description="Page")
 
 class RekabetDecisionSummary(BaseModel):
     """Model for a single Rekabet Kurumu decision summary from search results."""
-    publication_date: Optional[str] = Field(None, description="Pub date")
-    decision_number: Optional[str] = Field(None, description="Number")
-    decision_date: Optional[str] = Field(None, description="Date")
-    decision_type_text: Optional[str] = Field(None, description="Type")
-    title: Optional[str] = Field(None, description="Title")
-    decision_url: Optional[HttpUrl] = Field(None, description="URL")
-    karar_id: Optional[str] = Field(None, description="ID")
-    related_cases_url: Optional[HttpUrl] = Field(None, description="Cases URL")
+    publication_date: str = Field("", description="Pub date")
+    decision_number: str = Field("", description="Number")
+    decision_date: str = Field("", description="Date")
+    decision_type_text: str = Field("", description="Type")
+    title: str = Field("", description="Title")
+    decision_url: str = Field("", description="URL")
+    karar_id: str = Field("", description="ID")
+    related_cases_url: str = Field("", description="Cases URL")
 
 class RekabetSearchResult(BaseModel):
     """Model for the overall search result for Rekabet Kurumu decisions."""
     decisions: List[RekabetDecisionSummary]
-    total_records_found: Optional[int] = Field(None, description="Total")
+    total_records_found: int = Field(0, description="Total")
     retrieved_page_number: int = Field(description="Page")
-    total_pages: Optional[int] = Field(None, description="Pages")
+    total_pages: int = Field(0, description="Pages")
 
 class RekabetDocument(BaseModel):
     """
