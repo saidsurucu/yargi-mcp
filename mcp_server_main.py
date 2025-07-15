@@ -1063,6 +1063,7 @@ KARAR_TURU_ADI_TO_GUID_ENUM_MAP = {
 }
 
 # --- MCP Tools for Yargitay ---
+"""
 @app.tool(
     description="Search Yargıtay decisions with 52 chamber filtering and advanced operators",
     annotations={
@@ -1085,7 +1086,7 @@ async def search_yargitay_detailed(
     pageSize: int = Field(10, ge=1, le=10, description="Number of results per page."),
     pageNumber: int = Field(1, ge=1, description="Page number to retrieve.")
 ) -> CompactYargitaySearchResult:
-    """Search Yargıtay decisions using primary API with 52 chamber filtering and advanced operators."""
+    # Search Yargıtay decisions using primary API with 52 chamber filtering and advanced operators.
     
     # Convert "ALL" to empty string for API compatibility
     if birimYrgKurulDaire == "ALL":
@@ -1143,7 +1144,7 @@ async def search_yargitay_detailed(
     }
 )
 async def get_yargitay_document_markdown(id: str) -> YargitayDocumentMarkdown:
-    """Get Yargıtay decision text as Markdown. Use ID from search results."""
+    # Get Yargıtay decision text as Markdown. Use ID from search results.
     logger.info(f"Tool 'get_yargitay_document_markdown' called for ID: {id}")
     if not id or not id.strip(): raise ValueError("Document ID must be a non-empty string.")
     try:
@@ -1151,8 +1152,10 @@ async def get_yargitay_document_markdown(id: str) -> YargitayDocumentMarkdown:
     except Exception as e:
         logger.exception(f"Error in tool 'get_yargitay_document_markdown'.")
         raise
+"""
 
 # --- MCP Tools for Danistay ---
+"""
 @app.tool(
     description="Search Danıştay decisions with keyword logic (AND/OR/NOT operators)",
     annotations={
@@ -1169,7 +1172,7 @@ async def search_danistay_by_keyword(
     pageNumber: int = Field(1, ge=1, description="Page number."),
     pageSize: int = Field(10, ge=1, le=10, description="Results per page.")
 ) -> CompactDanistaySearchResult:
-    """Search Danıştay decisions with keyword logic."""
+    # Search Danıştay decisions with keyword logic.
     
     search_query = DanistayKeywordSearchRequest(
         andKelimeler=andKelimeler,
@@ -1219,7 +1222,7 @@ async def search_danistay_detailed(
     pageNumber: int = Field(1, ge=1, description="Page number."),
     pageSize: int = Field(10, ge=1, le=10, description="Results per page.")
 ) -> CompactDanistaySearchResult:
-    """Search Danıştay decisions with detailed filtering."""
+    # Search Danıştay decisions with detailed filtering.
     
     search_query = DanistayDetailedSearchRequest(
         daire=daire,
@@ -1263,7 +1266,7 @@ async def search_danistay_detailed(
     }
 )
 async def get_danistay_document_markdown(id: str) -> DanistayDocumentMarkdown:
-    """Get Danıştay decision text as Markdown. Use ID from search results."""
+    # Get Danıştay decision text as Markdown. Use ID from search results.
     logger.info(f"Tool 'get_danistay_document_markdown' called for ID: {id}")
     if not id or not id.strip(): raise ValueError("Document ID must be a non-empty string for Danıştay.")
     try:
@@ -1271,6 +1274,7 @@ async def get_danistay_document_markdown(id: str) -> DanistayDocumentMarkdown:
     except Exception as e:
         logger.exception(f"Error in tool 'get_danistay_document_markdown'.")
         raise
+"""
 
 # --- MCP Tools for Emsal ---
 @app.tool(
