@@ -1813,7 +1813,7 @@ async def get_rekabet_kurumu_document(
     }
 )
 async def search_bedesten_unified(
-    phrase: str = Field(..., description="Turkish search phrase. Working operators: `+` (required term), `-` (exclude term), `*` (wildcard), `\" \"` (exact phrase), `( )` (grouping), `~` (fuzzy search), `/pattern/` (basic regex with `.` any char, `+` one or more, `?` optional, `[abc]` character class, `{n,m}` repetition, `|` alternation); Not working: AND, OR, NOT boolean operators, `^$` anchors, `\\b` word boundaries, `()` regex groups, `\\d\\w\\s` special chars, `[TO]` range queries."),
+    phrase: str = Field(..., description="Turkish search phrase. USE: `+` (required term), `-` (exclude term), `*` (wildcard), `\" \"` (exact phrase), `( )` (grouping), `~` (fuzzy search), `/pattern/` (basic regex with `.` any char, `+` one or more, `?` optional, `[abc]` character class, `{n,m}` repetition, `|` alternation); DO NOT USE: AND, OR, NOT boolean operators, `^$` anchors, `\\b` word boundaries, `()` regex groups, `\\d\\w\\s` special chars, `[TO]` range queries."),
     court_types: List[BedestenCourtTypeEnum] = Field(
         default=["YARGITAYKARARI", "DANISTAYKARAR"], 
         description="Court types: YARGITAYKARARI, DANISTAYKARAR, YERELHUKUK, ISTINAFHUKUK, KYB"
