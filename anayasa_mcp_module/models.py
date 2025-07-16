@@ -131,7 +131,7 @@ class AnayasaDecisionSummary(BaseModel):
     """Model for a single Anayasa Mahkemesi (Norm Denetimi) decision summary from search results."""
     decision_reference_no: str = Field("", description="Decision reference number")
     decision_page_url: str = Field("", description="Decision page URL")
-    keywords_found_count: int = Field(0, description="Keywords found count")
+    keywords_found_count: Optional[int] = Field(0, description="Keywords found count")
     application_type_summary: str = Field("", description="Application type summary")
     applicant_summary: str = Field("", description="Applicant summary")
     decision_outcome_summary: str = Field("", description="Decision outcome summary")
