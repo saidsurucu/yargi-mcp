@@ -1813,7 +1813,18 @@ async def get_rekabet_kurumu_document(
     }
 )
 async def search_bedesten_unified(
-    phrase: str = Field(..., description="Turkish search phrase.  Turkish full-text search. Boolean: AND, OR, NOT. Required/prohibited: +term, -term. Phrase: \"exact phrase\", \"phrase\"~5 (proximity). Wildcard: term*, t?rm. Fuzzy: term~, term~0.8. Regex: /pattern/ with ., *, +, ?, [abc], [a-z], [^0-9], {n,m}, (group), |, ^, $, \\escape, word boundaries \\b, case flag (?i). Boost: term^2."),
+    phrase: str = Field(..., description="""Search query in Turkish. WORKING EXAMPLES:
+• Simple: "mülkiyet hakkı" (finds both words)
+• Exact phrase: "\"mülkiyet hakkı\"" (finds exact phrase)  
+• Required term: "+mülkiyet hakkı" (must contain mülkiyet)
+• Exclude term: "mülkiyet -kira" (contains mülkiyet but not kira)
+• Wildcard: "mülk*" (mülkiyet, mülk, etc.)
+• Fuzzy: "mülkiyet~" (similar spelling variations)
+• Multiple terms: "mülkiyet AND hak" (both terms required)
+• Either term: "mülkiyet OR tapu" (either term acceptable)
+• Proximity: "\"mülkiyet hakkı\"~5" (words within 5 positions)
+• Regex: "/mülk.*/" (pattern matching)
+For best results, use exact phrases with quotes for legal terms."""),
     court_types: List[BedestenCourtTypeEnum] = Field(
         default=["YARGITAYKARARI", "DANISTAYKARAR"], 
         description="Court types: YARGITAYKARARI, DANISTAYKARAR, YERELHUKUK, ISTINAFHUKUK, KYB"
