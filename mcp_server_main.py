@@ -1072,7 +1072,6 @@ KARAR_TURU_ADI_TO_GUID_ENUM_MAP = {
 }
 
 # --- MCP Tools for Yargitay ---
-"""
 @app.tool(
     description="Search Yargıtay decisions with 52 chamber filtering and advanced operators",
     annotations={
@@ -1161,7 +1160,6 @@ async def get_yargitay_document_markdown(id: str) -> YargitayDocumentMarkdown:
     except Exception as e:
         logger.exception(f"Error in tool 'get_yargitay_document_markdown'.")
         raise
-"""
 
 # --- MCP Tools for Danistay ---
 """
