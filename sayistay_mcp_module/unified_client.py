@@ -9,7 +9,6 @@ from .models import (
     SayistayUnifiedSearchRequest,
     SayistayUnifiedSearchResult,
     SayistayUnifiedDocumentMarkdown,
-    SayistayDecisionTypeEnum,
     GenelKurulSearchRequest,
     TemyizKuruluSearchRequest,
     DaireSearchRequest
@@ -27,7 +26,7 @@ class SayistayUnifiedClient:
     async def search_unified(self, params: SayistayUnifiedSearchRequest) -> SayistayUnifiedSearchResult:
         """Unified search that routes to appropriate search method based on decision_type."""
         
-        if params.decision_type == SayistayDecisionTypeEnum.GENEL_KURUL:
+        if params.decision_type == "genel_kurul":
             # Convert to genel kurul request
             genel_kurul_params = GenelKurulSearchRequest(
                 karar_no=params.karar_no,
@@ -45,14 +44,14 @@ class SayistayUnifiedClient:
             decisions_list = [decision.model_dump() for decision in result.decisions]
             
             return SayistayUnifiedSearchResult(
-                decision_type=SayistayDecisionTypeEnum.GENEL_KURUL,
+                decision_type="genel_kurul",
                 decisions=decisions_list,
                 total_records=result.total_records,
                 total_filtered=result.total_filtered,
                 draw=result.draw
             )
             
-        elif params.decision_type == SayistayDecisionTypeEnum.TEMYIZ_KURULU:
+        elif params.decision_type == "temyiz_kurulu":
             # Convert to temyiz kurulu request
             temyiz_params = TemyizKuruluSearchRequest(
                 ilam_dairesi=params.ilam_dairesi,
@@ -75,14 +74,14 @@ class SayistayUnifiedClient:
             decisions_list = [decision.model_dump() for decision in result.decisions]
             
             return SayistayUnifiedSearchResult(
-                decision_type=SayistayDecisionTypeEnum.TEMYIZ_KURULU,
+                decision_type="temyiz_kurulu",
                 decisions=decisions_list,
                 total_records=result.total_records,
                 total_filtered=result.total_filtered,
                 draw=result.draw
             )
             
-        elif params.decision_type == SayistayDecisionTypeEnum.DAIRE:
+        elif params.decision_type == "daire":
             # Convert to daire request
             daire_params = DaireSearchRequest(
                 yargilama_dairesi=params.yargilama_dairesi,
@@ -103,7 +102,7 @@ class SayistayUnifiedClient:
             decisions_list = [decision.model_dump() for decision in result.decisions]
             
             return SayistayUnifiedSearchResult(
-                decision_type=SayistayDecisionTypeEnum.DAIRE,
+                decision_type="daire",
                 decisions=decisions_list,
                 total_records=result.total_records,
                 total_filtered=result.total_filtered,
@@ -113,14 +112,11 @@ class SayistayUnifiedClient:
         else:
             raise ValueError(f"Unsupported decision type: {params.decision_type}")
     
-    async def get_document_unified(self, decision_id: str, decision_type: SayistayDecisionTypeEnum) -> SayistayUnifiedDocumentMarkdown:
+    async def get_document_unified(self, decision_id: str, decision_type: str) -> SayistayUnifiedDocumentMarkdown:
         """Unified document retrieval for all Sayıştay decision types."""
         
-        # Convert enum to string for backend client
-        decision_type_str = decision_type.value
-        
-        # Use existing client method
-        result = await self.client.get_document_as_markdown(decision_id, decision_type_str)
+        # Use existing client method (decision_type is already a string)
+        result = await self.client.get_document_as_markdown(decision_id, decision_type)
         
         return SayistayUnifiedDocumentMarkdown(
             decision_type=decision_type,

@@ -1,7 +1,7 @@
 # sayistay_mcp_module/models.py
 
 from pydantic import BaseModel, Field
-from typing import Optional, List, Union, Dict, Any
+from typing import Optional, List, Union, Dict, Any, Literal
 from enum import Enum
 from .enums import DaireEnum, KamuIdaresiTuruEnum, WebKararKonusuEnum
 
@@ -172,7 +172,7 @@ class SayistayDocumentMarkdown(BaseModel):
 
 class SayistayUnifiedSearchRequest(BaseModel):
     """Unified search request for all Sayıştay decision types."""
-    decision_type: SayistayDecisionTypeEnum = Field(..., description="Decision type: genel_kurul, temyiz_kurulu, or daire")
+    decision_type: Literal["genel_kurul", "temyiz_kurulu", "daire"] = Field(..., description="Decision type: genel_kurul, temyiz_kurulu, or daire")
     
     # Common pagination parameters
     start: int = Field(0, ge=0, description="Starting record for pagination (0-based)")
@@ -204,7 +204,7 @@ class SayistayUnifiedSearchRequest(BaseModel):
 
 class SayistayUnifiedSearchResult(BaseModel):
     """Unified search result containing decisions from any Sayıştay decision type."""
-    decision_type: SayistayDecisionTypeEnum = Field(..., description="Type of decisions returned")
+    decision_type: Literal["genel_kurul", "temyiz_kurulu", "daire"] = Field(..., description="Type of decisions returned")
     decisions: List[Dict[str, Any]] = Field(default_factory=list, description="Decision list (structure varies by type)")
     total_records: int = Field(0, description="Total number of records found")
     total_filtered: int = Field(0, description="Number of records after filtering")
@@ -212,7 +212,7 @@ class SayistayUnifiedSearchResult(BaseModel):
 
 class SayistayUnifiedDocumentMarkdown(BaseModel):
     """Unified document model for all Sayıştay decision types."""
-    decision_type: SayistayDecisionTypeEnum = Field(..., description="Type of document")
+    decision_type: Literal["genel_kurul", "temyiz_kurulu", "daire"] = Field(..., description="Type of document")
     decision_id: str = Field(..., description="Decision ID")
     source_url: str = Field(..., description="Source URL of the document")
     document_data: Dict[str, Any] = Field(default_factory=dict, description="Document content and metadata")
