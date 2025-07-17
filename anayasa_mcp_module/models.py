@@ -202,14 +202,14 @@ class AnayasaUnifiedSearchRequest(BaseModel):
     # Norm Denetimi specific parameters (ignored for bireysel_basvuru)
     keywords_all: List[str] = Field(default_factory=list, description="All keywords must be present (norm_denetimi only)")
     keywords_any: List[str] = Field(default_factory=list, description="Any of these keywords (norm_denetimi only)")
-    decision_type_norm: Optional[Literal["ALL", "1", "2", "3"]] = Field(None, description="Decision type for norm denetimi")
+    decision_type_norm: Literal["ALL", "1", "2", "3"] = Field("ALL", description="Decision type for norm denetimi")
     application_date_start: str = Field("", description="Application start date (norm_denetimi only)")
     application_date_end: str = Field("", description="Application end date (norm_denetimi only)")
     
     # Bireysel Başvuru specific parameters (ignored for norm_denetimi)
     decision_start_date: str = Field("", description="Decision start date (bireysel_basvuru only)")
     decision_end_date: str = Field("", description="Decision end date (bireysel_basvuru only)")
-    norm_type: Optional[Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "0"]] = Field(None, description="Norm type (bireysel_basvuru only)")
+    norm_type: Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "0"] = Field("ALL", description="Norm type (bireysel_basvuru only)")
     subject_category: str = Field("", description="Subject category (bireysel_basvuru only)")
 
 class AnayasaUnifiedSearchResult(BaseModel):

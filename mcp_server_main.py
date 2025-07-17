@@ -1512,14 +1512,14 @@ async def search_anayasa_unified(
     # Norm Denetimi specific parameters (ignored for bireysel_basvuru)
     keywords_all: List[str] = Field(default_factory=list, description="All keywords must be present (norm_denetimi only)"),
     keywords_any: List[str] = Field(default_factory=list, description="Any of these keywords (norm_denetimi only)"),
-    decision_type_norm: Optional[Literal["ALL", "1", "2", "3"]] = Field(None, description="Decision type for norm denetimi"),
+    decision_type_norm: Literal["ALL", "1", "2", "3"] = Field("ALL", description="Decision type for norm denetimi"),
     application_date_start: str = Field("", description="Application start date (norm_denetimi only)"),
     application_date_end: str = Field("", description="Application end date (norm_denetimi only)"),
     
     # Bireysel Başvuru specific parameters (ignored for norm_denetimi)
     decision_start_date: str = Field("", description="Decision start date (bireysel_basvuru only)"),
     decision_end_date: str = Field("", description="Decision end date (bireysel_basvuru only)"),
-    norm_type: Optional[Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "0"]] = Field(None, description="Norm type (bireysel_basvuru only)"),
+    norm_type: Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "0"] = Field("ALL", description="Norm type (bireysel_basvuru only)"),
     subject_category: str = Field("", description="Subject category (bireysel_basvuru only)")
 ) -> str:
     logger.info(f"Tool 'search_anayasa_unified' called for decision_type: {decision_type}")
@@ -1641,7 +1641,7 @@ async def search_kik_decisions(
 )
 async def get_kik_document_markdown(
     karar_id: str = Field(..., description="The Base64 encoded KIK decision identifier."),
-    page_number: Optional[int] = Field(1, ge=1, description="Page number for paginated Markdown content (1-indexed, accepts int). Default is 1.")
+    page_number: int = Field(1, ge=1, description="Page number for paginated Markdown content (1-indexed). Default is 1.")
 ) -> KikDocumentMarkdown:
     """Get KIK decision as paginated Markdown."""
     logger.info(f"Tool 'get_kik_document_markdown' called for KIK karar_id: {karar_id}, Markdown Page: {page_number}")
@@ -1737,12 +1737,12 @@ async def search_rekabet_kurumu_decisions(
 )
 async def get_rekabet_kurumu_document(
     karar_id: str = Field(..., description="GUID (kararId) of the Rekabet Kurumu decision. This ID is obtained from search results."),
-    page_number: Optional[int] = Field(1, ge=1, description="Requested page number for the Markdown content converted from PDF (1-indexed, accepts int). Default is 1.")
+    page_number: int = Field(1, ge=1, description="Requested page number for the Markdown content converted from PDF (1-indexed, accepts int). Default is 1.")
 ) -> RekabetDocument:
     """Get Competition Authority decision as paginated Markdown."""
     logger.info(f"Tool 'get_rekabet_kurumu_document' called. Karar ID: {karar_id}, Markdown Page: {page_number}")
     
-    current_page_to_fetch = page_number if page_number is not None and page_number >= 1 else 1
+    current_page_to_fetch = page_number if page_number >= 1 else 1
     
     try:
       
@@ -1779,7 +1779,7 @@ For best results, use exact phrases with quotes for legal terms."""),
     ),
     pageSize: int = Field(10, ge=1, le=10, description="Results per page (1-10)"),
     pageNumber: int = Field(1, ge=1, description="Page number"),
-    birimAdi: Optional[BirimAdiEnum] = Field(None, description="""
+    birimAdi: BirimAdiEnum = Field("ALL", description="""
         Chamber filter (optional). Abbreviated values with Turkish names:
         • Yargıtay: H1-H23 (1-23. Hukuk Dairesi), C1-C23 (1-23. Ceza Dairesi), HGK (Hukuk Genel Kurulu), CGK (Ceza Genel Kurulu), BGK (Büyük Genel Kurulu), HBK (Hukuk Daireleri Başkanlar Kurulu), CBK (Ceza Daireleri Başkanlar Kurulu)
         • Danıştay: D1-D17 (1-17. Daire), DBGK (Büyük Gen.Kur.), IDDK (İdare Dava Daireleri Kurulu), VDDK (Vergi Dava Daireleri Kurulu), IBK (İçtihatları Birleştirme Kurulu), IIK (İdari İşler Kurulu), DBK (Başkanlar Kurulu), AYIM (Askeri Yüksek İdare Mahkemesi), AYIM1-3 (Askeri Yüksek İdare Mahkemesi 1-3. Daire)
@@ -2316,18 +2316,10 @@ async def search_kvkk_decisions(
 )
 async def get_kvkk_document_markdown(
     decision_url: str = Field(..., description="KVKK decision URL from search results"),
-    page_number: Union[int, str] = Field(1, description="Page number for paginated Markdown content (1-indexed, accepts int). Default is 1 (first 5,000 characters).")
+    page_number: int = Field(1, ge=1, description="Page number for paginated Markdown content (1-indexed, accepts int). Default is 1 (first 5,000 characters).")
 ) -> KvkkDocumentMarkdown:
     """Get KVKK decision as paginated Markdown."""
     logger.info(f"KVKK document retrieval tool called for URL: {decision_url}")
-    
-    # Handle page_number type conversion (Union[int, str] -> int)
-    if isinstance(page_number, str):
-        try:
-            page_number = int(page_number)
-        except ValueError:
-            logger.warning(f"Invalid page_number string '{page_number}', defaulting to 1")
-            page_number = 1
     
     if not decision_url or not decision_url.strip():
         return KvkkDocumentMarkdown(

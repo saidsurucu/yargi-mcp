@@ -51,10 +51,10 @@ class BedestenApiClient:
         logger.info(f"BedestenApiClient: Searching documents with phrase: {search_request.data.phrase}")
         
         # Map abbreviated birimAdi to full Turkish name before sending to API
-        if search_request.data.birimAdi:
-            original_birim_adi = search_request.data.birimAdi
-            mapped_birim_adi = get_full_birim_adi(original_birim_adi)
-            search_request.data.birimAdi = mapped_birim_adi
+        original_birim_adi = search_request.data.birimAdi
+        mapped_birim_adi = get_full_birim_adi(original_birim_adi)
+        search_request.data.birimAdi = mapped_birim_adi
+        if original_birim_adi != "ALL":
             logger.info(f"BedestenApiClient: Mapped birimAdi '{original_birim_adi}' to '{mapped_birim_adi}'")
         
         try:
