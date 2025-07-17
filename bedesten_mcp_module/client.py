@@ -12,6 +12,7 @@ from .models import (
     BedestenDocumentRequest, BedestenDocumentResponse,
     BedestenDocumentMarkdown, BedestenDocumentRequestData
 )
+from .enums import get_full_birim_adi
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,13 @@ class BedestenApiClient:
         Currently supports: YARGITAYKARARI, DANISTAYKARARI, YERELHUKMAHKARARI, etc.
         """
         logger.info(f"BedestenApiClient: Searching documents with phrase: {search_request.data.phrase}")
+        
+        # Map abbreviated birimAdi to full Turkish name before sending to API
+        if search_request.data.birimAdi:
+            original_birim_adi = search_request.data.birimAdi
+            mapped_birim_adi = get_full_birim_adi(original_birim_adi)
+            search_request.data.birimAdi = mapped_birim_adi
+            logger.info(f"BedestenApiClient: Mapped birimAdi '{original_birim_adi}' to '{mapped_birim_adi}'")
         
         try:
             response = await self.http_client.post(

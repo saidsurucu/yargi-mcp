@@ -4,8 +4,8 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Literal, Union
 from datetime import datetime
 
-# Import YargitayBirimEnum for chamber filtering
-from yargitay_mcp_module.models import YargitayBirimEnum
+# Import compressed BirimAdiEnum for chamber filtering
+from .enums import BirimAdiEnum
 
 # Court Type Options for Unified Search
 BedestenCourtTypeEnum = Literal[
@@ -16,37 +16,17 @@ BedestenCourtTypeEnum = Literal[
     "KYB"              # Extraordinary Appeals (Kanun Yararına Bozma)
 ]
 
-# Danıştay Chamber/Board Options
-DanistayBirimEnum = Literal[
-    "ALL",  # "ALL" for all chambers
-    # Main Councils
-    "Büyük Gen.Kur.",  # Grand General Assembly
-    "İdare Dava Daireleri Kurulu",  # Administrative Cases Chambers Council
-    "Vergi Dava Daireleri Kurulu",  # Tax Cases Chambers Council
-    "İçtihatları Birleştirme Kurulu",  # Precedents Unification Council
-    "İdari İşler Kurulu",  # Administrative Affairs Council
-    "Başkanlar Kurulu",  # Presidents Council
-    # Chambers
-    "1. Daire", "2. Daire", "3. Daire", "4. Daire", "5. Daire",
-    "6. Daire", "7. Daire", "8. Daire", "9. Daire", "10. Daire",
-    "11. Daire", "12. Daire", "13. Daire", "14. Daire", "15. Daire",
-    "16. Daire", "17. Daire",
-    # Military High Administrative Court
-    "Askeri Yüksek İdare Mahkemesi",
-    "Askeri Yüksek İdare Mahkemesi Daireler Kurulu",
-    "Askeri Yüksek İdare Mahkemesi Başsavcılığı",
-    "Askeri Yüksek İdare Mahkemesi 1. Daire",
-    "Askeri Yüksek İdare Mahkemesi 2. Daire", 
-    "Askeri Yüksek İdare Mahkemesi 3. Daire"
-]
-
 # Search Request Models
 class BedestenSearchData(BaseModel):
     pageSize: int = Field(..., description="Results per page (1-10)")
     pageNumber: int = Field(..., description="Page number (1-indexed)")
     itemTypeList: List[str] = Field(..., description="Court type filter (YARGITAYKARARI/DANISTAYKARAR/YERELHUKUK/ISTINAFHUKUK/KYB)")
     phrase: str = Field(..., description="Search phrase (use \"exact phrase\" for precise matching)")
-    birimAdi: Optional[Union[YargitayBirimEnum, DanistayBirimEnum]] = Field(None, description="Chamber filter (optional)")
+    birimAdi: Optional[BirimAdiEnum] = Field(None, description="""
+        Chamber filter (optional). Abbreviated values with Turkish names:
+        • Yargıtay: H1-H23 (1-23. Hukuk Dairesi), C1-C23 (1-23. Ceza Dairesi), HGK (Hukuk Genel Kurulu), CGK (Ceza Genel Kurulu), BGK (Büyük Genel Kurulu), HBK (Hukuk Daireleri Başkanlar Kurulu), CBK (Ceza Daireleri Başkanlar Kurulu)
+        • Danıştay: D1-D17 (1-17. Daire), DBGK (Büyük Gen.Kur.), IDDK (İdare Dava Daireleri Kurulu), VDDK (Vergi Dava Daireleri Kurulu), IBK (İçtihatları Birleştirme Kurulu), IIK (İdari İşler Kurulu), DBK (Başkanlar Kurulu), AYIM (Askeri Yüksek İdare Mahkemesi), AYIM1-3 (Askeri Yüksek İdare Mahkemesi 1-3. Daire)
+        """)
     kararTarihiStart: Optional[str] = Field(None, description="Start date (ISO 8601 format)")
     kararTarihiEnd: Optional[str] = Field(None, description="End date (ISO 8601 format)")
     sortFields: List[str] = Field(default=["KARAR_TARIHI"], description="Sort fields")

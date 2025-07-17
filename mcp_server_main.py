@@ -244,8 +244,9 @@ from yargitay_mcp_module.models import (
 from bedesten_mcp_module.client import BedestenApiClient
 from bedesten_mcp_module.models import (
     BedestenSearchRequest, BedestenSearchData,
-    BedestenDocumentMarkdown, DanistayBirimEnum, BedestenCourtTypeEnum
+    BedestenDocumentMarkdown, BedestenCourtTypeEnum
 )
+from bedesten_mcp_module.enums import BirimAdiEnum
 from danistay_mcp_module.client import DanistayApiClient
 from danistay_mcp_module.models import (
     DanistayKeywordSearchRequest, DanistayDetailedSearchRequest,
@@ -1778,7 +1779,11 @@ For best results, use exact phrases with quotes for legal terms."""),
     ),
     pageSize: int = Field(10, ge=1, le=10, description="Results per page (1-10)"),
     pageNumber: int = Field(1, ge=1, description="Page number"),
-    birimAdi: Optional[Union[YargitayBirimEnum, DanistayBirimEnum]] = Field(None, description="Chamber filter (optional)"),
+    birimAdi: Optional[BirimAdiEnum] = Field(None, description="""
+        Chamber filter (optional). Abbreviated values with Turkish names:
+        • Yargıtay: H1-H23 (1-23. Hukuk Dairesi), C1-C23 (1-23. Ceza Dairesi), HGK (Hukuk Genel Kurulu), CGK (Ceza Genel Kurulu), BGK (Büyük Genel Kurulu), HBK (Hukuk Daireleri Başkanlar Kurulu), CBK (Ceza Daireleri Başkanlar Kurulu)
+        • Danıştay: D1-D17 (1-17. Daire), DBGK (Büyük Gen.Kur.), IDDK (İdare Dava Daireleri Kurulu), VDDK (Vergi Dava Daireleri Kurulu), IBK (İçtihatları Birleştirme Kurulu), IIK (İdari İşler Kurulu), DBK (Başkanlar Kurulu), AYIM (Askeri Yüksek İdare Mahkemesi), AYIM1-3 (Askeri Yüksek İdare Mahkemesi 1-3. Daire)
+        """),
     kararTarihiStart: str = Field("", description="Start date (ISO 8601 format)"),
     kararTarihiEnd: str = Field("", description="End date (ISO 8601 format)")
 ) -> dict:
