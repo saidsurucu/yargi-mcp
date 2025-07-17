@@ -299,9 +299,12 @@ from sayistay_mcp_module.models import (
     GenelKurulSearchRequest, GenelKurulSearchResponse,
     TemyizKuruluSearchRequest, TemyizKuruluSearchResponse,
     DaireSearchRequest, DaireSearchResponse,
-    SayistayDocumentMarkdown
+    SayistayDocumentMarkdown,
+    SayistayUnifiedSearchRequest, SayistayUnifiedSearchResult,
+    SayistayUnifiedDocumentMarkdown, SayistayDecisionTypeEnum
 )
 from sayistay_mcp_module.enums import DaireEnum, KamuIdaresiTuruEnum, WebKararKonusuEnum
+from sayistay_mcp_module.unified_client import SayistayUnifiedClient
 
 # KVKK Module Imports
 from kvkk_mcp_module.client import KvkkApiClient
@@ -1055,6 +1058,7 @@ kik_client_instance = KikApiClient()
 rekabet_client_instance = RekabetKurumuApiClient()
 bedesten_client_instance = BedestenApiClient()
 sayistay_client_instance = SayistayApiClient()
+sayistay_unified_client_instance = SayistayUnifiedClient()
 kvkk_client_instance = KvkkApiClient()
 
 
@@ -1843,194 +1847,215 @@ async def get_bedesten_document_markdown(
 
 # --- MCP Tools for Sayıştay (Turkish Court of Accounts) ---
 
-@app.tool(
-    description="Search Sayıştay Genel Kurul decisions for audit and accountability regulations",
-    annotations={
-        "readOnlyHint": True,
-        "openWorldHint": True,
-        "idempotentHint": True
-    }
-)
-async def search_sayistay_genel_kurul(
-    karar_no: str = Field("", description="Decision number to search for (e.g., '5415')"),
-    karar_ek: str = Field("", description="Decision appendix number (max 99, e.g., '1')"),
-    karar_tarih_baslangic: str = Field("", description="Start date (DD.MM.YYYY)"),
-    karar_tarih_bitis: str = Field("", description="End date (DD.MM.YYYY)"),
-    karar_tamami: str = Field("", description="Full text search"),
-    start: int = Field(0, description="Starting record for pagination (0-based)"),
-    length: int = Field(10, description="Number of records per page (1-100)")
-) -> GenelKurulSearchResponse:
-    """Search Sayıştay General Assembly decisions."""
-    logger.info(f"Tool 'search_sayistay_genel_kurul' called with params: karar_no={karar_no}, karar_ek={karar_ek}, date_range={karar_tarih_baslangic}-{karar_tarih_bitis}, content={karar_tamami}")
-    
-    try:
-        search_request = GenelKurulSearchRequest(
-            karar_no=karar_no,
-            karar_ek=karar_ek,
-            karar_tarih_baslangic=karar_tarih_baslangic,
-            karar_tarih_bitis=karar_tarih_bitis,
-            karar_tamami=karar_tamami,
-            start=start,
-            length=length
-        )
-        return await sayistay_client_instance.search_genel_kurul_decisions(search_request)
-    except Exception as e:
-        logger.exception("Error in tool 'search_sayistay_genel_kurul'")
-        raise
+# DEACTIVATED TOOL - Use search_sayistay_unified instead
+# @app.tool(
+#     description="Search Sayıştay Genel Kurul decisions for audit and accountability regulations",
+#     annotations={
+#         "readOnlyHint": True,
+#         "openWorldHint": True,
+#         "idempotentHint": True
+#     }
+# )
+# async def search_sayistay_genel_kurul(
+#     karar_no: str = Field("", description="Decision number to search for (e.g., '5415')"),
+#     karar_ek: str = Field("", description="Decision appendix number (max 99, e.g., '1')"),
+#     karar_tarih_baslangic: str = Field("", description="Start date (DD.MM.YYYY)"),
+#     karar_tarih_bitis: str = Field("", description="End date (DD.MM.YYYY)"),
+#     karar_tamami: str = Field("", description="Full text search"),
+#     start: int = Field(0, description="Starting record for pagination (0-based)"),
+#     length: int = Field(10, description="Number of records per page (1-100)")
+# ) -> GenelKurulSearchResponse:
+#     """Search Sayıştay General Assembly decisions."""
+#     raise ValueError("This tool is deactivated. Use search_sayistay_unified instead.")
+
+# DEACTIVATED TOOL - Use search_sayistay_unified instead
+# @app.tool(
+#     description="Search Sayıştay Temyiz Kurulu decisions with chamber filtering and comprehensive criteria",
+#     annotations={
+#         "readOnlyHint": True,
+#         "openWorldHint": True,
+#         "idempotentHint": True
+#     }
+# )
+# async def search_sayistay_temyiz_kurulu(
+#     ilam_dairesi: DaireEnum = Field("ALL", description="Audit chamber selection"),
+#     yili: str = Field("", description="Year (YYYY)"),
+#     karar_tarih_baslangic: str = Field("", description="Start date (DD.MM.YYYY)"),
+#     karar_tarih_bitis: str = Field("", description="End date (DD.MM.YYYY)"),
+#     kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="Public admin type"),
+#     ilam_no: str = Field("", description="Audit report number (İlam No, max 50 chars)"),
+#     dosya_no: str = Field("", description="File number for the case"),
+#     temyiz_tutanak_no: str = Field("", description="Appeals board meeting minutes number"),
+#     temyiz_karar: str = Field("", description="Appeals decision text"),
+#     web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="Decision subject"),
+#     start: int = Field(0, description="Starting record for pagination (0-based)"),
+#     length: int = Field(10, description="Number of records per page (1-100)")
+# ) -> TemyizKuruluSearchResponse:
+#     """Search Sayıştay Appeals Board decisions."""
+#     raise ValueError("This tool is deactivated. Use search_sayistay_unified instead.")
+
+# DEACTIVATED TOOL - Use search_sayistay_unified instead
+# @app.tool(
+#     description="Search Sayıştay Daire decisions with chamber filtering and subject categorization",
+#     annotations={
+#         "readOnlyHint": True,
+#         "openWorldHint": True,
+#         "idempotentHint": True
+#     }
+# )
+# async def search_sayistay_daire(
+#     yargilama_dairesi: DaireEnum = Field("ALL", description="Chamber selection"),
+#     karar_tarih_baslangic: str = Field("", description="Start date (DD.MM.YYYY)"),
+#     karar_tarih_bitis: str = Field("", description="End date (DD.MM.YYYY)"),
+#     ilam_no: str = Field("", description="Audit report number (İlam No, max 50 chars)"),
+#     kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="Public admin type"),
+#     hesap_yili: str = Field("", description="Fiscal year"),
+#     web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="Decision subject"),
+#     web_karar_metni: str = Field("", description="Decision text search"),
+#     start: int = Field(0, description="Starting record for pagination (0-based)"),
+#     length: int = Field(10, description="Number of records per page (1-100)")
+# ) -> DaireSearchResponse:
+#     """Search Sayıştay Chamber decisions."""
+#     raise ValueError("This tool is deactivated. Use search_sayistay_unified instead.")
+
+# DEACTIVATED TOOL - Use get_sayistay_document_unified instead
+# @app.tool(
+#     description="Get Sayıştay Genel Kurul decision document in Markdown format",
+#     annotations={
+#         "readOnlyHint": True,
+#         "openWorldHint": False,
+#         "idempotentHint": True
+#     }
+# )
+# async def get_sayistay_genel_kurul_document_markdown(
+#     decision_id: str = Field(..., description="Decision ID from search_sayistay_genel_kurul results")
+# ) -> SayistayDocumentMarkdown:
+#     """Get Sayıştay General Assembly decision as Markdown."""
+#     raise ValueError("This tool is deactivated. Use get_sayistay_document_unified instead.")
+
+# DEACTIVATED TOOL - Use get_sayistay_document_unified instead
+# @app.tool(
+#     description="Get Sayıştay Temyiz Kurulu decision document in Markdown format",
+#     annotations={
+#         "readOnlyHint": True,
+#         "openWorldHint": False,
+#         "idempotentHint": True
+#     }
+# )
+# async def get_sayistay_temyiz_kurulu_document_markdown(
+#     decision_id: str = Field(..., description="Decision ID from search_sayistay_temyiz_kurulu results")
+# ) -> SayistayDocumentMarkdown:
+#     """Get Sayıştay Appeals Board decision as Markdown."""
+#     raise ValueError("This tool is deactivated. Use get_sayistay_document_unified instead.")
+
+# DEACTIVATED TOOL - Use get_sayistay_document_unified instead
+# @app.tool(
+#     description="Get Sayıştay Daire decision document in Markdown format",
+#     annotations={
+#         "readOnlyHint": True,
+#         "openWorldHint": False,
+#         "idempotentHint": True
+#     }
+# )
+# async def get_sayistay_daire_document_markdown(
+#     decision_id: str = Field(..., description="Decision ID from search_sayistay_daire results")
+# ) -> SayistayDocumentMarkdown:
+#     """Get Sayıştay Chamber decision as Markdown."""
+#     raise ValueError("This tool is deactivated. Use get_sayistay_document_unified instead.")
+
+# --- UNIFIED MCP Tools for Sayıştay (Turkish Court of Accounts) ---
 
 @app.tool(
-    description="Search Sayıştay Temyiz Kurulu decisions with chamber filtering and comprehensive criteria",
+    description="Search Sayıştay decisions unified across all three decision types (Genel Kurul, Temyiz Kurulu, Daire) with comprehensive filtering",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
         "idempotentHint": True
     }
 )
-async def search_sayistay_temyiz_kurulu(
-    ilam_dairesi: DaireEnum = Field("ALL", description="Audit chamber selection"),
-    yili: str = Field("", description="Year (YYYY)"),
-    karar_tarih_baslangic: str = Field("", description="Start date (DD.MM.YYYY)"),
-    karar_tarih_bitis: str = Field("", description="End date (DD.MM.YYYY)"),
-    kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="Public admin type"),
+async def search_sayistay_unified(
+    decision_type: SayistayDecisionTypeEnum = Field(..., description="Decision type: genel_kurul, temyiz_kurulu, or daire"),
+    
+    # Common pagination parameters
+    start: int = Field(0, ge=0, description="Starting record for pagination (0-based)"),
+    length: int = Field(10, ge=1, le=100, description="Number of records per page (1-100)"),
+    
+    # Common search parameters
+    karar_tarih_baslangic: str = Field("", description="Start date (DD.MM.YYYY format)"),
+    karar_tarih_bitis: str = Field("", description="End date (DD.MM.YYYY format)"),
+    kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="Public administration type filter"),
     ilam_no: str = Field("", description="Audit report number (İlam No, max 50 chars)"),
-    dosya_no: str = Field("", description="File number for the case"),
-    temyiz_tutanak_no: str = Field("", description="Appeals board meeting minutes number"),
-    temyiz_karar: str = Field("", description="Appeals decision text"),
-    web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="Decision subject"),
-    start: int = Field(0, description="Starting record for pagination (0-based)"),
-    length: int = Field(10, description="Number of records per page (1-100)")
-) -> TemyizKuruluSearchResponse:
-    """Search Sayıştay Appeals Board decisions."""
-    logger.info(f"Tool 'search_sayistay_temyiz_kurulu' called with params: chamber={ilam_dairesi}, year={yili}, admin_type={kamu_idaresi_turu}, subject={web_karar_konusu}")
+    web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="Decision subject category filter"),
+    
+    # Genel Kurul specific parameters (ignored for other types)
+    karar_no: str = Field("", description="Decision number (genel_kurul only)"),
+    karar_ek: str = Field("", description="Decision appendix number (genel_kurul only)"),
+    karar_tamami: str = Field("", description="Full text search (genel_kurul only)"),
+    
+    # Temyiz Kurulu specific parameters (ignored for other types)
+    ilam_dairesi: DaireEnum = Field("ALL", description="Audit chamber selection (temyiz_kurulu only)"),
+    yili: str = Field("", description="Year (YYYY format, temyiz_kurulu only)"),
+    dosya_no: str = Field("", description="File number (temyiz_kurulu only)"),
+    temyiz_tutanak_no: str = Field("", description="Appeals board meeting minutes number (temyiz_kurulu only)"),
+    temyiz_karar: str = Field("", description="Appeals decision text search (temyiz_kurulu only)"),
+    
+    # Daire specific parameters (ignored for other types)
+    yargilama_dairesi: DaireEnum = Field("ALL", description="Chamber selection (daire only)"),
+    hesap_yili: str = Field("", description="Account year (daire only)"),
+    web_karar_metni: str = Field("", description="Decision text search (daire only)")
+) -> SayistayUnifiedSearchResult:
+    """Search Sayıştay decisions across all three decision types with unified interface."""
+    logger.info(f"Tool 'search_sayistay_unified' called with decision_type={decision_type}")
     
     try:
-        search_request = TemyizKuruluSearchRequest(
-            ilam_dairesi=ilam_dairesi,
-            yili=yili,
+        search_request = SayistayUnifiedSearchRequest(
+            decision_type=decision_type,
+            start=start,
+            length=length,
             karar_tarih_baslangic=karar_tarih_baslangic,
             karar_tarih_bitis=karar_tarih_bitis,
             kamu_idaresi_turu=kamu_idaresi_turu,
             ilam_no=ilam_no,
+            web_karar_konusu=web_karar_konusu,
+            karar_no=karar_no,
+            karar_ek=karar_ek,
+            karar_tamami=karar_tamami,
+            ilam_dairesi=ilam_dairesi,
+            yili=yili,
             dosya_no=dosya_no,
             temyiz_tutanak_no=temyiz_tutanak_no,
             temyiz_karar=temyiz_karar,
-            web_karar_konusu=web_karar_konusu,
-            start=start,
-            length=length
-        )
-        return await sayistay_client_instance.search_temyiz_kurulu_decisions(search_request)
-    except Exception as e:
-        logger.exception("Error in tool 'search_sayistay_temyiz_kurulu'")
-        raise
-
-@app.tool(
-    description="Search Sayıştay Daire decisions with chamber filtering and subject categorization",
-    annotations={
-        "readOnlyHint": True,
-        "openWorldHint": True,
-        "idempotentHint": True
-    }
-)
-async def search_sayistay_daire(
-    yargilama_dairesi: DaireEnum = Field("ALL", description="Chamber selection"),
-    karar_tarih_baslangic: str = Field("", description="Start date (DD.MM.YYYY)"),
-    karar_tarih_bitis: str = Field("", description="End date (DD.MM.YYYY)"),
-    ilam_no: str = Field("", description="Audit report number (İlam No, max 50 chars)"),
-    kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="Public admin type"),
-    hesap_yili: str = Field("", description="Fiscal year"),
-    web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="Decision subject"),
-    web_karar_metni: str = Field("", description="Decision text search"),
-    start: int = Field(0, description="Starting record for pagination (0-based)"),
-    length: int = Field(10, description="Number of records per page (1-100)")
-) -> DaireSearchResponse:
-    """Search Sayıştay Chamber decisions."""
-    logger.info(f"Tool 'search_sayistay_daire' called with params: chamber={yargilama_dairesi}, admin_type={kamu_idaresi_turu}, subject={web_karar_konusu}, content={web_karar_metni}")
-    
-    try:
-        search_request = DaireSearchRequest(
             yargilama_dairesi=yargilama_dairesi,
-            karar_tarih_baslangic=karar_tarih_baslangic,
-            karar_tarih_bitis=karar_tarih_bitis,
-            ilam_no=ilam_no,
-            kamu_idaresi_turu=kamu_idaresi_turu,
             hesap_yili=hesap_yili,
-            web_karar_konusu=web_karar_konusu,
-            web_karar_metni=web_karar_metni,
-            start=start,
-            length=length
+            web_karar_metni=web_karar_metni
         )
-        return await sayistay_client_instance.search_daire_decisions(search_request)
+        return await sayistay_unified_client_instance.search_unified(search_request)
     except Exception as e:
-        logger.exception("Error in tool 'search_sayistay_daire'")
+        logger.exception("Error in tool 'search_sayistay_unified'")
         raise
 
 @app.tool(
-    description="Get Sayıştay Genel Kurul decision document in Markdown format",
+    description="Get Sayıştay decision document in Markdown format for any decision type",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": False,
         "idempotentHint": True
     }
 )
-async def get_sayistay_genel_kurul_document_markdown(
-    decision_id: str = Field(..., description="Decision ID from search_sayistay_genel_kurul results")
-) -> SayistayDocumentMarkdown:
-    """Get Sayıştay General Assembly decision as Markdown."""
-    logger.info(f"Tool 'get_sayistay_genel_kurul_document_markdown' called for ID: {decision_id}")
+async def get_sayistay_document_unified(
+    decision_id: str = Field(..., description="Decision ID from search_sayistay_unified results"),
+    decision_type: SayistayDecisionTypeEnum = Field(..., description="Decision type: genel_kurul, temyiz_kurulu, or daire")
+) -> SayistayUnifiedDocumentMarkdown:
+    """Get Sayıştay decision document as Markdown for any decision type."""
+    logger.info(f"Tool 'get_sayistay_document_unified' called for ID: {decision_id}, type: {decision_type}")
     
     if not decision_id or not decision_id.strip():
         raise ValueError("Decision ID must be a non-empty string.")
     
     try:
-        return await sayistay_client_instance.get_document_as_markdown(decision_id, "genel_kurul")
+        return await sayistay_unified_client_instance.get_document_unified(decision_id, decision_type)
     except Exception as e:
-        logger.exception("Error in tool 'get_sayistay_genel_kurul_document_markdown'")
-        raise
-
-@app.tool(
-    description="Get Sayıştay Temyiz Kurulu decision document in Markdown format",
-    annotations={
-        "readOnlyHint": True,
-        "openWorldHint": False,
-        "idempotentHint": True
-    }
-)
-async def get_sayistay_temyiz_kurulu_document_markdown(
-    decision_id: str = Field(..., description="Decision ID from search_sayistay_temyiz_kurulu results")
-) -> SayistayDocumentMarkdown:
-    """Get Sayıştay Appeals Board decision as Markdown."""
-    logger.info(f"Tool 'get_sayistay_temyiz_kurulu_document_markdown' called for ID: {decision_id}")
-    
-    if not decision_id or not decision_id.strip():
-        raise ValueError("Decision ID must be a non-empty string.")
-    
-    try:
-        return await sayistay_client_instance.get_document_as_markdown(decision_id, "temyiz_kurulu")
-    except Exception as e:
-        logger.exception("Error in tool 'get_sayistay_temyiz_kurulu_document_markdown'")
-        raise
-
-@app.tool(
-    description="Get Sayıştay Daire decision document in Markdown format",
-    annotations={
-        "readOnlyHint": True,
-        "openWorldHint": False,
-        "idempotentHint": True
-    }
-)
-async def get_sayistay_daire_document_markdown(
-    decision_id: str = Field(..., description="Decision ID from search_sayistay_daire results")
-) -> SayistayDocumentMarkdown:
-    """Get Sayıştay Chamber decision as Markdown."""
-    logger.info(f"Tool 'get_sayistay_daire_document_markdown' called for ID: {decision_id}")
-    
-    if not decision_id or not decision_id.strip():
-        raise ValueError("Decision ID must be a non-empty string.")
-    
-    try:
-        return await sayistay_client_instance.get_document_as_markdown(decision_id, "daire")
-    except Exception as e:
-        logger.exception("Error in tool 'get_sayistay_daire_document_markdown'")
+        logger.exception("Error in tool 'get_sayistay_document_unified'")
         raise
 
 # --- Application Shutdown Handling ---
@@ -2056,6 +2081,7 @@ def perform_cleanup():
         globals().get('rekabet_client_instance'),
         globals().get('bedesten_client_instance'),
         globals().get('sayistay_client_instance'),
+        globals().get('sayistay_unified_client_instance'),
         globals().get('kvkk_client_instance')
     ]
     async def close_all_clients_async():
