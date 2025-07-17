@@ -299,7 +299,7 @@ from sayistay_mcp_module.models import (
     DaireSearchRequest, DaireSearchResponse,
     SayistayDocumentMarkdown,
     SayistayUnifiedSearchRequest, SayistayUnifiedSearchResult,
-    SayistayUnifiedDocumentMarkdown, SayistayDecisionTypeEnum
+    SayistayUnifiedDocumentMarkdown
 )
 from sayistay_mcp_module.enums import DaireEnum, KamuIdaresiTuruEnum, WebKararKonusuEnum
 from sayistay_mcp_module.unified_client import SayistayUnifiedClient
@@ -1972,7 +1972,7 @@ async def get_bedesten_document_markdown(
     }
 )
 async def search_sayistay_unified(
-    decision_type: SayistayDecisionTypeEnum = Field(..., description="Decision type: genel_kurul, temyiz_kurulu, or daire"),
+    decision_type: Literal["genel_kurul", "temyiz_kurulu", "daire"] = Field(..., description="Decision type: genel_kurul, temyiz_kurulu, or daire"),
     
     # Common pagination parameters
     start: int = Field(0, ge=0, description="Starting record for pagination (0-based)"),
@@ -1981,9 +1981,9 @@ async def search_sayistay_unified(
     # Common search parameters
     karar_tarih_baslangic: str = Field("", description="Start date (DD.MM.YYYY format)"),
     karar_tarih_bitis: str = Field("", description="End date (DD.MM.YYYY format)"),
-    kamu_idaresi_turu: KamuIdaresiTuruEnum = Field("ALL", description="Public administration type filter"),
+    kamu_idaresi_turu: Literal["ALL", "Genel Bütçe Kapsamındaki İdareler", "Yüksek Öğretim Kurumları", "Diğer Özel Bütçeli İdareler", "Düzenleyici ve Denetleyici Kurumlar", "Sosyal Güvenlik Kurumları", "Özel İdareler", "Belediyeler ve Bağlı İdareler", "Diğer"] = Field("ALL", description="Public administration type filter"),
     ilam_no: str = Field("", description="Audit report number (İlam No, max 50 chars)"),
-    web_karar_konusu: WebKararKonusuEnum = Field("ALL", description="Decision subject category filter"),
+    web_karar_konusu: Literal["ALL", "Harcırah Mevzuatı ile İlgili Kararlar", "İhale Mevzuatı ile İlgili Kararlar", "İş Mevzuatı ile İlgili Kararlar", "Personel Mevzuatı ile İlgili Kararlar", "Sorumluluk ve Yargılama Usulleri ile İlgili Kararlar", "Vergi Resmi Harç ve Diğer Gelirlerle İlgili Kararlar", "Çeşitli Konuları İlgilendiren Kararlar"] = Field("ALL", description="Decision subject category filter"),
     
     # Genel Kurul specific parameters (ignored for other types)
     karar_no: str = Field("", description="Decision number (genel_kurul only)"),
@@ -1991,14 +1991,14 @@ async def search_sayistay_unified(
     karar_tamami: str = Field("", description="Full text search (genel_kurul only)"),
     
     # Temyiz Kurulu specific parameters (ignored for other types)
-    ilam_dairesi: DaireEnum = Field("ALL", description="Audit chamber selection (temyiz_kurulu only)"),
+    ilam_dairesi: Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8"] = Field("ALL", description="Audit chamber selection (temyiz_kurulu only)"),
     yili: str = Field("", description="Year (YYYY format, temyiz_kurulu only)"),
     dosya_no: str = Field("", description="File number (temyiz_kurulu only)"),
     temyiz_tutanak_no: str = Field("", description="Appeals board meeting minutes number (temyiz_kurulu only)"),
     temyiz_karar: str = Field("", description="Appeals decision text search (temyiz_kurulu only)"),
     
     # Daire specific parameters (ignored for other types)
-    yargilama_dairesi: DaireEnum = Field("ALL", description="Chamber selection (daire only)"),
+    yargilama_dairesi: Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8"] = Field("ALL", description="Chamber selection (daire only)"),
     hesap_yili: str = Field("", description="Account year (daire only)"),
     web_karar_metni: str = Field("", description="Decision text search (daire only)")
 ) -> SayistayUnifiedSearchResult:
@@ -2042,7 +2042,7 @@ async def search_sayistay_unified(
 )
 async def get_sayistay_document_unified(
     decision_id: str = Field(..., description="Decision ID from search_sayistay_unified results"),
-    decision_type: SayistayDecisionTypeEnum = Field(..., description="Decision type: genel_kurul, temyiz_kurulu, or daire")
+    decision_type: Literal["genel_kurul", "temyiz_kurulu", "daire"] = Field(..., description="Decision type: genel_kurul, temyiz_kurulu, or daire")
 ) -> SayistayUnifiedDocumentMarkdown:
     """Get Sayıştay decision document as Markdown for any decision type."""
     logger.info(f"Tool 'get_sayistay_document_unified' called for ID: {decision_id}, type: {decision_type}")
