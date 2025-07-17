@@ -1983,7 +1983,7 @@ async def search_sayistay_unified(
     karar_tarih_bitis: str = Field("", description="End date (DD.MM.YYYY format)"),
     kamu_idaresi_turu: Literal["ALL", "Genel Bütçe Kapsamındaki İdareler", "Yüksek Öğretim Kurumları", "Diğer Özel Bütçeli İdareler", "Düzenleyici ve Denetleyici Kurumlar", "Sosyal Güvenlik Kurumları", "Özel İdareler", "Belediyeler ve Bağlı İdareler", "Diğer"] = Field("ALL", description="Public administration type filter"),
     ilam_no: str = Field("", description="Audit report number (İlam No, max 50 chars)"),
-    web_karar_konusu: Literal["ALL", "Harcırah Mevzuatı ile İlgili Kararlar", "İhale Mevzuatı ile İlgili Kararlar", "İş Mevzuatı ile İlgili Kararlar", "Personel Mevzuatı ile İlgili Kararlar", "Sorumluluk ve Yargılama Usulleri ile İlgili Kararlar", "Vergi Resmi Harç ve Diğer Gelirlerle İlgili Kararlar", "Çeşitli Konuları İlgilendiren Kararlar"] = Field("ALL", description="Decision subject category filter"),
+    web_karar_konusu: Literal["ALL", "Harcırah Mevzuatı", "İhale Mevzuatı", "İş Mevzuatı", "Personel Mevzuatı", "Sorumluluk ve Yargılama Usulleri", "Vergi Resmi Harç ve Diğer Gelirler", "Çeşitli Konular"] = Field("ALL", description="Decision subject category filter"),
     
     # Genel Kurul specific parameters (ignored for other types)
     karar_no: str = Field("", description="Decision number (genel_kurul only)"),

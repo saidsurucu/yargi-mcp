@@ -28,17 +28,29 @@ KamuIdaresiTuruEnum = Literal[
     "Diğer"                                    # Other
 ]
 
-# Decision Subject Categories (Web Karar Konusu)
+# Decision Subject Categories (Web Karar Konusu) - Shortened for token efficiency
 WebKararKonusuEnum = Literal[
-    "ALL",                                                          # All subjects
-    "Harcırah Mevzuatı ile İlgili Kararlar",                      # Travel Allowance Legislation Related Decisions
-    "İhale Mevzuatı ile İlgili Kararlar",                         # Procurement Legislation Related Decisions
-    "İş Mevzuatı ile İlgili Kararlar",                            # Labor Legislation Related Decisions
-    "Personel Mevzuatı ile İlgili Kararlar",                      # Personnel Legislation Related Decisions
-    "Sorumluluk ve Yargılama Usulleri ile İlgili Kararlar",       # Liability and Trial Procedures Related Decisions
-    "Vergi Resmi Harç ve Diğer Gelirlerle İlgili Kararlar",       # Tax, Official Fee and Other Revenue Related Decisions
-    "Çeşitli Konuları İlgilendiren Kararlar"                      # Decisions Concerning Various Topics
+    "ALL",                                          # All subjects
+    "Harcırah Mevzuatı",                           # Travel Allowance Legislation
+    "İhale Mevzuatı",                              # Procurement Legislation
+    "İş Mevzuatı",                                 # Labor Legislation
+    "Personel Mevzuatı",                           # Personnel Legislation
+    "Sorumluluk ve Yargılama Usulleri",            # Liability and Trial Procedures
+    "Vergi Resmi Harç ve Diğer Gelirler",         # Tax, Official Fee and Other Revenue
+    "Çeşitli Konular"                              # Various Topics
 ]
+
+# Mapping from shortened enum values to full API values
+WEB_KARAR_KONUSU_MAPPING = {
+    "ALL": "ALL",
+    "Harcırah Mevzuatı": "Harcırah Mevzuatı ile İlgili Kararlar",
+    "İhale Mevzuatı": "İhale Mevzuatı ile İlgili Kararlar",
+    "İş Mevzuatı": "İş Mevzuatı ile İlgili Kararlar",
+    "Personel Mevzuatı": "Personel Mevzuatı ile İlgili Kararlar",
+    "Sorumluluk ve Yargılama Usulleri": "Sorumluluk ve Yargılama Usulleri ile İlgili Kararlar",
+    "Vergi Resmi Harç ve Diğer Gelirler": "Vergi Resmi Harç ve Diğer Gelirlerle İlgili Kararlar",
+    "Çeşitli Konular": "Çeşitli Konuları İlgilendiren Kararlar"
+}
 
 # Year ranges for different endpoints
 GENEL_KURUL_YEARS = [str(year) for year in range(2006, 2025)]  # 2006-2024
