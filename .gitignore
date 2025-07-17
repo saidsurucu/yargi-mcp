@@ -212,3 +212,4 @@ analyze_playwright_mcp.py
 measure_mcp_directly.py
 playwright_mcp_overhead.json
 simple_test.py
+analyze_anayasa_html.py

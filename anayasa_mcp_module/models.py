@@ -4,6 +4,11 @@ from pydantic import BaseModel, Field, HttpUrl
 from typing import List, Optional, Dict, Any
 from enum import Enum
 
+# --- New Unified Enums ---
+class AnayasaDecisionTypeEnum(str, Enum):
+    NORM_DENETIMI = "norm_denetimi"
+    BIREYSEL_BASVURU = "bireysel_basvuru"
+
 # --- Enums (AnayasaDonemEnum, AnayasaBasvuruTuruEnum, etc. - same as before) ---
 class AnayasaDonemEnum(str, Enum):
     TUMU = "ALL"
@@ -210,3 +215,43 @@ class AnayasaBireyselBasvuruDocumentMarkdown(BaseModel):
     is_paginated: bool = Field(description="True if the full markdown content is split into multiple pages.")
 
 # --- End Models for Bireysel Başvuru ---
+
+# --- Unified Models ---
+class AnayasaUnifiedSearchRequest(BaseModel):
+    """Unified search request for both Norm Denetimi and Bireysel Başvuru."""
+    decision_type: AnayasaDecisionTypeEnum = Field(..., description="Decision type: norm_denetimi or bireysel_basvuru")
+    
+    # Common parameters
+    keywords: List[str] = Field(default_factory=list, description="Keywords to search for")
+    page_to_fetch: int = Field(1, ge=1, le=100, description="Page number to fetch (1-100)")
+    results_per_page: int = Field(10, ge=1, le=100, description="Results per page (1-100)")
+    
+    # Norm Denetimi specific parameters (ignored for bireysel_basvuru)
+    keywords_all: List[str] = Field(default_factory=list, description="All keywords must be present (norm_denetimi only)")
+    keywords_any: List[str] = Field(default_factory=list, description="Any of these keywords (norm_denetimi only)")
+    decision_type_norm: Optional[AnayasaBasvuruTuruEnum] = Field(None, description="Decision type for norm denetimi")
+    application_date_start: str = Field("", description="Application start date (norm_denetimi only)")
+    application_date_end: str = Field("", description="Application end date (norm_denetimi only)")
+    
+    # Bireysel Başvuru specific parameters (ignored for norm_denetimi)
+    decision_start_date: str = Field("", description="Decision start date (bireysel_basvuru only)")
+    decision_end_date: str = Field("", description="Decision end date (bireysel_basvuru only)")
+    norm_type: Optional[AnayasaNormTuruEnum] = Field(None, description="Norm type (bireysel_basvuru only)")
+    subject_category: str = Field("", description="Subject category (bireysel_basvuru only)")
+
+class AnayasaUnifiedSearchResult(BaseModel):
+    """Unified search result containing decisions from either system."""
+    decision_type: AnayasaDecisionTypeEnum = Field(..., description="Type of decisions returned")
+    decisions: List[Dict[str, Any]] = Field(default_factory=list, description="Decision list (structure varies by type)")
+    total_records_found: int = Field(0, description="Total number of records found")
+    retrieved_page_number: int = Field(1, description="Page number that was retrieved")
+
+class AnayasaUnifiedDocumentMarkdown(BaseModel):
+    """Unified document model for both Norm Denetimi and Bireysel Başvuru."""
+    decision_type: AnayasaDecisionTypeEnum = Field(..., description="Type of document")
+    source_url: HttpUrl = Field(..., description="Source URL of the document")
+    document_data: Dict[str, Any] = Field(default_factory=dict, description="Document content and metadata")
+    markdown_chunk: Optional[str] = Field(None, description="Markdown content chunk")
+    current_page: int = Field(1, description="Current page number")
+    total_pages: int = Field(1, description="Total number of pages")
+    is_paginated: bool = Field(False, description="Whether document is paginated")

@@ -262,6 +262,7 @@ from uyusmazlik_mcp_module.models import (
 )
 from anayasa_mcp_module.client import AnayasaMahkemesiApiClient
 from anayasa_mcp_module.bireysel_client import AnayasaBireyselBasvuruApiClient
+from anayasa_mcp_module.unified_client import AnayasaUnifiedClient
 from anayasa_mcp_module.models import (
     AnayasaNormDenetimiSearchRequest,
     AnayasaSearchResult,
@@ -269,6 +270,10 @@ from anayasa_mcp_module.models import (
     AnayasaBireyselReportSearchRequest,
     AnayasaBireyselReportSearchResult,
     AnayasaBireyselBasvuruDocumentMarkdown,
+    AnayasaUnifiedSearchRequest,
+    AnayasaUnifiedSearchResult,
+    AnayasaUnifiedDocumentMarkdown,
+    AnayasaDecisionTypeEnum,
     AnayasaDonemEnum, AnayasaBasvuruTuruEnum, AnayasaVarYokEnum,
     AnayasaNormTuruEnum, AnayasaIncelemeSonucuEnum, AnayasaSonucGerekcesiEnum
 )
@@ -1045,6 +1050,7 @@ emsal_client_instance = EmsalApiClient()
 uyusmazlik_client_instance = UyusmazlikApiClient()
 anayasa_norm_client_instance = AnayasaMahkemesiApiClient()
 anayasa_bireysel_client_instance = AnayasaBireyselBasvuruApiClient()
+anayasa_unified_client_instance = AnayasaUnifiedClient()
 kik_client_instance = KikApiClient()
 rekabet_client_instance = RekabetKurumuApiClient()
 bedesten_client_instance = BedestenApiClient()
@@ -1449,7 +1455,10 @@ async def get_uyusmazlik_document_markdown_from_url(
         logger.exception(f"Error in tool 'get_uyusmazlik_document_markdown_from_url'.")
         raise
 
-# --- MCP Tools for Anayasa Mahkemesi (Norm Denetimi) ---
+# --- DEACTIVATED: MCP Tools for Anayasa Mahkemesi (Individual Tools) ---
+# Use search_anayasa_unified and get_anayasa_document_unified instead
+
+"""
 @app.tool(
     description="Search Constitutional Court norm control decisions with comprehensive filtering",
     annotations={
@@ -1458,168 +1467,104 @@ async def get_uyusmazlik_document_markdown_from_url(
         "idempotentHint": True
     }
 )
-async def search_anayasa_norm_denetimi_decisions(
-    keywords_all: List[str] = Field(default_factory=list, description="AND"),
-    keywords_any: List[str] = Field(default_factory=list, description="OR"),
-    keywords_exclude: List[str] = Field(default_factory=list, description="NOT"),
-    period: Literal["ALL", "1", "2"] = Field("ALL", description="Period"),
-    case_number_esas: str = Field("", description="Case number"),
-    decision_number_karar: str = Field("", description="Decision number"),
-    first_review_date_start: str = Field("", description="Start"),
-    first_review_date_end: str = Field("", description="End"),
-    decision_date_start: str = Field("", description="Start"),
-    decision_date_end: str = Field("", description="End"),
-    application_type: Literal["ALL", "1", "2", "3"] = Field("ALL", description="App type"),
-    applicant_general_name: str = Field("", description="Applicant"),
-    applicant_specific_name: str = Field("", description="Name"),
-    official_gazette_date_start: str = Field("", description="Start"),
-    official_gazette_date_end: str = Field("", description="End"),
-    official_gazette_number_start: str = Field("", description="Start"),
-    official_gazette_number_end: str = Field("", description="End"),
-    has_press_release: Literal["ALL", "0", "1"] = Field("ALL", description="Press"),
-    has_dissenting_opinion: Literal["ALL", "0", "1"] = Field("ALL", description="Dissenting"),
-    has_different_reasoning: Literal["ALL", "0", "1"] = Field("ALL", description="Reason"),
-    attending_members_names: List[str] = Field(default_factory=list, description="Members"),
-    rapporteur_name: str = Field("", description="Rapporteur"),
-    norm_type: Literal["ALL", "1", "2", "14", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "0", "13"] = Field("ALL", description="Norm type"),
-    norm_id_or_name: str = Field("", description="Norm name"),
-    norm_article: str = Field("", description="Article"),
-    review_outcomes: List[Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8", "12"]] = Field(default_factory=list, description="Outcomes"),
-    reason_for_final_outcome: Literal["ALL", "29", "1", "2", "30", "3", "4", "27", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26"] = Field("ALL", description="Reason"),
-    basis_constitution_article_numbers: List[str] = Field(default_factory=list, description="Arts"),
-    results_per_page: int = Field(10, description="Count"),
-    page_to_fetch: int = Field(1, ge=1, description="Page"),
-    sort_by_criteria: str = Field("KararTarihi", description="Sort")
-) -> AnayasaSearchResult:
-    """Search Constitutional Court norm control decisions with comprehensive filtering."""
-    
-    # Convert string literals to enums
-    period_enum = AnayasaDonemEnum(period)
-    application_type_enum = AnayasaBasvuruTuruEnum(application_type)
-    has_press_release_enum = AnayasaVarYokEnum(has_press_release)
-    has_dissenting_opinion_enum = AnayasaVarYokEnum(has_dissenting_opinion)
-    has_different_reasoning_enum = AnayasaVarYokEnum(has_different_reasoning)
-    norm_type_enum = AnayasaNormTuruEnum(norm_type)
-    review_outcomes_enums = [AnayasaIncelemeSonucuEnum(ro) for ro in review_outcomes]
-    reason_for_final_outcome_enum = AnayasaSonucGerekcesiEnum(reason_for_final_outcome)
-    
-    search_query = AnayasaNormDenetimiSearchRequest(
-        keywords_all=keywords_all,
-        keywords_any=keywords_any,
-        keywords_exclude=keywords_exclude,
-        period=period_enum,
-        case_number_esas=case_number_esas,
-        decision_number_karar=decision_number_karar,
-        first_review_date_start=first_review_date_start,
-        first_review_date_end=first_review_date_end,
-        decision_date_start=decision_date_start,
-        decision_date_end=decision_date_end,
-        application_type=application_type_enum,
-        applicant_general_name=applicant_general_name,
-        applicant_specific_name=applicant_specific_name,
-        official_gazette_date_start=official_gazette_date_start,
-        official_gazette_date_end=official_gazette_date_end,
-        official_gazette_number_start=official_gazette_number_start,
-        official_gazette_number_end=official_gazette_number_end,
-        has_press_release=has_press_release_enum,
-        has_dissenting_opinion=has_dissenting_opinion_enum,
-        has_different_reasoning=has_different_reasoning_enum,
-        attending_members_names=attending_members_names,
-        rapporteur_name=rapporteur_name,
-        norm_type=norm_type_enum,
-        norm_id_or_name=norm_id_or_name,
-        norm_article=norm_article,
-        review_outcomes=review_outcomes_enums,
-        reason_for_final_outcome=reason_for_final_outcome_enum,
-        basis_constitution_article_numbers=basis_constitution_article_numbers,
-        results_per_page=results_per_page,
-        page_to_fetch=page_to_fetch,
-        sort_by_criteria=sort_by_criteria
-    )
-    
-    logger.info(f"Tool 'search_anayasa_norm_denetimi_decisions' called.")
-    try:
-        return await anayasa_norm_client_instance.search_norm_denetimi_decisions(search_query)
-    except Exception as e:
-        logger.exception(f"Error in tool 'search_anayasa_norm_denetimi_decisions'.")
-        raise
+# DEACTIVATED TOOL - Use search_anayasa_unified instead
+# @app.tool(
+#     description="DEACTIVATED - Use search_anayasa_unified instead",
+#     annotations={"readOnlyHint": True, "openWorldHint": False, "idempotentHint": True}
+# )
+# async def search_anayasa_norm_denetimi_decisions(...) -> AnayasaSearchResult:
+#     raise ValueError("This tool is deactivated. Use search_anayasa_unified instead.")
 
-@app.tool(
-    description="Get Constitutional Court norm control decision text in paginated Markdown format",
-    annotations={
-        "readOnlyHint": True,
-        "idempotentHint": True
-    }
-)
-async def get_anayasa_norm_denetimi_document_markdown(
-    document_url: str = Field(..., description="The URL path (e.g., /ND/YYYY/NN) or full https URL of the AYM Norm Denetimi decision from normkararlarbilgibankasi.anayasa.gov.tr."),
-    page_number: Optional[int] = Field(1, ge=1, description="Page number for paginated Markdown content (1-indexed, accepts int). Default is 1 (first 5,000 characters).")
-) -> AnayasaDocumentMarkdown:
-    """Get Constitutional Court norm control decision as paginated Markdown."""
-    logger.info(f"Tool 'get_anayasa_norm_denetimi_document_markdown' called for URL: {document_url}, Page: {page_number}")
-    if not document_url or not document_url.strip():
-        raise ValueError("Document URL is required for Anayasa Norm Denetimi document retrieval.")
-    current_page_to_fetch = page_number if page_number is not None and page_number >= 1 else 1
-    try:
-        return await anayasa_norm_client_instance.get_decision_document_as_markdown(document_url, page_number=current_page_to_fetch)
-    except Exception as e:
-        logger.exception(f"Error in tool 'get_anayasa_norm_denetimi_document_markdown'.")
-        raise
+# DEACTIVATED TOOL - Use get_anayasa_document_unified instead
+# @app.tool(...)
+# async def get_anayasa_norm_denetimi_document_markdown(...) -> AnayasaDocumentMarkdown:
+#     raise ValueError("This tool is deactivated. Use get_anayasa_document_unified instead.")
 
-# --- MCP Tools for Anayasa Mahkemesi (Bireysel Başvuru Karar Raporu & Belgeler) ---
+# DEACTIVATED TOOL - Use search_anayasa_unified instead
+# @app.tool(...)
+# async def search_anayasa_bireysel_basvuru_report(...) -> AnayasaBireyselReportSearchResult:
+#     raise ValueError("This tool is deactivated. Use search_anayasa_unified instead.")
+
+# DEACTIVATED TOOL - Use get_anayasa_document_unified instead
+# @app.tool(...)
+# async def get_anayasa_bireysel_basvuru_document_markdown(...) -> AnayasaBireyselBasvuruDocumentMarkdown:
+#     raise ValueError("This tool is deactivated. Use get_anayasa_document_unified instead.")
+"""
+
+# --- Unified MCP Tools for Anayasa Mahkemesi ---
 @app.tool(
-    description="Search Constitutional Court individual application decisions for human rights violations",
+    description="Unified search for Constitutional Court decisions: both norm control (normkararlarbilgibankasi) and individual applications (kararlarbilgibankasi) in one tool",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
         "idempotentHint": True
     }
 )
-async def search_anayasa_bireysel_basvuru_report(
-    keywords: List[str] = Field(default_factory=list, description="Keywords for AND logic."),
-    page_to_fetch: int = Field(1, ge=1, description="Page number to fetch for the report. Default is 1.")
-) -> AnayasaBireyselReportSearchResult:
-    """Search Constitutional Court individual application decisions."""
+async def search_anayasa_unified(
+    decision_type: AnayasaDecisionTypeEnum = Field(..., description="Decision type: norm_denetimi (norm control) or bireysel_basvuru (individual applications)"),
+    keywords: List[str] = Field(default_factory=list, description="Keywords to search for (common parameter)"),
+    page_to_fetch: int = Field(1, ge=1, le=100, description="Page number to fetch (1-100)"),
+    results_per_page: int = Field(10, ge=1, le=100, description="Results per page (1-100)"),
     
-    search_query = AnayasaBireyselReportSearchRequest(
-        keywords=keywords,
-        page_to_fetch=page_to_fetch
-    )
+    # Norm Denetimi specific parameters (ignored for bireysel_basvuru)
+    keywords_all: List[str] = Field(default_factory=list, description="All keywords must be present (norm_denetimi only)"),
+    keywords_any: List[str] = Field(default_factory=list, description="Any of these keywords (norm_denetimi only)"),
+    decision_type_norm: Optional[AnayasaBasvuruTuruEnum] = Field(None, description="Decision type for norm denetimi"),
+    application_date_start: str = Field("", description="Application start date (norm_denetimi only)"),
+    application_date_end: str = Field("", description="Application end date (norm_denetimi only)"),
     
-    logger.info(f"Tool 'search_anayasa_bireysel_basvuru_report' called.")
+    # Bireysel Başvuru specific parameters (ignored for norm_denetimi)
+    decision_start_date: str = Field("", description="Decision start date (bireysel_basvuru only)"),
+    decision_end_date: str = Field("", description="Decision end date (bireysel_basvuru only)"),
+    norm_type: Optional[AnayasaNormTuruEnum] = Field(None, description="Norm type (bireysel_basvuru only)"),
+    subject_category: str = Field("", description="Subject category (bireysel_basvuru only)")
+) -> str:
+    logger.info(f"Tool 'search_anayasa_unified' called for decision_type: {decision_type}")
+    
     try:
-        return await anayasa_bireysel_client_instance.search_bireysel_basvuru_report(search_query)
+        request = AnayasaUnifiedSearchRequest(
+            decision_type=decision_type,
+            keywords=keywords,
+            page_to_fetch=page_to_fetch,
+            results_per_page=results_per_page,
+            keywords_all=keywords_all,
+            keywords_any=keywords_any,
+            decision_type_norm=decision_type_norm,
+            application_date_start=application_date_start,
+            application_date_end=application_date_end,
+            decision_start_date=decision_start_date,
+            decision_end_date=decision_end_date,
+            norm_type=norm_type,
+            subject_category=subject_category
+        )
+        
+        result = await anayasa_unified_client_instance.search_unified(request)
+        return json.dumps(result.model_dump(), ensure_ascii=False, indent=2)
+        
     except Exception as e:
-        logger.exception(f"Error in tool 'search_anayasa_bireysel_basvuru_report'.")
+        logger.exception(f"Error in tool 'search_anayasa_unified'.")
         raise
 
 @app.tool(
-    description="Get Constitutional Court individual application decision text in paginated Markdown format",
+    description="Unified document retrieval for Constitutional Court decisions: auto-detects norm control vs individual applications based on URL",
     annotations={
         "readOnlyHint": True,
+        "openWorldHint": False,
         "idempotentHint": True
     }
 )
-async def get_anayasa_bireysel_basvuru_document_markdown(
-    document_url_path: str = Field(..., description="The URL path (e.g., /BB/YYYY/NNNN) of the AYM Bireysel Başvuru decision from kararlarbilgibankasi.anayasa.gov.tr."),
-    page_number: Union[int, str] = Field(1, description="Page number for paginated Markdown content (1-indexed, accepts int). Default is 1 (first 5,000 characters).")
-) -> AnayasaBireyselBasvuruDocumentMarkdown:
-    """Get Constitutional Court individual application decision as paginated Markdown."""
-    logger.info(f"Tool 'get_anayasa_bireysel_basvuru_document_markdown' called for URL path: {document_url_path}, Page: {page_number}")
-    if not document_url_path or not document_url_path.strip() or not document_url_path.startswith("/BB/"):
-        raise ValueError("Document URL path (e.g., /BB/YYYY/NNNN) is required for Anayasa Bireysel Başvuru document retrieval.")
+async def get_anayasa_document_unified(
+    document_url: str = Field(..., description="Document URL from search results"),
+    page_number: int = Field(1, ge=1, description="Page number for paginated content (1-indexed)")
+) -> str:
+    logger.info(f"Tool 'get_anayasa_document_unified' called for URL: {document_url}, Page: {page_number}")
     
-    # Handle both int and string page_number inputs
     try:
-        current_page_to_fetch = int(page_number) if page_number is not None else 1
-        if current_page_to_fetch < 1:
-            current_page_to_fetch = 1
-    except (ValueError, TypeError):
-        current_page_to_fetch = 1
-    try:
-        return await anayasa_bireysel_client_instance.get_decision_document_as_markdown(document_url_path, page_number=current_page_to_fetch)
+        result = await anayasa_unified_client_instance.get_document_unified(document_url, page_number)
+        return json.dumps(result.model_dump(mode='json'), ensure_ascii=False, indent=2)
+        
     except Exception as e:
-        logger.exception(f"Error in tool 'get_anayasa_bireysel_basvuru_document_markdown'.")
+        logger.exception(f"Error in tool 'get_anayasa_document_unified'.")
         raise
 
 # --- MCP Tools for KIK (Kamu İhale Kurulu) ---
@@ -2106,6 +2051,7 @@ def perform_cleanup():
         globals().get('uyusmazlik_client_instance'),
         globals().get('anayasa_norm_client_instance'),
         globals().get('anayasa_bireysel_client_instance'),
+        globals().get('anayasa_unified_client_instance'),
         globals().get('kik_client_instance'),
         globals().get('rekabet_client_instance'),
         globals().get('bedesten_client_instance'),

@@ -274,6 +274,11 @@ class AnayasaMahkemesiApiClient:
             if not karar_metni_div: # Fallback if not in KararMetni
                 karar_metni_div = soup.find("div", class_="WordSection1")
             
+            # Initialize with empty string defaults
+            decision_ek_no_from_page = ""
+            decision_date_from_page = ""
+            official_gazette_from_page = ""
+            
             if karar_metni_div:
                 # Attempt to find E.K. No (Esas No, Karar No)
                 # Norm Denetimi pages often have this in bold <p> tags directly or in the WordSection1

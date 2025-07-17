@@ -99,11 +99,11 @@ class AnayasaBireyselBasvuruApiClient:
 
         for decision_div in decision_divs:
             title_tag = decision_div.find("h4")
-            title_text = title_tag.get_text(strip=True) if title_tag and title_tag.strong else (title_tag.get_text(strip=True) if title_tag else None)
+            title_text = title_tag.get_text(strip=True) if title_tag and title_tag.strong else (title_tag.get_text(strip=True) if title_tag else "")
 
 
             alti_cizili_div = decision_div.find("div", class_="AltiCizili")
-            ref_no, dec_type, body, app_date, dec_date, url_path = None, None, None, None, None, None
+            ref_no, dec_type, body, app_date, dec_date, url_path = "", "", "", "", "", ""
             if alti_cizili_div:
                 link_tag = alti_cizili_div.find("a", href=True)
                 if link_tag:
@@ -124,14 +124,14 @@ class AnayasaBireyselBasvuruApiClient:
                     ref_no = parts[current_idx]
                     current_idx += 1
 
-                dec_type = parts[current_idx] if len(parts) > current_idx else None
+                dec_type = parts[current_idx] if len(parts) > current_idx else ""
                 current_idx += 1
-                body = parts[current_idx] if len(parts) > current_idx else None
+                body = parts[current_idx] if len(parts) > current_idx else ""
                 current_idx += 1
                 
-                app_date_raw = parts[current_idx] if len(parts) > current_idx else None
+                app_date_raw = parts[current_idx] if len(parts) > current_idx else ""
                 current_idx += 1
-                dec_date_raw = parts[current_idx] if len(parts) > current_idx else None
+                dec_date_raw = parts[current_idx] if len(parts) > current_idx else ""
 
                 if app_date_raw and "Başvuru Tarihi :" in app_date_raw:
                     app_date = app_date_raw.replace("Başvuru Tarihi :", "").strip()
@@ -148,7 +148,7 @@ class AnayasaBireyselBasvuruApiClient:
 
             
             subject_div = decision_div.find(lambda tag: tag.name == 'div' and not tag.has_attr('class') and tag.get_text(strip=True).startswith("BAŞVURU KONUSU :"))
-            subject_text = subject_div.get_text(strip=True).replace("BAŞVURU KONUSU :", "").strip() if subject_div else None
+            subject_text = subject_div.get_text(strip=True).replace("BAŞVURU KONUSU :", "").strip() if subject_div else ""
             
             details_list: List[AnayasaBireyselReportDecisionDetail] = []
             karar_detaylari_div = decision_div.find_next_sibling("div", id="KararDetaylari") # Corrected: was KararDetaylari
@@ -159,13 +159,13 @@ class AnayasaBireyselBasvuruApiClient:
                         cells = row.find_all("td")
                         if len(cells) == 4: # Hak, Müdahale İddiası, Sonuç, Giderim
                             details_list.append(AnayasaBireyselReportDecisionDetail(
-                                hak=cells[0].get_text(strip=True) or None,
-                                mudahale_iddiasi=cells[1].get_text(strip=True) or None,
-                                sonuc=cells[2].get_text(strip=True) or None,
-                                giderim=cells[3].get_text(strip=True) or None,
+                                hak=cells[0].get_text(strip=True) or "",
+                                mudahale_iddiasi=cells[1].get_text(strip=True) or "",
+                                sonuc=cells[2].get_text(strip=True) or "",
+                                giderim=cells[3].get_text(strip=True) or "",
                             ))
             
-            full_decision_page_url = urljoin(self.BASE_URL, url_path) if url_path else None
+            full_decision_page_url = urljoin(self.BASE_URL, url_path) if url_path else ""
 
             processed_decisions.append(AnayasaBireyselReportDecisionSummary(
                 title=title_text,
