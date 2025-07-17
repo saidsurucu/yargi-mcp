@@ -1,48 +1,21 @@
 # anayasa_mcp_module/models.py
 
 from pydantic import BaseModel, Field, HttpUrl
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 from enum import Enum
 
-# --- New Unified Enums ---
-class AnayasaDecisionTypeEnum(str, Enum):
-    NORM_DENETIMI = "norm_denetimi"
-    BIREYSEL_BASVURU = "bireysel_basvuru"
-
-# --- Enums (AnayasaDonemEnum, AnayasaBasvuruTuruEnum, etc. - same as before) ---
+# --- Enums (AnayasaDonemEnum, etc. - same as before) ---
 class AnayasaDonemEnum(str, Enum):
     TUMU = "ALL"
     DONEM_1961 = "1"
     DONEM_1982 = "2"
 
-class AnayasaBasvuruTuruEnum(str, Enum):
-    TUMU = "ALL"
-    IPTAL = "1"
-    ITIRAZ = "2"
-    DIGER = "3"
 
 class AnayasaVarYokEnum(str, Enum):
     TUMU = "ALL"
     YOK = "0"
     VAR = "1"
 
-class AnayasaNormTuruEnum(str, Enum):
-    TUMU = "ALL"
-    ANAYASA = "1"
-    ANAYASA_DEGISTIREN_KANUN = "2"
-    CUMHURBASKANLIGI_KARARNAMESI = "14"
-    ICTUZUK = "3"
-    KANUN = "4"
-    KANUN_HUKMUNDE_KARARNAME = "5"
-    KARAR = "6"
-    NIZAMNAME = "7"
-    TALIMATNAME = "8"
-    TARIFE = "9"
-    TBMM_KARARI = "10"
-    TEZKERE = "11"
-    TUZUK = "12"
-    YOK_SECENEGI = "0"
-    YONETMELIK = "13"
 
 class AnayasaIncelemeSonucuEnum(str, Enum):
     TUMU = "ALL"
@@ -94,30 +67,30 @@ class AnayasaNormDenetimiSearchRequest(BaseModel):
     keywords_all: Optional[List[str]] = Field(default_factory=list, description="Keywords for AND logic (KelimeAra[]).")
     keywords_any: Optional[List[str]] = Field(default_factory=list, description="Keywords for OR logic (HerhangiBirKelimeAra[]).")
     keywords_exclude: Optional[List[str]] = Field(default_factory=list, description="Keywords to exclude (BulunmayanKelimeAra[]).")
-    period: Optional[AnayasaDonemEnum] = Field(default=AnayasaDonemEnum.TUMU, description="Constitutional period (Donemler_id).")
+    period: Optional[Literal["ALL", "1", "2"]] = Field(default="ALL", description="Constitutional period (Donemler_id).")
     case_number_esas: str = Field("", description="Case registry number (EsasNo), e.g., '2023/123'.")
     decision_number_karar: str = Field("", description="Decision number (KararNo), e.g., '2023/456'.")
     first_review_date_start: str = Field("", description="First review start date (IlkIncelemeTarihiIlk), format DD/MM/YYYY.")
     first_review_date_end: str = Field("", description="First review end date (IlkIncelemeTarihiSon), format DD/MM/YYYY.")
     decision_date_start: str = Field("", description="Decision start date (KararTarihiIlk), format DD/MM/YYYY.")
     decision_date_end: str = Field("", description="Decision end date (KararTarihiSon), format DD/MM/YYYY.")
-    application_type: Optional[AnayasaBasvuruTuruEnum] = Field(default=AnayasaBasvuruTuruEnum.TUMU, description="Type of application (BasvuruTurler_id).")
+    application_type: Optional[Literal["ALL", "1", "2", "3"]] = Field(default="ALL", description="Type of application (BasvuruTurler_id).")
     applicant_general_name: str = Field("", description="General applicant name (BasvuranGeneller_id).")
     applicant_specific_name: str = Field("", description="Specific applicant name (BasvuranOzeller_id).")
     official_gazette_date_start: str = Field("", description="Official Gazette start date (ResmiGazeteTarihiIlk), format DD/MM/YYYY.")
     official_gazette_date_end: str = Field("", description="Official Gazette end date (ResmiGazeteTarihiSon), format DD/MM/YYYY.")
     official_gazette_number_start: str = Field("", description="Official Gazette starting number (ResmiGazeteSayisiIlk).")
     official_gazette_number_end: str = Field("", description="Official Gazette ending number (ResmiGazeteSayisiSon).")
-    has_press_release: Optional[AnayasaVarYokEnum] = Field(default=AnayasaVarYokEnum.TUMU, description="Press release available (BasinDuyurusu).")
-    has_dissenting_opinion: Optional[AnayasaVarYokEnum] = Field(default=AnayasaVarYokEnum.TUMU, description="Dissenting opinion exists (KarsiOy).")
-    has_different_reasoning: Optional[AnayasaVarYokEnum] = Field(default=AnayasaVarYokEnum.TUMU, description="Different reasoning exists (FarkliGerekce).")
+    has_press_release: Optional[Literal["ALL", "0", "1"]] = Field(default="ALL", description="Press release available (BasinDuyurusu).")
+    has_dissenting_opinion: Optional[Literal["ALL", "0", "1"]] = Field(default="ALL", description="Dissenting opinion exists (KarsiOy).")
+    has_different_reasoning: Optional[Literal["ALL", "0", "1"]] = Field(default="ALL", description="Different reasoning exists (FarkliGerekce).")
     attending_members_names: Optional[List[str]] = Field(default_factory=list, description="List of attending members' exact names (Uyeler_id[]).")
     rapporteur_name: str = Field("", description="Rapporteur's exact name (Raportorler_id).")
-    norm_type: Optional[AnayasaNormTuruEnum] = Field(default=AnayasaNormTuruEnum.TUMU, description="Type of the reviewed norm (NormunTurler_id).")
+    norm_type: Optional[Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "0"]] = Field(default="ALL", description="Type of the reviewed norm (NormunTurler_id).")
     norm_id_or_name: str = Field("", description="Number or name of the norm (NormunNumarasiAdlar_id).")
     norm_article: str = Field("", description="Article number of the norm (NormunMaddeNumarasi).")
-    review_outcomes: Optional[List[AnayasaIncelemeSonucuEnum]] = Field(default_factory=list, description="List of review types and outcomes (IncelemeTuruKararSonuclar_id[]).")
-    reason_for_final_outcome: Optional[AnayasaSonucGerekcesiEnum] = Field(default=AnayasaSonucGerekcesiEnum.TUMU, description="Main reason for the decision outcome (KararSonucununGerekcesi).")
+    review_outcomes: Optional[List[Literal["1", "2", "3", "4", "5", "6", "7", "8", "12"]]] = Field(default_factory=list, description="List of review types and outcomes (IncelemeTuruKararSonuclar_id[]).")
+    reason_for_final_outcome: Optional[Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "29", "30"]] = Field(default="ALL", description="Main reason for the decision outcome (KararSonucununGerekcesi).")
     basis_constitution_article_numbers: Optional[List[str]] = Field(default_factory=list, description="List of supporting Constitution article numbers (DayanakHukmu[]).")
     results_per_page: int = Field(10, ge=1, le=10, description="Results per page.")
     page_to_fetch: int = Field(1, ge=1, description="Page number to fetch for results list.")
@@ -219,7 +192,7 @@ class AnayasaBireyselBasvuruDocumentMarkdown(BaseModel):
 # --- Unified Models ---
 class AnayasaUnifiedSearchRequest(BaseModel):
     """Unified search request for both Norm Denetimi and Bireysel Başvuru."""
-    decision_type: AnayasaDecisionTypeEnum = Field(..., description="Decision type: norm_denetimi or bireysel_basvuru")
+    decision_type: Literal["norm_denetimi", "bireysel_basvuru"] = Field(..., description="Decision type: norm_denetimi or bireysel_basvuru")
     
     # Common parameters
     keywords: List[str] = Field(default_factory=list, description="Keywords to search for")
@@ -229,26 +202,26 @@ class AnayasaUnifiedSearchRequest(BaseModel):
     # Norm Denetimi specific parameters (ignored for bireysel_basvuru)
     keywords_all: List[str] = Field(default_factory=list, description="All keywords must be present (norm_denetimi only)")
     keywords_any: List[str] = Field(default_factory=list, description="Any of these keywords (norm_denetimi only)")
-    decision_type_norm: Optional[AnayasaBasvuruTuruEnum] = Field(None, description="Decision type for norm denetimi")
+    decision_type_norm: Optional[Literal["ALL", "1", "2", "3"]] = Field(None, description="Decision type for norm denetimi")
     application_date_start: str = Field("", description="Application start date (norm_denetimi only)")
     application_date_end: str = Field("", description="Application end date (norm_denetimi only)")
     
     # Bireysel Başvuru specific parameters (ignored for norm_denetimi)
     decision_start_date: str = Field("", description="Decision start date (bireysel_basvuru only)")
     decision_end_date: str = Field("", description="Decision end date (bireysel_basvuru only)")
-    norm_type: Optional[AnayasaNormTuruEnum] = Field(None, description="Norm type (bireysel_basvuru only)")
+    norm_type: Optional[Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "0"]] = Field(None, description="Norm type (bireysel_basvuru only)")
     subject_category: str = Field("", description="Subject category (bireysel_basvuru only)")
 
 class AnayasaUnifiedSearchResult(BaseModel):
     """Unified search result containing decisions from either system."""
-    decision_type: AnayasaDecisionTypeEnum = Field(..., description="Type of decisions returned")
+    decision_type: Literal["norm_denetimi", "bireysel_basvuru"] = Field(..., description="Type of decisions returned")
     decisions: List[Dict[str, Any]] = Field(default_factory=list, description="Decision list (structure varies by type)")
     total_records_found: int = Field(0, description="Total number of records found")
     retrieved_page_number: int = Field(1, description="Page number that was retrieved")
 
 class AnayasaUnifiedDocumentMarkdown(BaseModel):
     """Unified document model for both Norm Denetimi and Bireysel Başvuru."""
-    decision_type: AnayasaDecisionTypeEnum = Field(..., description="Type of document")
+    decision_type: Literal["norm_denetimi", "bireysel_basvuru"] = Field(..., description="Type of document")
     source_url: HttpUrl = Field(..., description="Source URL of the document")
     document_data: Dict[str, Any] = Field(default_factory=dict, description="Document content and metadata")
     markdown_chunk: Optional[str] = Field(None, description="Markdown content chunk")

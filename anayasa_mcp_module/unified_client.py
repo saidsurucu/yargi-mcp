@@ -9,7 +9,7 @@ from .models import (
     AnayasaUnifiedSearchRequest,
     AnayasaUnifiedSearchResult, 
     AnayasaUnifiedDocumentMarkdown,
-    AnayasaDecisionTypeEnum,
+    # Removed AnayasaDecisionTypeEnum - now using string literals
     AnayasaNormDenetimiSearchRequest,
     AnayasaBireyselReportSearchRequest
 )
@@ -28,7 +28,7 @@ class AnayasaUnifiedClient:
     async def search_unified(self, params: AnayasaUnifiedSearchRequest) -> AnayasaUnifiedSearchResult:
         """Unified search that routes to appropriate client based on decision_type."""
         
-        if params.decision_type == AnayasaDecisionTypeEnum.NORM_DENETIMI:
+        if params.decision_type == "norm_denetimi":
             # Convert to norm denetimi request
             norm_params = AnayasaNormDenetimiSearchRequest(
                 keywords_all=params.keywords_all or params.keywords,
@@ -44,13 +44,13 @@ class AnayasaUnifiedClient:
             decisions_list = [decision.model_dump() for decision in result.decisions]
             
             return AnayasaUnifiedSearchResult(
-                decision_type=AnayasaDecisionTypeEnum.NORM_DENETIMI,
+                decision_type="norm_denetimi",
                 decisions=decisions_list,
                 total_records_found=result.total_records_found,
                 retrieved_page_number=result.retrieved_page_number
             )
             
-        elif params.decision_type == AnayasaDecisionTypeEnum.BIREYSEL_BASVURU:
+        elif params.decision_type == "bireysel_basvuru":
             # Convert to bireysel başvuru request
             bireysel_params = AnayasaBireyselReportSearchRequest(
                 keywords=params.keywords,
@@ -68,7 +68,7 @@ class AnayasaUnifiedClient:
             decisions_list = [decision.model_dump() for decision in result.decisions]
             
             return AnayasaUnifiedSearchResult(
-                decision_type=AnayasaDecisionTypeEnum.BIREYSEL_BASVURU,
+                decision_type="bireysel_basvuru",
                 decisions=decisions_list,
                 total_records_found=result.total_records_found,
                 retrieved_page_number=result.retrieved_page_number
@@ -88,7 +88,7 @@ class AnayasaUnifiedClient:
             result = await self.norm_client.get_decision_document_as_markdown(document_url, page_number)
             
             return AnayasaUnifiedDocumentMarkdown(
-                decision_type=AnayasaDecisionTypeEnum.NORM_DENETIMI,
+                decision_type="norm_denetimi",
                 source_url=result.source_url,
                 document_data=result.model_dump(),
                 markdown_chunk=result.markdown_chunk,
@@ -102,7 +102,7 @@ class AnayasaUnifiedClient:
             result = await self.bireysel_client.get_decision_document_as_markdown(document_url, page_number)
             
             return AnayasaUnifiedDocumentMarkdown(
-                decision_type=AnayasaDecisionTypeEnum.BIREYSEL_BASVURU,
+                decision_type="bireysel_basvuru",
                 source_url=result.source_url,
                 document_data=result.model_dump(),
                 markdown_chunk=result.markdown_chunk,

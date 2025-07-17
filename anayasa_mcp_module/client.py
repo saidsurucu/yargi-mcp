@@ -50,36 +50,36 @@ class AnayasaMahkemesiApiClient:
             for kw in params.keywords_any: query_params.append(("HerhangiBirKelimeAra[]", kw))
         if params.keywords_exclude:
             for kw in params.keywords_exclude: query_params.append(("BulunmayanKelimeAra[]", kw))
-        if params.period and params.period.value and params.period.value != "ALL": query_params.append(("Donemler_id", params.period.value))
+        if params.period and params.period and params.period != "ALL": query_params.append(("Donemler_id", params.period))
         if params.case_number_esas: query_params.append(("EsasNo", params.case_number_esas))
         if params.decision_number_karar: query_params.append(("KararNo", params.decision_number_karar))
         if params.first_review_date_start: query_params.append(("IlkIncelemeTarihiIlk", params.first_review_date_start))
         if params.first_review_date_end: query_params.append(("IlkIncelemeTarihiSon", params.first_review_date_end))
         if params.decision_date_start: query_params.append(("KararTarihiIlk", params.decision_date_start))
         if params.decision_date_end: query_params.append(("KararTarihiSon", params.decision_date_end))
-        if params.application_type and params.application_type.value and params.application_type.value != "ALL": query_params.append(("BasvuruTurler_id", params.application_type.value))
+        if params.application_type and params.application_type and params.application_type != "ALL": query_params.append(("BasvuruTurler_id", params.application_type))
         if params.applicant_general_name: query_params.append(("BasvuranGeneller_id", params.applicant_general_name))
         if params.applicant_specific_name: query_params.append(("BasvuranOzeller_id", params.applicant_specific_name))
         if params.attending_members_names:
             for name in params.attending_members_names: query_params.append(("Uyeler_id[]", name))
         if params.rapporteur_name: query_params.append(("Raportorler_id", params.rapporteur_name))
-        if params.norm_type and params.norm_type.value and params.norm_type.value != "ALL": query_params.append(("NormunTurler_id", params.norm_type.value))
+        if params.norm_type and params.norm_type and params.norm_type != "ALL": query_params.append(("NormunTurler_id", params.norm_type))
         if params.norm_id_or_name: query_params.append(("NormunNumarasiAdlar_id", params.norm_id_or_name))
         if params.norm_article: query_params.append(("NormunMaddeNumarasi", params.norm_article))
         if params.review_outcomes:
-            for outcome_enum_val in params.review_outcomes:
-                if outcome_enum_val.value and outcome_enum_val.value != "ALL": query_params.append(("IncelemeTuruKararSonuclar_id[]", outcome_enum_val.value))
-        if params.reason_for_final_outcome and params.reason_for_final_outcome.value and params.reason_for_final_outcome.value != "ALL":
-            query_params.append(("KararSonucununGerekcesi", params.reason_for_final_outcome.value))
+            for outcome_val in params.review_outcomes:
+                if outcome_val and outcome_val != "ALL": query_params.append(("IncelemeTuruKararSonuclar_id[]", outcome_val))
+        if params.reason_for_final_outcome and params.reason_for_final_outcome and params.reason_for_final_outcome != "ALL":
+            query_params.append(("KararSonucununGerekcesi", params.reason_for_final_outcome))
         if params.basis_constitution_article_numbers:
             for article_no in params.basis_constitution_article_numbers: query_params.append(("DayanakHukmu[]", article_no))
         if params.official_gazette_date_start: query_params.append(("ResmiGazeteTarihiIlk", params.official_gazette_date_start))
         if params.official_gazette_date_end: query_params.append(("ResmiGazeteTarihiSon", params.official_gazette_date_end))
         if params.official_gazette_number_start: query_params.append(("ResmiGazeteSayisiIlk", params.official_gazette_number_start))
         if params.official_gazette_number_end: query_params.append(("ResmiGazeteSayisiSon", params.official_gazette_number_end))
-        if params.has_press_release and params.has_press_release.value and params.has_press_release.value != "ALL": query_params.append(("BasinDuyurusu", params.has_press_release.value))
-        if params.has_dissenting_opinion and params.has_dissenting_opinion.value and params.has_dissenting_opinion.value != "ALL": query_params.append(("KarsiOy", params.has_dissenting_opinion.value))
-        if params.has_different_reasoning and params.has_different_reasoning.value and params.has_different_reasoning.value != "ALL": query_params.append(("FarkliGerekce", params.has_different_reasoning.value))
+        if params.has_press_release and params.has_press_release and params.has_press_release != "ALL": query_params.append(("BasinDuyurusu", params.has_press_release))
+        if params.has_dissenting_opinion and params.has_dissenting_opinion and params.has_dissenting_opinion != "ALL": query_params.append(("KarsiOy", params.has_dissenting_opinion))
+        if params.has_different_reasoning and params.has_different_reasoning and params.has_different_reasoning != "ALL": query_params.append(("FarkliGerekce", params.has_different_reasoning))
         
         # Add pagination and sorting parameters as query params instead of URL path
         if params.results_per_page and params.results_per_page != 10:

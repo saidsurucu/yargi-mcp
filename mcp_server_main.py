@@ -273,9 +273,7 @@ from anayasa_mcp_module.models import (
     AnayasaUnifiedSearchRequest,
     AnayasaUnifiedSearchResult,
     AnayasaUnifiedDocumentMarkdown,
-    AnayasaDecisionTypeEnum,
-    AnayasaDonemEnum, AnayasaBasvuruTuruEnum, AnayasaVarYokEnum,
-    AnayasaNormTuruEnum, AnayasaIncelemeSonucuEnum, AnayasaSonucGerekcesiEnum
+    # Removed enum imports - now using Literal strings in models
 )
 # KIK Module Imports
 from kik_mcp_module.client import KikApiClient
@@ -1505,7 +1503,7 @@ async def get_uyusmazlik_document_markdown_from_url(
     }
 )
 async def search_anayasa_unified(
-    decision_type: AnayasaDecisionTypeEnum = Field(..., description="Decision type: norm_denetimi (norm control) or bireysel_basvuru (individual applications)"),
+    decision_type: Literal["norm_denetimi", "bireysel_basvuru"] = Field(..., description="Decision type: norm_denetimi (norm control) or bireysel_basvuru (individual applications)"),
     keywords: List[str] = Field(default_factory=list, description="Keywords to search for (common parameter)"),
     page_to_fetch: int = Field(1, ge=1, le=100, description="Page number to fetch (1-100)"),
     results_per_page: int = Field(10, ge=1, le=100, description="Results per page (1-100)"),
@@ -1513,14 +1511,14 @@ async def search_anayasa_unified(
     # Norm Denetimi specific parameters (ignored for bireysel_basvuru)
     keywords_all: List[str] = Field(default_factory=list, description="All keywords must be present (norm_denetimi only)"),
     keywords_any: List[str] = Field(default_factory=list, description="Any of these keywords (norm_denetimi only)"),
-    decision_type_norm: Optional[AnayasaBasvuruTuruEnum] = Field(None, description="Decision type for norm denetimi"),
+    decision_type_norm: Optional[Literal["ALL", "1", "2", "3"]] = Field(None, description="Decision type for norm denetimi"),
     application_date_start: str = Field("", description="Application start date (norm_denetimi only)"),
     application_date_end: str = Field("", description="Application end date (norm_denetimi only)"),
     
     # Bireysel Başvuru specific parameters (ignored for norm_denetimi)
     decision_start_date: str = Field("", description="Decision start date (bireysel_basvuru only)"),
     decision_end_date: str = Field("", description="Decision end date (bireysel_basvuru only)"),
-    norm_type: Optional[AnayasaNormTuruEnum] = Field(None, description="Norm type (bireysel_basvuru only)"),
+    norm_type: Optional[Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "0"]] = Field(None, description="Norm type (bireysel_basvuru only)"),
     subject_category: str = Field("", description="Subject category (bireysel_basvuru only)")
 ) -> str:
     logger.info(f"Tool 'search_anayasa_unified' called for decision_type: {decision_type}")
