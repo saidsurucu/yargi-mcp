@@ -1597,14 +1597,7 @@ async def search_kik_decisions(
     basvuru_sahibi: str = Field("", description="Applicant."),
     ihaleyi_yapan_idare: str = Field("", description="Procuring Entity."),
     basvuru_konusu_ihale: str = Field("", description="Tender subject of the application."),
-    karar_metni: str = Field("", description="""
-        Keyword/phrase in decision text. Advanced search operators supported:
-        - word1+word2 = AND logic (+anayasa +mahkeme -> both words required)
-        - +"required" -"excluded" = Include and exclude (+ihale -"iptal")
-        - "exact phrase" = Exact match ("kamu yararı" for exact phrase)
-        - OR/AND/wildcard operators supported
-        Examples: anayasa | +anayasa +mahkeme | +ihale -"iptal" | "tam cümle"
-    """),
+    karar_metni: str = Field("", description="Decision text search. Supports: +word, -word, \"exact phrase\", OR/AND"),
     yil: str = Field("", description="Year of the decision."),
     resmi_gazete_tarihi: str = Field("", description="Official Gazette Date (DD.MM.YYYY)."),
     resmi_gazete_sayisi: str = Field("", description="Official Gazette Number."),
