@@ -58,9 +58,14 @@ class BedestenApiClient:
             logger.info(f"BedestenApiClient: Mapped birimAdi '{original_birim_adi}' to '{mapped_birim_adi}'")
         
         try:
+            # Create request dict and remove birimAdi if empty
+            request_dict = search_request.model_dump()
+            if not request_dict["data"]["birimAdi"]:  # Remove if empty string
+                del request_dict["data"]["birimAdi"]
+            
             response = await self.http_client.post(
                 self.SEARCH_ENDPOINT, 
-                json=search_request.model_dump()
+                json=request_dict
             )
             response.raise_for_status()
             response_json = response.json()
