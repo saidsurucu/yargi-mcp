@@ -81,7 +81,11 @@ class DanistayApiClient:
             pageSize=params.pageSize,
             pageNumber=params.pageNumber
         )
-        final_payload = {"data": data_for_payload.model_dump(exclude_defaults=False, exclude_none=False)}
+        # Create request dict and remove empty string fields to avoid API issues
+        payload_dict = data_for_payload.model_dump(exclude_defaults=False, exclude_none=False)
+        # Remove empty string fields that might cause API issues
+        cleaned_payload = {k: v for k, v in payload_dict.items() if v != ""}
+        final_payload = {"data": cleaned_payload}
         logger.info(f"DanistayApiClient: Performing DETAILED search via {self.DETAILED_SEARCH_ENDPOINT} with payload: {final_payload}")
         return await self._execute_api_search(self.DETAILED_SEARCH_ENDPOINT, final_payload)
 
