@@ -1092,7 +1092,7 @@ async def search_yargitay_detailed(
     kararSonSiraNo: str = Field("", description="Ending sequence number for 'Karar No'."),
     baslangicTarihi: str = Field("", description="Start date for decision search (DD.MM.YYYY)."),
     bitisTarihi: str = Field("", description="End date for decision search (DD.MM.YYYY)."),
-    pageSize: int = Field(10, ge=1, le=10, description="Number of results per page."),
+    # pageSize: int = Field(10, ge=1, le=10, description="Number of results per page."),
     pageNumber: int = Field(1, ge=1, description="Page number to retrieve.")
 ) -> CompactYargitaySearchResult:
     # Search Yargıtay decisions using primary API with 52 chamber filtering and advanced operators.
@@ -1100,6 +1100,8 @@ async def search_yargitay_detailed(
     # Convert "ALL" to empty string for API compatibility
     if birimYrgKurulDaire == "ALL":
         birimYrgKurulDaire = ""
+    
+    pageSize = 10  # Default value
     
     search_query = YargitayDetailedSearchRequest(
         arananKelime=arananKelime,
@@ -1179,9 +1181,11 @@ async def search_danistay_by_keyword(
     notAndKelimeler: List[str] = Field(default_factory=list, description="Keywords for NOT AND logic."),
     notOrKelimeler: List[str] = Field(default_factory=list, description="Keywords for NOT OR logic."),
     pageNumber: int = Field(1, ge=1, description="Page number."),
-    pageSize: int = Field(10, ge=1, le=10, description="Results per page.")
+    # pageSize: int = Field(10, ge=1, le=10, description="Results per page.")
 ) -> CompactDanistaySearchResult:
     # Search Danıştay decisions with keyword logic.
+    
+    pageSize = 10  # Default value
     
     search_query = DanistayKeywordSearchRequest(
         andKelimeler=andKelimeler,
@@ -1229,9 +1233,11 @@ async def search_danistay_detailed(
     mevzuatAdi: str = Field("", description="Legislation name."),
     madde: str = Field("", description="Article number."),
     pageNumber: int = Field(1, ge=1, description="Page number."),
-    pageSize: int = Field(10, ge=1, le=10, description="Results per page.")
+    # pageSize: int = Field(10, ge=1, le=10, description="Results per page.")
 ) -> CompactDanistaySearchResult:
     # Search Danıştay decisions with detailed filtering.
+    
+    pageSize = 10  # Default value
     
     search_query = DanistayDetailedSearchRequest(
         daire=daire,
@@ -1310,9 +1316,11 @@ async def search_emsal_detailed_decisions(
     sort_criteria: str = Field("1", description="Sorting criteria (e.g., 1: Esas No)."),
     sort_direction: str = Field("desc", description="Sorting direction ('asc' or 'desc')."),
     page_number: int = Field(1, ge=1, description="Page number (accepts int)."),
-    page_size: int = Field(10, ge=1, le=10, description="Results per page.")
+    # page_size: int = Field(10, ge=1, le=10, description="Results per page.")
 ) -> CompactEmsalSearchResult:
     """Search Emsal precedent decisions with detailed criteria."""
+    
+    page_size = 10  # Default value
     
     search_query = EmsalSearchRequest(
         keyword=keyword,
@@ -1507,7 +1515,7 @@ async def search_anayasa_unified(
     decision_type: Literal["norm_denetimi", "bireysel_basvuru"] = Field(..., description="Decision type: norm_denetimi (norm control) or bireysel_basvuru (individual applications)"),
     keywords: List[str] = Field(default_factory=list, description="Keywords to search for (common parameter)"),
     page_to_fetch: int = Field(1, ge=1, le=100, description="Page number to fetch (1-100)"),
-    results_per_page: int = Field(10, ge=1, le=100, description="Results per page (1-100)"),
+    # results_per_page: int = Field(10, ge=1, le=100, description="Results per page (1-100)"),
     
     # Norm Denetimi specific parameters (ignored for bireysel_basvuru)
     keywords_all: List[str] = Field(default_factory=list, description="All keywords must be present (norm_denetimi only)"),
@@ -1523,6 +1531,8 @@ async def search_anayasa_unified(
     subject_category: str = Field("", description="Subject category (bireysel_basvuru only)")
 ) -> str:
     logger.info(f"Tool 'search_anayasa_unified' called for decision_type: {decision_type}")
+    
+    results_per_page = 10  # Default value
     
     try:
         request = AnayasaUnifiedSearchRequest(
@@ -1777,7 +1787,7 @@ For best results, use exact phrases with quotes for legal terms."""),
         default=["YARGITAYKARARI", "DANISTAYKARAR"], 
         description="Court types: YARGITAYKARARI, DANISTAYKARAR, YERELHUKUK, ISTINAFHUKUK, KYB"
     ),
-    pageSize: int = Field(10, ge=1, le=10, description="Results per page (1-10)"),
+    # pageSize: int = Field(10, ge=1, le=10, description="Results per page (1-10)"),
     pageNumber: int = Field(1, ge=1, description="Page number"),
     birimAdi: BirimAdiEnum = Field("ALL", description="""
         Chamber filter (optional). Abbreviated values with Turkish names:
@@ -1788,6 +1798,9 @@ For best results, use exact phrases with quotes for legal terms."""),
     kararTarihiEnd: str = Field("", description="End date (ISO 8601 format)")
 ) -> dict:
     """Search Turkish legal databases via unified Bedesten API."""
+    
+    pageSize = 10  # Default value
+    
     search_data = BedestenSearchData(
         pageSize=pageSize,
         pageNumber=pageNumber,
@@ -2280,10 +2293,12 @@ async def check_government_servers_health() -> Dict[str, Any]:
 async def search_kvkk_decisions(
     keywords: str = Field(..., description="Turkish keywords. Supports +required -excluded \"exact phrase\" operators"),
     page: int = Field(1, ge=1, le=50, description="Page number for results (1-50)."),
-    pageSize: int = Field(10, ge=1, le=20, description="Number of results per page (1-20).")
+    # pageSize: int = Field(10, ge=1, le=20, description="Number of results per page (1-20).")
 ) -> KvkkSearchResult:
     """Search function for legal decisions."""
     logger.info(f"KVKK search tool called with keywords: {keywords}")
+    
+    pageSize = 10  # Default value
     
     search_request = KvkkSearchRequest(
         keywords=keywords,
