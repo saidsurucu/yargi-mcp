@@ -1,12 +1,12 @@
 [project]
 name = "yargi-mcp"
-version = "0.1.4"
+version = "0.1.5"
 description = "MCP Server For Turkish Legal Databases"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [{name = "Said Surucu", email = "saidsrc@gmail.com"}]
-keywords = ["mcp", "turkish-law", "legal", "yargitay", "danistay", "turkish", "law", "court", "decisions"]
+keywords = ["mcp", "turkish-law", "legal", "yargitay", "danistay", "bddk", "kvkk", "turkish", "law", "court", "decisions"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Legal Industry",
