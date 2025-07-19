@@ -313,6 +313,14 @@ from kvkk_mcp_module.models import (
     KvkkDocumentMarkdown
 )
 
+# BDDK Module Imports
+from bddk_mcp_module.client import BddkApiClient
+from bddk_mcp_module.models import (
+    BddkSearchRequest,
+    BddkSearchResult,
+    BddkDocumentMarkdown
+)
+
 
 app = create_app()
 
@@ -1059,6 +1067,7 @@ bedesten_client_instance = BedestenApiClient()
 sayistay_client_instance = SayistayApiClient()
 sayistay_unified_client_instance = SayistayUnifiedClient()
 kvkk_client_instance = KvkkApiClient()
+bddk_client_instance = BddkApiClient()
 
 
 KARAR_TURU_ADI_TO_GUID_ENUM_MAP = {
@@ -2091,7 +2100,8 @@ def perform_cleanup():
         globals().get('bedesten_client_instance'),
         globals().get('sayistay_client_instance'),
         globals().get('sayistay_unified_client_instance'),
-        globals().get('kvkk_client_instance')
+        globals().get('kvkk_client_instance'),
+        globals().get('bddk_client_instance')
     ]
     async def close_all_clients_async():
         tasks = []
@@ -2377,6 +2387,104 @@ async def get_kvkk_document_markdown(
             is_paginated=False,
             error_message=f"Error retrieving KVKK document: {str(e)}"
         )
+
+# --- MCP Tools for BDDK (Banking Regulation Authority) ---
+@app.tool(
+    description="Search BDDK banking regulation decisions",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": True,
+        "idempotentHint": True
+    }
+)
+async def search_bddk_decisions(
+    keywords: str = Field(..., description="Search keywords in Turkish"),
+    page: int = Field(1, ge=1, description="Page number")
+    # pageSize: int = Field(10, ge=1, le=50, description="Results per page")
+) -> dict:
+    """Search BDDK banking regulation and supervision decisions."""
+    logger.info(f"BDDK search tool called with keywords: {keywords}, page: {page}")
+    
+    pageSize = 10  # Default value
+    
+    try:
+        search_request = BddkSearchRequest(
+            keywords=keywords,
+            page=page,
+            pageSize=pageSize
+        )
+        
+        result = await bddk_client_instance.search_decisions(search_request)
+        logger.info(f"BDDK search completed. Found {len(result.decisions)} decisions on page {page}")
+        
+        return {
+            "decisions": [
+                {
+                    "title": dec.title,
+                    "document_id": dec.document_id,
+                    "content": dec.content
+                }
+                for dec in result.decisions
+            ],
+            "total_results": result.total_results,
+            "page": result.page,
+            "pageSize": result.pageSize
+        }
+    
+    except Exception as e:
+        logger.exception(f"Error searching BDDK decisions: {e}")
+        return {
+            "decisions": [],
+            "total_results": 0,
+            "page": page,
+            "pageSize": pageSize,
+            "error": str(e)
+        }
+
+@app.tool(
+    description="Get BDDK decision document as Markdown",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": False,
+        "idempotentHint": True
+    }
+)
+async def get_bddk_document_markdown(
+    document_id: str = Field(..., description="BDDK document ID (e.g., '310')"),
+    page_number: int = Field(1, ge=1, description="Page number")
+) -> dict:
+    """Retrieve BDDK decision document in Markdown format."""
+    logger.info(f"BDDK document retrieval tool called for ID: {document_id}, page: {page_number}")
+    
+    if not document_id or not document_id.strip():
+        return {
+            "document_id": document_id,
+            "markdown_content": "",
+            "page_number": page_number,
+            "total_pages": 0,
+            "error": "Document ID is required"
+        }
+    
+    try:
+        result = await bddk_client_instance.get_document_markdown(document_id, page_number)
+        logger.info(f"BDDK document retrieved successfully. Page {result.page_number}/{result.total_pages}")
+        
+        return {
+            "document_id": result.document_id,
+            "markdown_content": result.markdown_content,
+            "page_number": result.page_number,
+            "total_pages": result.total_pages
+        }
+        
+    except Exception as e:
+        logger.exception(f"Error retrieving BDDK document: {e}")
+        return {
+            "document_id": document_id,
+            "markdown_content": "",
+            "page_number": page_number,
+            "total_pages": 0,
+            "error": str(e)
+        }
 
 # --- ChatGPT Deep Research Compatible Tools ---
 
