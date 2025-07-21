@@ -244,11 +244,8 @@ def create_app(auth=None):
     if auth:
         # Set auth on existing app instead of creating new one
         app.auth = auth
-        app.name = "Yargı MCP Server"
         logger.info("MCP server created with Bearer authentication enabled")
     else:
-        # Update placeholder app name only
-        app.name = "Yargı MCP Server"
         logger.info("MCP server created with standard capabilities (FastMCP handles tools.listChanged automatically)")
     
     # Add token counting middleware
