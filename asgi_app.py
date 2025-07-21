@@ -21,8 +21,8 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 from starlette.requests import Request as StarletteRequest
 
-# Import the fully configured MCP app with all tools
-from mcp_server_main import app as mcp_server
+# Import the MCP app creator function
+from mcp_server_main import create_app
 
 # Import Stripe webhook router
 from stripe_webhook import router as stripe_router
@@ -40,41 +40,47 @@ logger = logging.getLogger(__name__)
 # Configure CORS and Auth middleware
 cors_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
-# Custom JWT authentication middleware for MCP endpoints
-class JWTAuthMiddleware:
-    def __init__(self, app):
-        self.app = app
+# Import FastMCP Bearer Auth Provider
+from fastmcp.server.auth import BearerAuthProvider
+from fastmcp.server.auth.providers.bearer import RSAKeyPair
 
-    async def __call__(self, scope, receive, send):
-        if scope["type"] == "http" and scope["path"].startswith("/mcp"):
-            # Only apply auth to MCP endpoints  
-            request = StarletteRequest(scope, receive)
-            
-            auth_header = request.headers.get("authorization")
-            if not auth_header or not auth_header.startswith("Bearer "):
-                # Return 401 for missing auth
-                response = JSONResponse(
-                    status_code=401,
-                    content={"detail": "Missing or invalid Authorization header. Bearer token required."}
-                )
-                await response(scope, receive, send)
-                return
-            
-            # Add user info to scope for downstream processing
-            token = auth_header.split(" ")[1]
-            if token.startswith("eyJ"):
-                import jwt
-                try:
-                    decoded = jwt.decode(token, options={"verify_signature": False})
-                    scope["user"] = {
-                        "user_id": decoded.get("user_id") or decoded.get("sub"),
-                        "email": decoded.get("email"),
-                        "scopes": decoded.get("scopes", ["read", "search"])
-                    }
-                except:
-                    pass
-        
-        await self.app(scope, receive, send)
+# Clerk JWT configuration for Bearer token validation
+CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
+CLERK_ISSUER = os.getenv("CLERK_ISSUER", "https://accounts.yargimcp.com")
+CLERK_PUBLISHABLE_KEY = os.getenv("CLERK_PUBLISHABLE_KEY")
+
+# Configure Bearer token authentication
+bearer_auth = None
+if CLERK_SECRET_KEY and CLERK_ISSUER:
+    # Production: Use Clerk JWKS endpoint for token validation
+    bearer_auth = BearerAuthProvider(
+        jwks_uri=f"{CLERK_ISSUER}/.well-known/jwks.json",
+        issuer=CLERK_ISSUER,
+        algorithm="RS256",
+        audience=CLERK_PUBLISHABLE_KEY,  # Use publishable key as audience
+        required_scopes=["yargi.read"]  # Global scope requirement
+    )
+    logger.info(f"Bearer auth configured with Clerk JWKS: {CLERK_ISSUER}/.well-known/jwks.json")
+else:
+    # Development: Generate RSA key pair for testing
+    logger.warning("No Clerk credentials found - using development RSA key pair")
+    dev_key_pair = RSAKeyPair.generate()
+    bearer_auth = BearerAuthProvider(
+        public_key=dev_key_pair.public_key,
+        issuer="https://dev.yargimcp.com",
+        audience="dev-mcp-server",
+        required_scopes=["yargi.read"]
+    )
+    
+    # Generate a test token for development
+    dev_token = dev_key_pair.create_token(
+        subject="dev-user",
+        issuer="https://dev.yargimcp.com",
+        audience="dev-mcp-server",
+        scopes=["yargi.read", "yargi.search"],
+        expires_in_seconds=3600 * 24  # 24 hours for development
+    )
+    logger.info(f"Development Bearer token: {dev_token}")
 
 custom_middleware = [
     Middleware(
@@ -82,15 +88,16 @@ custom_middleware = [
         allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "OPTIONS", "DELETE"],
-        allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
+        allow_headers=["Content-Type", "Authorization", "X-Request-ID", "X-Session-ID"],
     ),
-    Middleware(JWTAuthMiddleware),
 ]
 
-# Create MCP Starlette sub-application with proper middleware
+# Create MCP app with Bearer authentication
+mcp_server = create_app(auth=bearer_auth)
+
+# Create MCP Starlette sub-application with middleware  
 mcp_app = mcp_server.http_app(
-    path="/mcp",
-    middleware=custom_middleware
+    custom_middleware=custom_middleware
 )
 
 # Configure JSON encoder for proper Turkish character support
@@ -146,7 +153,7 @@ async def custom_401_handler(request: Request, exc: HTTPException):
     
     return response
 
-# Mount MCP app directly at /mcp path
+# Mount MCP app using Starlette Mount (simpler approach)
 app.mount("/mcp", mcp_app)
 
 

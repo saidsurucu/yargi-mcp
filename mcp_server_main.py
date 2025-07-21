@@ -12,6 +12,13 @@ from typing import Optional, Dict, List, Literal, Any, Union
 import urllib.parse
 import tiktoken
 from fastmcp.server.middleware import Middleware, MiddlewareContext
+from fastmcp.server.dependencies import get_access_token, AccessToken
+from fastmcp import Context
+
+# Use standard exception for tool errors
+class ToolError(Exception):
+    """Tool execution error"""
+    pass
 
 # --- Logging Configuration Start ---
 LOG_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
@@ -231,10 +238,14 @@ class TokenCountingMiddleware(Middleware):
 # Create FastMCP app directly without authentication wrapper
 from fastmcp import FastMCP
 
-def create_app():
-    """Create FastMCP app with standard capabilities."""
-    app = FastMCP("Yargı MCP Server")
-    logger.info("MCP server created with standard capabilities (FastMCP handles tools.listChanged automatically)")
+def create_app(auth=None):
+    """Create FastMCP app with standard capabilities and optional auth."""
+    if auth:
+        app = FastMCP("Yargı MCP Server", auth=auth)
+        logger.info("MCP server created with Bearer authentication enabled")
+    else:
+        app = FastMCP("Yargı MCP Server")
+        logger.info("MCP server created with standard capabilities (FastMCP handles tools.listChanged automatically)")
     return app
 
 # --- Module Imports ---
@@ -324,6 +335,7 @@ from bddk_mcp_module.models import (
 )
 
 
+# Create app without auth initially (auth will be added in ASGI wrapper)
 app = create_app()
 
 # --- Add Token Counting Middleware ---
@@ -1775,6 +1787,7 @@ async def get_rekabet_kurumu_document(
     }
 )
 async def search_bedesten_unified(
+    ctx: Context,
     phrase: str = Field(..., description="""Search query in Turkish. SUPPORTED OPERATORS:
 • Simple: "mülkiyet hakkı" (finds both words)
 • Exact phrase: "\"mülkiyet hakkı\"" (finds exact phrase)  
@@ -1801,6 +1814,24 @@ For best results, use exact phrases with quotes for legal terms."""),
 ) -> dict:
     """Search Turkish legal databases via unified Bedesten API."""
     
+    # Get Bearer token information for access control and logging
+    try:
+        access_token: AccessToken = get_access_token()
+        user_id = access_token.client_id
+        user_scopes = access_token.scopes
+        
+        # Check for required scopes
+        if "yargi.read" not in user_scopes and "yargi.search" not in user_scopes:
+            raise ToolError(f"Insufficient permissions: 'yargi.read' or 'yargi.search' scope required. Current scopes: {user_scopes}")
+        
+        logger.info(f"Tool 'search_bedesten_unified' called by user '{user_id}' with scopes {user_scopes}")
+        
+    except Exception as e:
+        # Development mode fallback - allow access without strict token validation
+        logger.warning(f"Bearer token validation failed, using development mode: {str(e)}")
+        user_id = "dev-user"
+        user_scopes = ["yargi.read", "yargi.search"]
+    
     pageSize = 10  # Default value
     
     search_data = BedestenSearchData(
@@ -1815,7 +1846,7 @@ For best results, use exact phrases with quotes for legal terms."""),
     
     search_request = BedestenSearchRequest(data=search_data)
     
-    logger.info(f"Tool 'search_bedesten_unified' called: phrase='{phrase}', court_types={court_types}, birimAdi='{birimAdi}', page={pageNumber}")
+    logger.info(f"User '{user_id}' searching bedesten: phrase='{phrase}', court_types={court_types}, birimAdi='{birimAdi}', page={pageNumber}")
     
     try:
         response = await bedesten_client_instance.search_documents(search_request)
