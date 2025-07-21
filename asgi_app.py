@@ -95,10 +95,11 @@ custom_middleware = [
 # Create MCP app with Bearer authentication
 mcp_server = create_app(auth=bearer_auth)
 
-# Create MCP Starlette sub-application with middleware  
-mcp_app = mcp_server.http_app(
-    custom_middleware=custom_middleware
-)
+# Add Starlette middleware to FastAPI (not MCP)
+# MCP already has Bearer auth, no need for additional middleware on MCP level
+
+# Create MCP Starlette sub-application  
+mcp_app = mcp_server.http_app()
 
 # Configure JSON encoder for proper Turkish character support
 import json
