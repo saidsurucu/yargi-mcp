@@ -98,8 +98,8 @@ mcp_server = create_app(auth=bearer_auth)
 # Add Starlette middleware to FastAPI (not MCP)
 # MCP already has Bearer auth, no need for additional middleware on MCP level
 
-# Create MCP Starlette sub-application with the path it will be mounted at
-mcp_app = mcp_server.http_app(path="/mcp")
+# Create MCP Starlette sub-application without path - let FastAPI mount handle it
+mcp_app = mcp_server.http_app()
 
 # Configure JSON encoder for proper Turkish character support
 import json
@@ -153,17 +153,7 @@ async def custom_401_handler(request: Request, exc: HTTPException):
     
     return response
 
-# Mount MCP app - the path is already configured in http_app(path="/mcp")
-app.mount("", mcp_app)
-
-# Set the lifespan context after mounting
-app.router.lifespan_context = mcp_app.lifespan
-
-
-# SSE transport deprecated - removed
-
-
-# FastAPI health check endpoint
+# FastAPI health check endpoint - BEFORE mounting MCP app
 @app.get("/health")
 async def health_check():
     """Health check endpoint for monitoring"""
@@ -174,6 +164,15 @@ async def health_check():
         "tools_count": len(mcp_server._tool_manager._tools),
         "auth_enabled": os.getenv("ENABLE_AUTH", "false").lower() == "true"
     })
+
+# Mount MCP app at /mcp (not at root to avoid conflicts)
+app.mount("/mcp", mcp_app)
+
+# Set the lifespan context after mounting
+app.router.lifespan_context = mcp_app.lifespan
+
+
+# SSE transport deprecated - removed
 
 # FastAPI root endpoint
 @app.get("/")
