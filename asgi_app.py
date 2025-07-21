@@ -57,8 +57,8 @@ if CLERK_SECRET_KEY and CLERK_ISSUER:
         jwks_uri=f"{CLERK_ISSUER}/.well-known/jwks.json",
         issuer=CLERK_ISSUER,
         algorithm="RS256",
-        audience=CLERK_PUBLISHABLE_KEY,  # Use publishable key as audience
-        required_scopes=["yargi.read"]  # Global scope requirement
+        audience=None,  # Disable audience validation - Clerk uses different audience format
+        required_scopes=[]  # Disable scope validation - Clerk JWT has ['read', 'search']
     )
     logger.info(f"Bearer auth configured with Clerk JWKS: {CLERK_ISSUER}/.well-known/jwks.json")
 else:
@@ -165,8 +165,15 @@ async def health_check():
         "auth_enabled": os.getenv("ENABLE_AUTH", "false").lower() == "true"
     })
 
-# Mount MCP app at /mcp (not at root to avoid conflicts)
-app.mount("/mcp", mcp_app)
+# Add explicit redirect for /mcp to /mcp/ with method preservation
+@app.api_route("/mcp", methods=["GET", "POST", "HEAD", "OPTIONS"])
+async def redirect_to_slash(request: Request):
+    """Redirect /mcp to /mcp/ preserving HTTP method with 308"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/mcp/", status_code=308)
+
+# Mount MCP app at /mcp/ with trailing slash
+app.mount("/mcp/", mcp_app)
 
 # Set the lifespan context after mounting
 app.router.lifespan_context = mcp_app.lifespan

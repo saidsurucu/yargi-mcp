@@ -240,12 +240,25 @@ from fastmcp import FastMCP
 
 def create_app(auth=None):
     """Create FastMCP app with standard capabilities and optional auth."""
+    global app
     if auth:
-        app = FastMCP("Yargı MCP Server", auth=auth)
+        # Replace placeholder app with auth-enabled app, keeping all tools/resources
+        auth_app = FastMCP("Yargı MCP Server", auth=auth)
+        # Copy all tools and resources from placeholder app to auth-enabled app
+        auth_app._tool_manager = app._tool_manager
+        auth_app._resource_manager = app._resource_manager
+        app = auth_app
         logger.info("MCP server created with Bearer authentication enabled")
     else:
-        app = FastMCP("Yargı MCP Server")
+        # Update placeholder app name
+        app.name = "Yargı MCP Server"
         logger.info("MCP server created with standard capabilities (FastMCP handles tools.listChanged automatically)")
+    
+    # Add token counting middleware
+    token_counter = TokenCountingMiddleware()
+    app.add_middleware(token_counter)
+    logger.info("Token counting middleware added to MCP server")
+    
     return app
 
 # --- Module Imports ---
@@ -335,13 +348,11 @@ from bddk_mcp_module.models import (
 )
 
 
-# Create app without auth initially (auth will be added in ASGI wrapper)
-app = create_app()
+# Create a placeholder app that will be properly initialized after tools are defined
+from fastmcp import FastMCP
 
-# --- Add Token Counting Middleware ---
-token_counter = TokenCountingMiddleware()
-app.add_middleware(token_counter)
-logger.info("Token counting middleware added to MCP server")
+# Placeholder app for decorators - will be replaced in create_app() after all tools are defined
+app = FastMCP("Yargı MCP Server Placeholder")
 
 # --- Tool Documentation Resources ---
 @app.resource("docs://tools/yargitay")
