@@ -98,7 +98,8 @@ mcp_server = create_app(auth=bearer_auth)
 # Add Starlette middleware to FastAPI (not MCP)
 # MCP already has Bearer auth, no need for additional middleware on MCP level
 
-# Create MCP Starlette sub-application  
+# Create MCP Starlette sub-application
+# When mounting, the path parameter should NOT be set here
 mcp_app = mcp_server.http_app()
 
 # Configure JSON encoder for proper Turkish character support
@@ -121,13 +122,12 @@ class UTF8JSONResponse(JSONResponse):
             separators=(",", ":"),
         ).encode("utf-8")
 
-# Create FastAPI wrapper application with MCP lifespan
+# Create FastAPI wrapper application
 app = FastAPI(
     title="Yargı MCP Server",
     description="MCP server for Turkish legal databases with OAuth authentication",
     version="0.1.0",
     middleware=custom_middleware,
-    lifespan=mcp_app.lifespan,  # MCP app lifespan
     default_response_class=UTF8JSONResponse  # Use UTF-8 JSON encoder
 )
 
@@ -154,10 +154,11 @@ async def custom_401_handler(request: Request, exc: HTTPException):
     
     return response
 
-# Mount MCP app at /mcp to handle all requests
-app.mount("/mcp", mcp_app)
+# Mount MCP app at /mcp to handle all MCP protocol requests
+# Using path="/mcp/" with trailing slash to avoid redirects
+app.mount("/mcp/", mcp_app)
 
-# Ensure lifespan is properly handled
+# Set the lifespan context after mounting
 app.router.lifespan_context = mcp_app.lifespan
 
 
