@@ -348,6 +348,19 @@ from fastmcp import FastMCP
 # Placeholder app for decorators - will be replaced in create_app() after all tools are defined
 app = FastMCP("Yargı MCP Server Placeholder")
 
+# --- Shared HTTP Client for Health Checks ---
+shared_health_check_client = None
+
+def get_or_create_health_check_client():
+    """Get or create shared httpx client for health checks."""
+    global shared_health_check_client
+    if shared_health_check_client is None:
+        shared_health_check_client = httpx.AsyncClient(
+            timeout=30.0,
+            verify=False
+        )
+    return shared_health_check_client
+
 # --- API Client Instances ---
 yargitay_client_instance = YargitayOfficialApiClient()
 danistay_client_instance = DanistayApiClient()
@@ -1417,6 +1430,14 @@ def perform_cleanup():
     ]
     async def close_all_clients_async():
         tasks = []
+        
+        # Close shared health check client first
+        global shared_health_check_client
+        if shared_health_check_client:
+            logger.info("Scheduling close for shared health check client")
+            tasks.append(shared_health_check_client.aclose())
+        
+        # Close all module clients
         for client_instance in clients_to_close:
             if client_instance and hasattr(client_instance, 'close_client_session') and callable(client_instance.close_client_session):
                 logger.info(f"Scheduling close for client session: {client_instance.__class__.__name__}")
@@ -1467,50 +1488,49 @@ async def check_government_servers_health() -> Dict[str, Any]:
             }
         }
         
-        async with httpx.AsyncClient(
-            headers={
-                "Accept": "*/*",
-                "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-                "Connection": "keep-alive",
-                "Content-Type": "application/json; charset=UTF-8",
-                "Origin": "https://karararama.yargitay.gov.tr",
-                "Referer": "https://karararama.yargitay.gov.tr/",
-                "Sec-Fetch-Dest": "empty",
-                "Sec-Fetch-Mode": "cors", 
-                "Sec-Fetch-Site": "same-origin",
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-                "X-Requested-With": "XMLHttpRequest"
-            },
-            timeout=30.0,
-            verify=False
-        ) as client:
-            response = await client.post(
-                "https://karararama.yargitay.gov.tr/aramalist",
-                json=yargitay_payload
-            )
+        client = get_or_create_health_check_client()
+        headers = {
+            "Accept": "*/*",
+            "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Connection": "keep-alive",
+            "Content-Type": "application/json; charset=UTF-8",
+            "Origin": "https://karararama.yargitay.gov.tr",
+            "Referer": "https://karararama.yargitay.gov.tr/",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors", 
+            "Sec-Fetch-Site": "same-origin",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+            "X-Requested-With": "XMLHttpRequest"
+        }
+        
+        response = await client.post(
+            "https://karararama.yargitay.gov.tr/aramalist",
+            json=yargitay_payload,
+            headers=headers
+        )
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            records_total = response_data.get("data", {}).get("recordsTotal", 0)
             
-            if response.status_code == 200:
-                response_data = response.json()
-                records_total = response_data.get("data", {}).get("recordsTotal", 0)
-                
-                if records_total > 0:
-                    health_results["yargitay"] = {
-                        "status": "healthy",
-                        "response_time_ms": response.elapsed.total_seconds() * 1000
-                    }
-                else:
-                    health_results["yargitay"] = {
-                        "status": "unhealthy",
-                        "reason": "recordsTotal is 0 or missing",
-                        "response_time_ms": response.elapsed.total_seconds() * 1000
-                    }
+            if records_total > 0:
+                health_results["yargitay"] = {
+                    "status": "healthy",
+                    "response_time_ms": response.elapsed.total_seconds() * 1000
+                }
             else:
                 health_results["yargitay"] = {
                     "status": "unhealthy", 
-                    "reason": f"HTTP {response.status_code}",
+                    "reason": "recordsTotal is 0 or missing",
                     "response_time_ms": response.elapsed.total_seconds() * 1000
                 }
-                
+        else:
+            health_results["yargitay"] = {
+                "status": "unhealthy", 
+                "reason": f"HTTP {response.status_code}",
+                "response_time_ms": response.elapsed.total_seconds() * 1000
+            }
+        
     except Exception as e:
         health_results["yargitay"] = {
             "status": "unhealthy",
@@ -1532,50 +1552,49 @@ async def check_government_servers_health() -> Dict[str, Any]:
             "paging": True
         }
         
-        async with httpx.AsyncClient(
-            headers={
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "User-Agent": "Mozilla/5.0 Health Check"
-            },
-            timeout=30.0,
-            verify=False
-        ) as client:
-            response = await client.post(
-                "https://bedesten.adalet.gov.tr/emsal-karar/searchDocuments",
-                json=bedesten_payload
-            )
-            
-            if response.status_code == 200:
-                response_data = response.json()
-                logger.debug(f"Bedesten API response: {response_data}")
-                if response_data and isinstance(response_data, dict):
-                    data_section = response_data.get("data")
-                    if data_section and isinstance(data_section, dict):
-                        total_found = data_section.get("total", 0)
-                    else:
-                        total_found = 0
+        client = get_or_create_health_check_client()
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.0 Health Check"
+        }
+        
+        response = await client.post(
+            "https://bedesten.adalet.gov.tr/emsal-karar/searchDocuments",
+            json=bedesten_payload,
+            headers=headers
+        )
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            logger.debug(f"Bedesten API response: {response_data}")
+            if response_data and isinstance(response_data, dict):
+                data_section = response_data.get("data")
+                if data_section and isinstance(data_section, dict):
+                    total_found = data_section.get("total", 0)
                 else:
                     total_found = 0
-                
-                if total_found > 0:
-                    health_results["bedesten"] = {
-                        "status": "healthy", 
-                        "response_time_ms": response.elapsed.total_seconds() * 1000
-                    }
-                else:
-                    health_results["bedesten"] = {
-                        "status": "unhealthy",
-                        "reason": "total is 0 or missing in data field",
-                        "response_time_ms": response.elapsed.total_seconds() * 1000
-                    }
+            else:
+                total_found = 0
+            
+            if total_found > 0:
+                health_results["bedesten"] = {
+                    "status": "healthy", 
+                    "response_time_ms": response.elapsed.total_seconds() * 1000
+                }
             else:
                 health_results["bedesten"] = {
                     "status": "unhealthy",
-                    "reason": f"HTTP {response.status_code}",
+                    "reason": "total is 0 or missing in data field",
                     "response_time_ms": response.elapsed.total_seconds() * 1000
                 }
-                
+        else:
+            health_results["bedesten"] = {
+                "status": "unhealthy",
+                "reason": f"HTTP {response.status_code}",
+                "response_time_ms": response.elapsed.total_seconds() * 1000
+            }
+        
     except Exception as e:
         health_results["bedesten"] = {
             "status": "unhealthy", 

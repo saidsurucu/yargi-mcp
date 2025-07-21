@@ -1,7 +1,6 @@
 # uyusmazlik_mcp_module/client.py
 
 import httpx 
-import aiohttp 
 from bs4 import BeautifulSoup
 from typing import Dict, Any, List, Optional, Union, Tuple 
 import logging
@@ -9,7 +8,7 @@ import html
 import re
 import io
 from markitdown import MarkItDown
-from urllib.parse import urljoin, urlencode # urlencode for aiohttp form data
+from urllib.parse import urljoin
 
 from .models import (
     UyusmazlikSearchRequest,
@@ -56,17 +55,21 @@ class UyusmazlikApiClient:
     # Individual documents are fetched by their full URLs obtained from search results.
 
     def __init__(self, request_timeout: float = 30.0):
-        self.request_timeout = request_timeout # Store timeout for aiohttp and httpx
-        # Headers for aiohttp search. httpx for docs will create its own.
-        self.default_aiohttp_search_headers = {
-            "Accept": "*/*", # Mimicking browser headers provided by user
-            "Accept-Encoding": "gzip, deflate, br, zstd",
-            "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-            "X-Requested-With": "XMLHttpRequest",
-            "Origin": self.BASE_URL,
-            "Referer": self.BASE_URL + "/",
-
-        }
+        self.request_timeout = request_timeout
+        # Create shared httpx client for all requests
+        self.http_client = httpx.AsyncClient(
+            base_url=self.BASE_URL,
+            headers={
+                "Accept": "*/*",
+                "Accept-Encoding": "gzip, deflate, br, zstd", 
+                "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+                "X-Requested-With": "XMLHttpRequest",
+                "Origin": self.BASE_URL,
+                "Referer": self.BASE_URL + "/",
+            },
+            timeout=request_timeout,
+            verify=False
+        )
 
 
     async def search_decisions(
@@ -107,32 +110,36 @@ class UyusmazlikApiClient:
         add_to_form_data("Hepsi", params.hepsi)
         add_to_form_data("Herhangibirisi", params.herhangi_birisi)
         add_to_form_data("NotHepsi", params.not_hepsi)
-        # X-Requested-With is handled by default_aiohttp_search_headers
 
-        search_url = urljoin(self.BASE_URL, self.SEARCH_ENDPOINT)
-        # For aiohttp, data for application/x-www-form-urlencoded should be a dict or str.
-        # Using urlencode for list of tuples.
-        encoded_form_payload = urlencode(form_data_list, encoding='UTF-8') 
+        # Convert form data to dict for httpx
+        form_data_dict = {}
+        for key, value in form_data_list:
+            if key in form_data_dict:
+                # Handle multiple values (like KararSonucuList)
+                if not isinstance(form_data_dict[key], list):
+                    form_data_dict[key] = [form_data_dict[key]]
+                form_data_dict[key].append(value)
+            else:
+                form_data_dict[key] = value
 
-        logger.info(f"UyusmazlikApiClient (aiohttp): Performing search to {search_url} with form_data: {encoded_form_payload}")
+        logger.info(f"UyusmazlikApiClient (httpx): Performing search to {self.SEARCH_ENDPOINT} with form_data: {form_data_dict}")
         
-        html_content = ""
-        aiohttp_headers = self.default_aiohttp_search_headers.copy()
-        aiohttp_headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
-
         try:
-            # Create a new session for each call for simplicity with aiohttp here
-            async with aiohttp.ClientSession(headers=aiohttp_headers) as session:
-                async with session.post(search_url, data=encoded_form_payload, timeout=self.request_timeout) as response:
-                    response.raise_for_status() # Raises ClientResponseError for 400-599
-                    html_content = await response.text(encoding='utf-8') # Ensure correct encoding
-                    logger.debug("UyusmazlikApiClient (aiohttp): Received HTML response for search.")
+            # Use shared httpx client
+            response = await self.http_client.post(
+                self.SEARCH_ENDPOINT,
+                data=form_data_dict,
+                headers={"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"}
+            )
+            response.raise_for_status()
+            html_content = response.text
+            logger.debug("UyusmazlikApiClient (httpx): Received HTML response for search.")
         
-        except aiohttp.ClientError as e:
-            logger.error(f"UyusmazlikApiClient (aiohttp): HTTP client error during search: {e}")
+        except httpx.HTTPError as e:
+            logger.error(f"UyusmazlikApiClient (httpx): HTTP client error during search: {e}")
             raise # Re-raise to be handled by the MCP tool
         except Exception as e:
-            logger.error(f"UyusmazlikApiClient (aiohttp): Error processing search request: {e}")
+            logger.error(f"UyusmazlikApiClient (httpx): Error processing search request: {e}")
             raise
 
         # --- HTML Parsing (remains the same as previous version) ---
@@ -215,10 +222,8 @@ class UyusmazlikApiClient:
         """
         logger.info(f"UyusmazlikApiClient (httpx for docs): Fetching Uyuşmazlık document for Markdown from URL: {document_url}")
         try:
-            # Using a new httpx.AsyncClient instance for this GET request for simplicity
-            async with httpx.AsyncClient(verify=False, timeout=self.request_timeout) as doc_fetch_client:
-
-                 get_response = await doc_fetch_client.get(document_url, headers={"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"})
+            # Use the existing shared http_client instead of creating a new one
+            get_response = await self.http_client.get(document_url, headers={"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"})
             get_response.raise_for_status()
             html_content_from_api = get_response.text
 
@@ -236,5 +241,9 @@ class UyusmazlikApiClient:
             raise
 
     async def close_client_session(self):
-
-        logger.info("UyusmazlikApiClient: No persistent client session from __init__ to close.")
+        """Close the shared httpx client session."""
+        if hasattr(self, 'http_client') and self.http_client:
+            await self.http_client.aclose()
+            logger.info("UyusmazlikApiClient: HTTP client session closed.")
+        else:
+            logger.info("UyusmazlikApiClient: No HTTP client session to close.")
