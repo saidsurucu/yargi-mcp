@@ -21,7 +21,7 @@ class BedestenSearchData(BaseModel):
     pageSize: int = Field(..., description="Results per page (1-10)")
     pageNumber: int = Field(..., description="Page number (1-indexed)")
     itemTypeList: List[str] = Field(..., description="Court type filter (YARGITAYKARARI/DANISTAYKARAR/YERELHUKUK/ISTINAFHUKUK/KYB)")
-    phrase: str = Field(..., description="Search phrase (use \"exact phrase\" for precise matching)")
+    phrase: str = Field(..., description="Search phrase. Supports: 'word', \"exact phrase\", +required, -exclude, AND/OR/NOT operators. No wildcards or regex.")
     birimAdi: BirimAdiEnum = Field("ALL", description="""
         Chamber filter (optional). Abbreviated values with Turkish names:
         • Yargıtay: H1-H23 (1-23. Hukuk Dairesi), C1-C23 (1-23. Ceza Dairesi), HGK (Hukuk Genel Kurulu), CGK (Ceza Genel Kurulu), BGK (Büyük Genel Kurulu), HBK (Hukuk Daireleri Başkanlar Kurulu), CBK (Ceza Daireleri Başkanlar Kurulu)

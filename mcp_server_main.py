@@ -1773,17 +1773,15 @@ async def get_rekabet_kurumu_document(
     }
 )
 async def search_bedesten_unified(
-    phrase: str = Field(..., description="""Search query in Turkish. WORKING EXAMPLES:
+    phrase: str = Field(..., description="""Search query in Turkish. SUPPORTED OPERATORS:
 • Simple: "mülkiyet hakkı" (finds both words)
 • Exact phrase: "\"mülkiyet hakkı\"" (finds exact phrase)  
 • Required term: "+mülkiyet hakkı" (must contain mülkiyet)
 • Exclude term: "mülkiyet -kira" (contains mülkiyet but not kira)
-• Wildcard: "mülk*" (mülkiyet, mülk, etc.)
-• Fuzzy: "mülkiyet~" (similar spelling variations)
-• Multiple terms: "mülkiyet AND hak" (both terms required)
-• Either term: "mülkiyet OR tapu" (either term acceptable)
-• Proximity: "\"mülkiyet hakkı\"~5" (words within 5 positions)
-• Regex: "/mülk.*/" (pattern matching)
+• Boolean AND: "mülkiyet AND hak" (both terms required)
+• Boolean OR: "mülkiyet OR tapu" (either term acceptable)
+• Boolean NOT: "mülkiyet NOT satış" (contains mülkiyet but not satış)
+NOTE: Wildcards (*,?), regex patterns (/regex/), fuzzy search (~), and proximity search are NOT supported.
 For best results, use exact phrases with quotes for legal terms."""),
     court_types: List[BedestenCourtTypeEnum] = Field(
         default=["YARGITAYKARARI", "DANISTAYKARAR"], 
