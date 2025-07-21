@@ -19,6 +19,7 @@ from fastapi.exception_handlers import http_exception_handler
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
+from starlette.requests import Request as StarletteRequest
 
 # Import the fully configured MCP app with all tools
 from mcp_server_main import app as mcp_server
@@ -36,22 +37,60 @@ BASE_URL = os.getenv("BASE_URL", "https://yargimcp.com")
 # Setup logging
 logger = logging.getLogger(__name__)
 
-# Configure CORS middleware
+# Configure CORS and Auth middleware
 cors_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+
+# Custom JWT authentication middleware for MCP endpoints
+class JWTAuthMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"].startswith("/mcp"):
+            # Only apply auth to MCP endpoints  
+            request = StarletteRequest(scope, receive)
+            
+            auth_header = request.headers.get("authorization")
+            if not auth_header or not auth_header.startswith("Bearer "):
+                # Return 401 for missing auth
+                response = JSONResponse(
+                    status_code=401,
+                    content={"detail": "Missing or invalid Authorization header. Bearer token required."}
+                )
+                await response(scope, receive, send)
+                return
+            
+            # Add user info to scope for downstream processing
+            token = auth_header.split(" ")[1]
+            if token.startswith("eyJ"):
+                import jwt
+                try:
+                    decoded = jwt.decode(token, options={"verify_signature": False})
+                    scope["user"] = {
+                        "user_id": decoded.get("user_id") or decoded.get("sub"),
+                        "email": decoded.get("email"),
+                        "scopes": decoded.get("scopes", ["read", "search"])
+                    }
+                except:
+                    pass
+        
+        await self.app(scope, receive, send)
+
 custom_middleware = [
     Middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_methods=["GET", "POST", "OPTIONS", "DELETE"],
         allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
     ),
+    Middleware(JWTAuthMiddleware),
 ]
 
-# Create MCP Starlette sub-application (without auth wrapper)
+# Create MCP Starlette sub-application with proper middleware
 mcp_app = mcp_server.http_app(
-    path="/",
-    middleware=custom_middleware
+    path="/mcp",
+    custom_middleware=custom_middleware
 )
 
 # Configure JSON encoder for proper Turkish character support
@@ -107,135 +146,8 @@ async def custom_401_handler(request: Request, exc: HTTPException):
     
     return response
 
-# Mount MCP app as sub-application at /mcp-server to avoid path conflicts
-app.mount("/mcp-server", mcp_app)
-
-# Add custom route to handle /mcp requests and forward to mounted app
-@app.api_route("/mcp", methods=["POST", "DELETE", "OPTIONS"])
-@app.api_route("/mcp/", methods=["POST", "DELETE", "OPTIONS"])
-async def mcp_protocol_handler(request: Request):
-    """Handle MCP protocol requests by forwarding to mounted app"""
-    
-    # Handle DELETE requests for session termination
-    if request.method == "DELETE":
-        logger.info("DELETE request received for session termination")
-        # For session termination, we just return 200 OK
-        # The actual session cleanup is handled by the underlying MCP transport
-        from starlette.responses import Response
-        return Response(
-            status_code=200,
-            content="Session terminated successfully"
-        )
-    
-    # REQUIRED: Validate Bearer JWT tokens for all MCP requests
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        logger.error("Missing or invalid Authorization header")
-        raise HTTPException(
-            status_code=401, 
-            detail="Missing or invalid Authorization header. Bearer token required."
-        )
-    
-    token = auth_header.split(" ")[1]
-    try:
-        # Check if this is a mock token for development/testing
-        if token.startswith("mock_clerk_jwt_"):
-            logger.info(f"Using mock JWT token for development: {token[:30]}...")
-            # For mock tokens, we'll allow access with a mock user
-            request.state.user_id = "mock_user_dev"
-            request.state.session_id = "mock_session_dev"
-            request.state.token_scopes = ["read", "search"]
-            logger.info("Mock JWT token accepted for development")
-        elif token.startswith("eyJ"):
-            # This looks like a real JWT token (starts with eyJ which is base64 encoded '{"')
-            logger.info(f"Processing real JWT token: {token[:30]}...")
-            # Validate real Clerk JWT token
-            from clerk_backend_api import Clerk, models
-            import jwt
-            
-            # Decode JWT token and extract user info
-            try:
-                decoded_token = jwt.decode(token, options={"verify_signature": False})
-                user_id = decoded_token.get("user_id") or decoded_token.get("sub")
-                user_email = decoded_token.get("email")
-                token_scopes = decoded_token.get("scopes", ["read", "search"])
-                session_id = decoded_token.get("sid", "jwt_session")
-                
-                logger.info(f"JWT token claims - user_id: {user_id}, email: {user_email}, scopes: {token_scopes}")
-                
-                if user_id and user_email:
-                    # JWT token is signed by Clerk and contains valid user info
-                    request.state.user_id = user_id
-                    request.state.user_email = user_email
-                    request.state.session_id = session_id
-                    request.state.token_scopes = token_scopes
-                    logger.info(f"Real JWT token accepted for user: {user_id}")
-                else:
-                    logger.error(f"Missing required fields in JWT token - user_id: {bool(user_id)}, email: {bool(user_email)}")
-                    raise HTTPException(
-                        status_code=401,
-                        detail="Invalid token - missing user_id or email in claims"
-                    )
-                    
-            except Exception as e:
-                logger.error(f"JWT token decoding failed: {e}")
-                raise HTTPException(
-                    status_code=401,
-                    detail="Invalid JWT token format"
-                )
-        else:
-            # Invalid token format - doesn't start with expected patterns
-            logger.error(f"Invalid token format: {token[:30]}...")
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid token format - must be a valid JWT token"
-            )
-        
-    except HTTPException:
-        # Re-raise HTTPException as-is
-        raise
-    except Exception as e:
-        logger.error(f"Bearer token validation failed: {str(e)}")
-        raise HTTPException(
-            status_code=401,
-            detail=f"Token validation failed: {str(e)}"
-        )
-    
-    # Forward the request to the mounted MCP app
-    async def receive():
-        return await request.receive()
-    
-    # Create new scope for the mounted app
-    scope = request.scope.copy()
-    scope["path"] = "/"  # Root path for mounted app
-    scope["path_info"] = "/"
-    
-    # Capture the response
-    response_parts = {"status": 200, "headers": [], "body": b""}
-    
-    async def send(message):
-        if message["type"] == "http.response.start":
-            response_parts["status"] = message["status"]
-            response_parts["headers"] = message["headers"]
-        elif message["type"] == "http.response.body":
-            response_parts["body"] += message.get("body", b"")
-    
-    # Call the mounted MCP app
-    await mcp_app(scope, receive, send)
-    
-    # Return the response
-    from starlette.responses import Response
-    
-    # Convert ASGI headers to dict
-    headers = {}
-    for name, value in response_parts["headers"]:
-        headers[name.decode()] = value.decode()
-    
-    return Response(
-        content=response_parts["body"],
-        status_code=response_parts["status"],
-        headers=headers
-    )
+# Mount MCP app directly at /mcp path
+app.mount("/mcp", mcp_app)
 
 
 # SSE transport deprecated - removed
