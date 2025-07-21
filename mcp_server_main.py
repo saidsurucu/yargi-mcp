@@ -232,8 +232,10 @@ class TokenCountingMiddleware(Middleware):
 from fastmcp import FastMCP
 
 def create_app():
-    """Create basic FastMCP app without authentication wrapper"""
-    return FastMCP("Yargı MCP Server")
+    """Create FastMCP app with standard capabilities."""
+    app = FastMCP("Yargı MCP Server")
+    logger.info("MCP server created with standard capabilities (FastMCP handles tools.listChanged automatically)")
+    return app
 
 # --- Module Imports ---
 from yargitay_mcp_module.client import YargitayOfficialApiClient
