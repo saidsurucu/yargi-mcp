@@ -242,15 +242,12 @@ def create_app(auth=None):
     """Create FastMCP app with standard capabilities and optional auth."""
     global app
     if auth:
-        # Replace placeholder app with auth-enabled app, keeping all tools/resources
-        auth_app = FastMCP("Yargı MCP Server", auth=auth)
-        # Copy all tools and resources from placeholder app to auth-enabled app
-        auth_app._tool_manager = app._tool_manager
-        auth_app._resource_manager = app._resource_manager
-        app = auth_app
+        # Set auth on existing app instead of creating new one
+        app.auth = auth
+        app.name = "Yargı MCP Server"
         logger.info("MCP server created with Bearer authentication enabled")
     else:
-        # Update placeholder app name
+        # Update placeholder app name only
         app.name = "Yargı MCP Server"
         logger.info("MCP server created with standard capabilities (FastMCP handles tools.listChanged automatically)")
     
