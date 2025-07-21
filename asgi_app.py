@@ -98,8 +98,8 @@ mcp_server = create_app(auth=bearer_auth)
 # Add Starlette middleware to FastAPI (not MCP)
 # MCP already has Bearer auth, no need for additional middleware on MCP level
 
-# Create MCP Starlette sub-application without path - let FastAPI mount handle it
-mcp_app = mcp_server.http_app()
+# Create MCP Starlette sub-application with root path - mount will add /mcp prefix
+mcp_app = mcp_server.http_app(path="/")
 
 # Configure JSON encoder for proper Turkish character support
 import json
