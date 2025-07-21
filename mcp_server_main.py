@@ -2156,6 +2156,10 @@ def ensure_playwright_browsers():
         logger.warning("KIK tool may not work properly. Manual installation: 'playwright install chromium'")
 
 def main():
+    # Initialize the app properly with create_app()
+    global app
+    app = create_app()
+    
     logger.info(f"Starting {app.name} server via main() function...")
     logger.info(f"Logs will be written to: {LOG_FILE_PATH}")
     

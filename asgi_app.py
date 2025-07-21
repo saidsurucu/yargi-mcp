@@ -49,9 +49,11 @@ CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
 CLERK_ISSUER = os.getenv("CLERK_ISSUER", "https://accounts.yargimcp.com")
 CLERK_PUBLISHABLE_KEY = os.getenv("CLERK_PUBLISHABLE_KEY")
 
-# Configure Bearer token authentication
+# Configure Bearer token authentication based on ENABLE_AUTH
+auth_enabled = os.getenv("ENABLE_AUTH", "false").lower() == "true"
 bearer_auth = None
-if CLERK_SECRET_KEY and CLERK_ISSUER:
+
+if auth_enabled and CLERK_SECRET_KEY and CLERK_ISSUER:
     # Production: Use Clerk JWKS endpoint for token validation
     bearer_auth = BearerAuthProvider(
         jwks_uri=f"{CLERK_ISSUER}/.well-known/jwks.json",
@@ -61,9 +63,9 @@ if CLERK_SECRET_KEY and CLERK_ISSUER:
         required_scopes=[]  # Disable scope validation - Clerk JWT has ['read', 'search']
     )
     logger.info(f"Bearer auth configured with Clerk JWKS: {CLERK_ISSUER}/.well-known/jwks.json")
-else:
-    # Development: Generate RSA key pair for testing
-    logger.warning("No Clerk credentials found - using development RSA key pair")
+elif auth_enabled:
+    # Development: Generate RSA key pair for testing when auth is enabled but no Clerk
+    logger.warning("Authentication enabled but no Clerk credentials - using development RSA key pair")
     dev_key_pair = RSAKeyPair.generate()
     bearer_auth = BearerAuthProvider(
         public_key=dev_key_pair.public_key,
@@ -81,6 +83,9 @@ else:
         expires_in_seconds=3600 * 24  # 24 hours for development
     )
     logger.info(f"Development Bearer token: {dev_token}")
+else:
+    # Authentication disabled - allow unauthenticated access
+    logger.info("Authentication disabled - MCP server will allow unauthenticated access")
 
 custom_middleware = [
     Middleware(
@@ -93,7 +98,13 @@ custom_middleware = [
 ]
 
 # Create MCP app with Bearer authentication
+# Import the global app that already has tools registered
+from mcp_server_main import app as mcp_server_app
 mcp_server = create_app(auth=bearer_auth)
+# Ensure we use the same app instance that has tools
+mcp_server = mcp_server_app
+if bearer_auth:
+    mcp_server.auth = bearer_auth
 
 # Add Starlette middleware to FastAPI (not MCP)
 # MCP already has Bearer auth, no need for additional middleware on MCP level
