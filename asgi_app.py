@@ -154,8 +154,11 @@ async def custom_401_handler(request: Request, exc: HTTPException):
     
     return response
 
-# Mount MCP app using Starlette Mount (simpler approach)
+# Mount MCP app at /mcp to handle all requests
 app.mount("/mcp", mcp_app)
+
+# Ensure lifespan is properly handled
+app.router.lifespan_context = mcp_app.lifespan
 
 
 # SSE transport deprecated - removed
@@ -294,48 +297,8 @@ async def oauth_authorization_server_root():
         "resource_documentation": f"{BASE_URL}/mcp"
     })
 
-# MCP endpoint info for GET requests (ChatGPT compatibility)
-@app.get("/mcp")
-async def mcp_info():
-    """MCP endpoint information for discovery"""
-    return JSONResponse({
-        "mcp_server": True,
-        "name": "Yargı MCP Server",
-        "version": "0.1.0",
-        "description": "MCP server for Turkish legal databases",
-        "protocol": "mcp/1.0",
-        "transport": ["http"],
-        "authentication_required": True,
-        "authentication": {
-            "type": "oauth2",
-            "authorization_url": "https://yargimcp.com/sign-in?redirect_url=https://api.yargimcp.com/auth/mcp-callback",
-            "token_url": f"{BASE_URL}/auth/mcp-token",
-            "scopes": ["read", "search"],
-            "provider": "clerk"
-        },
-        "endpoints": {
-            "mcp_protocol": "/mcp",
-            "discovery": "/mcp/discovery",
-            "well_known": "/.well-known/mcp",
-            "health": "/health",
-            "oauth_login": "/auth/login"
-        },
-        "capabilities": {
-            "tools": True,
-            "resources": True,
-            "prompts": False
-        },
-        "tools_count": len(mcp_server._tool_manager._tools),
-        "usage": {
-            "note": "This is an MCP server. Use POST to /mcp/ with proper MCP protocol headers.",
-            "headers_required": [
-                "Content-Type: application/json",
-                "Accept: application/json",
-                "Authorization: Bearer <token>",
-                "X-Session-ID: <session-id>"
-            ]
-        }
-    })
+# Note: GET /mcp is handled by the mounted MCP app itself
+# This prevents 405 Method Not Allowed errors on POST requests
 
 # OAuth 2.0 Protected Resource Metadata (RFC 9728) - MCP Spec Required
 @app.get("/.well-known/oauth-protected-resource")
