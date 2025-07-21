@@ -90,7 +90,7 @@ custom_middleware = [
 # Create MCP Starlette sub-application with proper middleware
 mcp_app = mcp_server.http_app(
     path="/mcp",
-    custom_middleware=custom_middleware
+    middleware=custom_middleware
 )
 
 # Configure JSON encoder for proper Turkish character support
