@@ -71,7 +71,7 @@ async def get_oauth_metadata():
     """OAuth 2.0 Authorization Server Metadata (RFC 8414)"""
     return JSONResponse({
         "issuer": BASE_URL,
-        "authorization_endpoint": f"{BASE_URL}/auth/login",
+        "authorization_endpoint": "https://yargimcp.com/mcp-callback",
         "token_endpoint": f"{BASE_URL}/token",
         "registration_endpoint": f"{BASE_URL}/register",
         "response_types_supported": ["code"],
@@ -80,81 +80,7 @@ async def get_oauth_metadata():
         "token_endpoint_auth_methods_supported": ["none"],
         "scopes_supported": ["read", "search", "openid", "profile", "email"],
         "service_documentation": f"{BASE_URL}/mcp/"
-        }
     })
-
-# Simple request OAuth endpoints (no CORS preflight required)
-@router.post("/auth/login-simple")
-async def oauth_authorize_simple(request: Request):
-    """
-    OAuth 2.1 Authorization Endpoint optimized for simple requests.
-    Uses POST with form data to avoid CORS preflight.
-    """
-    # Parse form data or JSON body
-    try:
-        if request.headers.get("content-type", "").startswith("application/json"):
-            data = await request.json()
-        else:
-            form_data = await request.form()
-            data = dict(form_data)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid request format")
-    
-    # Extract OAuth parameters
-    client_id = data.get("client_id")
-    redirect_uri = data.get("redirect_uri") 
-    response_type = data.get("response_type", "code")
-    scope = data.get("scope", "read search")
-    state = data.get("state")
-    code_challenge = data.get("code_challenge")
-    code_challenge_method = data.get("code_challenge_method")
-    
-    if not client_id or not redirect_uri:
-        raise HTTPException(status_code=400, detail="Missing required parameters")
-    
-    logger.info(f"Simple OAuth authorize request - client_id: {client_id}")
-    logger.info(f"Redirect URI: {redirect_uri}")
-    logger.info(f"State: {state}")
-    logger.info(f"PKCE Challenge: {bool(code_challenge)}")
-    
-    try:
-        # Build callback URL with all necessary parameters
-        callback_url = f"{BASE_URL}/auth/callback"
-        callback_params = {
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "state": state or "",
-            "scope": scope or "read search"
-        }
-        
-        # Add PKCE parameters if present
-        if code_challenge:
-            callback_params["code_challenge"] = code_challenge
-            callback_params["code_challenge_method"] = code_challenge_method or "S256"
-        
-        # Encode callback URL as redirect_url for Clerk
-        callback_with_params = f"{callback_url}?{urlencode(callback_params)}"
-        
-        # Build Clerk sign-in URL - use yargimcp.com frontend for JWT token generation
-        clerk_params = {
-            "redirect_url": callback_with_params
-        }
-        
-        # Use frontend MCP callback page that handles JWT token generation
-        clerk_signin_url = f"https://yargimcp.com/mcp-callback?{urlencode(clerk_params)}"
-        
-        logger.info(f"Redirecting to Clerk (simple): {clerk_signin_url}")
-        
-        # Return JSON response instead of redirect for AJAX handling
-        return JSONResponse({
-            "redirect_url": clerk_signin_url,
-            "method": "simple_post",
-            "preflight_free": True
-        })
-        
-    except Exception as e:
-        logger.exception(f"Simple authorization failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/auth/login")
 async def oauth_authorize(
@@ -197,8 +123,8 @@ async def oauth_authorize(
             "redirect_url": callback_with_params
         }
         
-        # Use frontend MCP callback page that handles JWT token generation
-        clerk_signin_url = f"https://yargimcp.com/mcp-callback?{urlencode(clerk_params)}"
+        # Use frontend sign-in page that handles JWT token generation
+        clerk_signin_url = f"https://yargimcp.com/sign-in?{urlencode(clerk_params)}"
         
         logger.info(f"Redirecting to Clerk: {clerk_signin_url}")
         
@@ -489,117 +415,6 @@ async def register_client(request: Request):
         "client_name": data.get("client_name", "MCP Client"),
         "token_endpoint_auth_method": "none"
     })
-
-# Simple token endpoint (no CORS preflight)
-@router.post("/token-simple") 
-async def token_endpoint_simple(request: Request):
-    """
-    OAuth 2.1 Token Endpoint optimized for simple requests.
-    Uses POST with application/x-www-form-urlencoded to avoid CORS preflight.
-    """
-    # Parse form data (standard OAuth 2.1 format)
-    try:
-        form_data = await request.form()
-        data = dict(form_data)
-    except Exception:
-        # Fallback to JSON if needed
-        try:
-            data = await request.json()
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid request format")
-    
-    grant_type = data.get("grant_type")
-    code = data.get("code")
-    redirect_uri = data.get("redirect_uri")
-    client_id = data.get("client_id")
-    code_verifier = data.get("code_verifier")
-    
-    logger.info(f"Simple token exchange - grant_type: {grant_type}")
-    logger.info(f"Code: {code[:20] if code else 'None'}...")
-    logger.info(f"Client ID: {client_id}")
-    logger.info(f"PKCE verifier: {bool(code_verifier)}")
-    
-    if grant_type != "authorization_code":
-        return JSONResponse(
-            status_code=400,
-            content={"error": "unsupported_grant_type"}
-        )
-    
-    if not code or not redirect_uri:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "invalid_request", "error_description": "Missing code or redirect_uri"}
-        )
-    
-    try:
-        # Validate authorization code
-        if not code.startswith("clerk_auth_"):
-            return JSONResponse(
-                status_code=400,
-                content={"error": "invalid_grant", "error_description": "Invalid authorization code"}
-            )
-        
-        # Retrieve stored JWT token using authorization code from Redis or in-memory fallback
-        stored_code_data = None
-        
-        # Try to get from Redis first, then fall back to in-memory
-        store = get_redis_session_store()
-        if store:
-            stored_code_data = store.get_oauth_code(code, delete_after_use=True)
-            if stored_code_data:
-                logger.info(f"Retrieved authorization code {code[:10]}... from Redis (simple token endpoint)")
-            else:
-                logger.warning(f"Authorization code {code[:10]}... not found in Redis (simple token endpoint)")
-        
-        # Fall back to in-memory storage if Redis unavailable or code not found
-        if not stored_code_data and hasattr(oauth_callback, '_code_storage'):
-            stored_code_data = oauth_callback._code_storage.get(code)
-            if stored_code_data:
-                # Clean up in-memory storage
-                oauth_callback._code_storage.pop(code, None)
-                logger.info(f"Retrieved authorization code {code[:10]}... from in-memory storage (simple token endpoint)")
-        
-        if not stored_code_data:
-            logger.error(f"No stored data found for authorization code: {code}")
-            return JSONResponse(
-                status_code=400,
-                content={"error": "invalid_grant", "error_description": "Authorization code not found or expired"}
-            )
-        
-        # PKCE validation successful (matching original implementation)
-        logger.info("PKCE validation successful")
-        
-        # Get the real JWT token
-        real_jwt_token = stored_code_data.get("real_jwt_token")
-        
-        if real_jwt_token:
-            logger.info("Returning real Clerk JWT token from simple token endpoint")
-            
-            return JSONResponse({
-                "access_token": real_jwt_token,
-                "token_type": "Bearer", 
-                "expires_in": 3600,
-                "scope": "read search",
-                "preflight_free": True  # Indicate this was a simple request
-            })
-        else:
-            logger.warning("No real JWT token found in simple token endpoint, generating mock token")
-            # Fallback to mock token for testing
-            mock_token = f"mock_clerk_jwt_{code}"
-            return JSONResponse({
-                "access_token": mock_token,
-                "token_type": "Bearer",
-                "expires_in": 3600,
-                "scope": "read search",
-                "preflight_free": True
-            })
-        
-    except Exception as e:
-        logger.exception(f"Simple token exchange failed: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"error": "server_error", "error_description": str(e)}
-        )
 
 @router.post("/token")
 async def token_endpoint(request: Request):
