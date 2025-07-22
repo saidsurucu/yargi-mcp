@@ -97,8 +97,8 @@ else:
 # Create MCP app with Bearer authentication
 mcp_server = create_app(auth=bearer_auth)
 
-# Create MCP Starlette sub-application with root path - mount will add /mcp prefix
-mcp_app = mcp_server.http_app(path="/")
+# Create MCP Starlette sub-application
+mcp_app = mcp_server.http_app()
 logger.info(f"MCP Starlette app created - type: {type(mcp_app)}, has routes: {hasattr(mcp_app, 'routes')}")
 
 # Debug FastMCP routes
@@ -164,15 +164,14 @@ custom_middleware = [
     ),
 ]
 
-# Create FastAPI wrapper application with MCP lifespan
+# Create FastAPI wrapper application
 app = FastAPI(
     title="Yargı MCP Server",
     description="MCP server for Turkish legal databases with OAuth authentication",
     version="0.1.0",
     middleware=custom_middleware,
     default_response_class=UTF8JSONResponse,  # Use UTF-8 JSON encoder
-    redirect_slashes=False,  # Disable to prevent 307 redirects on /mcp endpoint
-    lifespan=mcp_app.lifespan  # CRITICAL: Pass MCP lifespan to FastAPI
+    redirect_slashes=False  # Disable to prevent 307 redirects on /mcp endpoint
 )
 
 # Add Stripe webhook router to FastAPI
@@ -210,17 +209,12 @@ async def health_check():
         "auth_enabled": os.getenv("ENABLE_AUTH", "false").lower() == "true"
     }
 
-# Manual redirect endpoint for /mcp -> /mcp/ to fix 307 redirect issue
-@app.api_route("/mcp", methods=["GET", "POST", "HEAD", "OPTIONS"])
-async def redirect_mcp_to_mcp_slash(request: Request):
-    """
-    Redirect /mcp to /mcp/ preserving HTTP method (308 Permanent Redirect).
-    This fixes client compatibility when they forget the trailing slash.
-    """
+# Manual redirect endpoint for /mcp -> /mcp/ (v0.1.6 approach)
+@app.get("/mcp")
+async def redirect_mcp_to_mcp_slash():
+    """Redirect /mcp to /mcp/ preserving HTTP method with 308"""
     from fastapi.responses import RedirectResponse
-    # Build absolute URL to ensure HTTPS is preserved
-    redirect_url = str(request.url).rstrip('/') + '/'
-    return RedirectResponse(url=redirect_url, status_code=308)
+    return RedirectResponse(url="/mcp/", status_code=308)
 
 # MCP mount at /mcp handles path routing correctly
 
@@ -643,10 +637,13 @@ async def mcp_token_endpoint(request: Request):
             content={"error": "invalid_request", "error_description": e.detail}
         )
 
-# Mount MCP app at root - let FastMCP handle internal routing with manual redirect
-logger.info(f"Mounting MCP app at root - app type: {type(mcp_app)}")
-app.mount("", mcp_app)
-logger.info("MCP app mounted successfully at root")
+# Mount MCP app at /mcp/ with trailing slash (v0.1.6 approach)
+app.mount("/mcp/", mcp_app)
+
+# Set the lifespan context after mounting
+app.router.lifespan_context = mcp_app.lifespan
+
+logger.info("MCP app mounted successfully at /mcp/")
 
 # Export for uvicorn
 __all__ = ["app"]
