@@ -60,14 +60,16 @@ bearer_auth = None
 
 if auth_enabled and CLERK_SECRET_KEY and CLERK_ISSUER:
     # Production: Use Clerk JWKS endpoint for token validation
+    # JWT token shows issuer as "https://clerk.yargimcp.com", so use that for JWKS
+    jwt_issuer = "https://clerk.yargimcp.com"
     bearer_auth = BearerAuthProvider(
-        jwks_uri=f"{CLERK_ISSUER}/.well-known/jwks.json",
-        issuer=None,  # Disable issuer validation - allow flexible issuers
+        jwks_uri=f"{jwt_issuer}/.well-known/jwks.json",
+        issuer=jwt_issuer,  # Enable issuer validation with correct issuer
         algorithm="RS256",
         audience=None,  # Disable audience validation - Clerk tokens vary
         required_scopes=[]  # Disable scope validation - rely on token presence
     )
-    logger.info(f"Bearer auth configured with Clerk JWKS: {CLERK_ISSUER}/.well-known/jwks.json (audience + issuer disabled)")
+    logger.info(f"Bearer auth configured with Clerk JWKS: {jwt_issuer}/.well-known/jwks.json (issuer validation enabled)")
 elif auth_enabled:
     # Development: Generate RSA key pair for testing when auth is enabled but no Clerk
     logger.warning("Authentication enabled but no Clerk credentials - using development RSA key pair")
