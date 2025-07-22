@@ -222,8 +222,9 @@ class UyusmazlikApiClient:
         """
         logger.info(f"UyusmazlikApiClient (httpx for docs): Fetching Uyuşmazlık document for Markdown from URL: {document_url}")
         try:
-            # Use the existing shared http_client instead of creating a new one
-            get_response = await self.http_client.get(document_url, headers={"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"})
+            # Using a new httpx.AsyncClient instance for this GET request for simplicity
+            async with httpx.AsyncClient(verify=False, timeout=self.request_timeout) as doc_fetch_client:
+                 get_response = await doc_fetch_client.get(document_url, headers={"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"})
             get_response.raise_for_status()
             html_content_from_api = get_response.text
 
@@ -246,4 +247,4 @@ class UyusmazlikApiClient:
             await self.http_client.aclose()
             logger.info("UyusmazlikApiClient: HTTP client session closed.")
         else:
-            logger.info("UyusmazlikApiClient: No HTTP client session to close.")
+            logger.info("UyusmazlikApiClient: No persistent client session from __init__ to close.")

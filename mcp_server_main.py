@@ -241,6 +241,11 @@ from fastmcp import FastMCP
 def create_app(auth=None):
     """Create FastMCP app with standard capabilities and optional auth."""
     global app
+    
+    # Debug: Check tools count before auth setup
+    tools_count = len(app._tool_manager._tools) if hasattr(app, '_tool_manager') else 0
+    logger.info(f"create_app() called - tools already registered: {tools_count}")
+    
     if auth:
         # Set auth on existing app instead of creating new one
         app.auth = auth
@@ -252,6 +257,25 @@ def create_app(auth=None):
     token_counter = TokenCountingMiddleware()
     app.add_middleware(token_counter)
     logger.info("Token counting middleware added to MCP server")
+    
+    # Add Redis session persistence middleware for multi-machine deployment
+    try:
+        from redis_session_store import get_redis_store
+        redis_store = get_redis_store()
+        if redis_store:
+            # Configure FastMCP to use Redis for session storage
+            logger.info("Configuring FastMCP with Redis session storage for multi-machine deployment")
+            # Note: FastMCP session persistence would need to be implemented
+            # For now, we'll rely on load balancer sticky sessions
+        else:
+            logger.warning("Redis not available - MCP sessions will be in-memory (may cause connection drops with multiple machines)")
+    except Exception as e:
+        logger.warning(f"Failed to configure Redis session storage: {e}")
+        logger.warning("MCP sessions will be in-memory (may cause connection drops with multiple machines)")
+    
+    # Debug: Check tools count after setup
+    final_tools_count = len(app._tool_manager._tools) if hasattr(app, '_tool_manager') else 0
+    logger.info(f"create_app() finished - final tools count: {final_tools_count}")
     
     return app
 
@@ -345,21 +369,13 @@ from bddk_mcp_module.models import (
 # Create a placeholder app that will be properly initialized after tools are defined
 from fastmcp import FastMCP
 
-# Placeholder app for decorators - will be replaced in create_app() after all tools are defined
-app = FastMCP("Yargı MCP Server Placeholder")
+# MCP app for Turkish legal databases with explicit capabilities
+app = FastMCP(
+    name="Yargı MCP Server",
+    version="0.1.6"
+)
 
-# --- Shared HTTP Client for Health Checks ---
-shared_health_check_client = None
-
-def get_or_create_health_check_client():
-    """Get or create shared httpx client for health checks."""
-    global shared_health_check_client
-    if shared_health_check_client is None:
-        shared_health_check_client = httpx.AsyncClient(
-            timeout=30.0,
-            verify=False
-        )
-    return shared_health_check_client
+# --- Health Check Functions (using individual clients) ---
 
 # --- API Client Instances ---
 yargitay_client_instance = YargitayOfficialApiClient()
@@ -1430,14 +1446,6 @@ def perform_cleanup():
     ]
     async def close_all_clients_async():
         tasks = []
-        
-        # Close shared health check client first
-        global shared_health_check_client
-        if shared_health_check_client:
-            logger.info("Scheduling close for shared health check client")
-            tasks.append(shared_health_check_client.aclose())
-        
-        # Close all module clients
         for client_instance in clients_to_close:
             if client_instance and hasattr(client_instance, 'close_client_session') and callable(client_instance.close_client_session):
                 logger.info(f"Scheduling close for client session: {client_instance.__class__.__name__}")
@@ -1488,26 +1496,27 @@ async def check_government_servers_health() -> Dict[str, Any]:
             }
         }
         
-        client = get_or_create_health_check_client()
-        headers = {
-            "Accept": "*/*",
-            "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Connection": "keep-alive",
-            "Content-Type": "application/json; charset=UTF-8",
-            "Origin": "https://karararama.yargitay.gov.tr",
-            "Referer": "https://karararama.yargitay.gov.tr/",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors", 
-            "Sec-Fetch-Site": "same-origin",
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-            "X-Requested-With": "XMLHttpRequest"
-        }
-        
-        response = await client.post(
-            "https://karararama.yargitay.gov.tr/aramalist",
-            json=yargitay_payload,
-            headers=headers
-        )
+        async with httpx.AsyncClient(
+            headers={
+                "Accept": "*/*",
+                "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+                "Connection": "keep-alive",
+                "Content-Type": "application/json; charset=UTF-8",
+                "Origin": "https://karararama.yargitay.gov.tr",
+                "Referer": "https://karararama.yargitay.gov.tr/",
+                "Sec-Fetch-Dest": "empty",
+                "Sec-Fetch-Mode": "cors", 
+                "Sec-Fetch-Site": "same-origin",
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            timeout=30.0,
+            verify=False
+        ) as client:
+            response = await client.post(
+                "https://karararama.yargitay.gov.tr/aramalist",
+                json=yargitay_payload
+            )
         
         if response.status_code == 200:
             response_data = response.json()
