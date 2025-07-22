@@ -11,6 +11,10 @@ COPY pyproject.toml poetry.lock* requirements*.txt* ./
 RUN pip install --no-cache-dir uv && \
     uv pip install --system --no-cache-dir .[asgi,saas]
 
+# Cache buster - force rebuild
+ARG CACHE_BUST=202507221015
+RUN echo "Cache bust: $CACHE_BUST"
+
 # Copy application source
 COPY . .
 
