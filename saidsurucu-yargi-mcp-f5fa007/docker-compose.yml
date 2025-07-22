@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  yargi-mcp:
+    build: .
+    image: yargi-mcp:latest
+    container_name: yargi-mcp-server
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+      - API_TOKEN=${API_TOKEN:-}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mount logs directory
+      - ./logs:/app/logs
+      # Mount .env file if it exists
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - yargi-network
+
+  # Optional: Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: yargi-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - yargi-mcp
+    networks:
+      - yargi-network
+    profiles:
+      - production
+
+  # Optional: Redis for caching (future enhancement)
+  redis:
+    image: redis:alpine
+    container_name: yargi-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - yargi-network
+    profiles:
+      - with-cache
+
+networks:
+  yargi-network:
+    driver: bridge
+
+volumes:
+  redis-data:
