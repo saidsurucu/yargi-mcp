@@ -241,41 +241,17 @@ from fastmcp import FastMCP
 def create_app(auth=None):
     """Create FastMCP app with standard capabilities and optional auth."""
     global app
-    
-    # Debug: Check tools count before auth setup
-    tools_count = len(app._tool_manager._tools) if hasattr(app, '_tool_manager') else 0
-    logger.info(f"create_app() called - tools already registered: {tools_count}")
-    
     if auth:
-        # Set auth on existing app instead of creating new one
         app.auth = auth
+        app.name = "Yargı MCP Server"
         logger.info("MCP server created with Bearer authentication enabled")
     else:
-        logger.info("MCP server created with standard capabilities (FastMCP handles tools.listChanged automatically)")
+        app.name = "Yargı MCP Server"
+        logger.info("MCP server created with standard capabilities...")
     
-    # Add token counting middleware
     token_counter = TokenCountingMiddleware()
     app.add_middleware(token_counter)
     logger.info("Token counting middleware added to MCP server")
-    
-    # Add Redis session persistence middleware for multi-machine deployment
-    try:
-        from redis_session_store import get_redis_store
-        redis_store = get_redis_store()
-        if redis_store:
-            # Configure FastMCP to use Redis for session storage
-            logger.info("Configuring FastMCP with Redis session storage for multi-machine deployment")
-            # Note: FastMCP session persistence would need to be implemented
-            # For now, we'll rely on load balancer sticky sessions
-        else:
-            logger.warning("Redis not available - MCP sessions will be in-memory (may cause connection drops with multiple machines)")
-    except Exception as e:
-        logger.warning(f"Failed to configure Redis session storage: {e}")
-        logger.warning("MCP sessions will be in-memory (may cause connection drops with multiple machines)")
-    
-    # Debug: Check tools count after setup
-    final_tools_count = len(app._tool_manager._tools) if hasattr(app, '_tool_manager') else 0
-    logger.info(f"create_app() finished - final tools count: {final_tools_count}")
     
     return app
 
