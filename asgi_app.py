@@ -97,8 +97,8 @@ else:
 # Create MCP app with Bearer authentication
 mcp_server = create_app(auth=bearer_auth)
 
-# Create MCP Starlette sub-application
-mcp_app = mcp_server.http_app()
+# Create MCP Starlette sub-application with root path - mount will add /mcp prefix
+mcp_app = mcp_server.http_app(path="/")
 logger.info(f"MCP Starlette app created - type: {type(mcp_app)}, has routes: {hasattr(mcp_app, 'routes')}")
 
 # Debug FastMCP routes
@@ -209,9 +209,9 @@ async def health_check():
         "auth_enabled": os.getenv("ENABLE_AUTH", "false").lower() == "true"
     }
 
-# Manual redirect endpoint for /mcp -> /mcp/ (support all HTTP methods)
+# Add explicit redirect for /mcp to /mcp/ with method preservation
 @app.api_route("/mcp", methods=["GET", "POST", "HEAD", "OPTIONS"])
-async def redirect_mcp_to_mcp_slash():
+async def redirect_to_slash(request: Request):
     """Redirect /mcp to /mcp/ preserving HTTP method with 308"""
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/mcp/", status_code=308)
