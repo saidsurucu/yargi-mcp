@@ -209,8 +209,8 @@ async def health_check():
         "auth_enabled": os.getenv("ENABLE_AUTH", "false").lower() == "true"
     }
 
-# Manual redirect endpoint for /mcp -> /mcp/ (v0.1.6 approach)
-@app.get("/mcp")
+# Manual redirect endpoint for /mcp -> /mcp/ (support all HTTP methods)
+@app.api_route("/mcp", methods=["GET", "POST", "HEAD", "OPTIONS"])
 async def redirect_mcp_to_mcp_slash():
     """Redirect /mcp to /mcp/ preserving HTTP method with 308"""
     from fastapi.responses import RedirectResponse
