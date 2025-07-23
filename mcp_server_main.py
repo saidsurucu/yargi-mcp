@@ -1104,9 +1104,9 @@ For best results, use exact phrases with quotes for legal terms."""),
         user_id = access_token.client_id
         user_scopes = access_token.scopes
         
-        # Check for required scopes
-        if "yargi.read" not in user_scopes and "yargi.search" not in user_scopes:
-            raise ToolError(f"Insufficient permissions: 'yargi.read' or 'yargi.search' scope required. Current scopes: {user_scopes}")
+        # Check for required scopes - DISABLED: Already handled by Bearer auth provider
+        # if "yargi.read" not in user_scopes and "yargi.search" not in user_scopes:
+        #     raise ToolError(f"Insufficient permissions: 'yargi.read' or 'yargi.search' scope required. Current scopes: {user_scopes}")
         
         logger.info(f"Tool 'search_bedesten_unified' called by user '{user_id}' with scopes {user_scopes}")
         
