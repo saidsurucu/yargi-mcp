@@ -1145,9 +1145,13 @@ For best results, use exact phrases with quotes for legal terms."""),
                 "error": "No data returned from Bedesten API"
             }
         
+        # Add null safety checks for response.data fields
+        emsal_karar_list = response.data.emsalKararList if hasattr(response.data, 'emsalKararList') and response.data.emsalKararList is not None else []
+        total_records = response.data.total if hasattr(response.data, 'total') and response.data.total is not None else 0
+        
         return {
-            "decisions": [d.model_dump() for d in response.data.emsalKararList],
-            "total_records": response.data.total,
+            "decisions": [d.model_dump() for d in emsal_karar_list],
+            "total_records": total_records,
             "requested_page": pageNumber,
             "page_size": pageSize,
             "searched_courts": court_types
