@@ -102,8 +102,22 @@ class BedestenApiClient:
             response_json = response.json()
             doc_response = BedestenDocumentResponse(**response_json)
             
-            # Decode base64 content
-            content_bytes = base64.b64decode(doc_response.data.content)
+            # Add null safety checks for document data
+            if not hasattr(doc_response, 'data') or doc_response.data is None:
+                raise ValueError("Document response does not contain data")
+            
+            if not hasattr(doc_response.data, 'content') or doc_response.data.content is None:
+                raise ValueError("Document data does not contain content")
+                
+            if not hasattr(doc_response.data, 'mimeType') or doc_response.data.mimeType is None:
+                raise ValueError("Document data does not contain mimeType")
+            
+            # Decode base64 content with error handling
+            try:
+                content_bytes = base64.b64decode(doc_response.data.content)
+            except Exception as e:
+                raise ValueError(f"Failed to decode base64 content: {str(e)}")
+            
             mime_type = doc_response.data.mimeType
             
             logger.info(f"BedestenApiClient: Document mime type: {mime_type}")
