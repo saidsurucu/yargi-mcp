@@ -27,7 +27,8 @@ ENV PORT=8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD python -c "import httpx, os, sys; r=httpx.get(f'http://localhost:{os.getenv(\"PORT\",\"8000\")}/health'); sys.exit(0 if r.status_code==200 else 1)"
 
-EXPOSE 8000
+ENV PORT=8001
+EXPOSE 8001
 
 # -------- Entrypoint -------------------------------------------------------
 CMD ["uvicorn", "asgi_app:app", "--host", "0.0.0.0", "--port", "8001", "--proxy-headers"]
