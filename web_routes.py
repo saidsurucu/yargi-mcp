@@ -19,16 +19,6 @@ logger = logging.getLogger(__name__)
 class SearchRequest(BaseModel):
     query: str
     court_type: Optional[str] = None
-    date_start: Optional[str] = None
-    date_end: Optional[str] = None
-
-class SearchResult(BaseModel):
-    id: str
-    title: str
-    court: str
-    date: str
-    summary: str
-    url: Optional[str] = None
 
 @web_router.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -39,76 +29,28 @@ async def home(request: Request):
 async def search_api(search_request: SearchRequest):
     """Arama API endpoint'i"""
     try:
-        # Import MCP tools here to avoid circular imports
-        from yargi_mcp.bedesten_unified_client import search_bedesten_unified
-        from yargi_mcp.emsal_client import search_emsal_detailed_decisions
-        
-        results = []
-        
-        # Determine which API to call based on court_type
-        if not search_request.court_type or search_request.court_type in ["", "yargitay", "danistay"]:
-            # Use unified Bedesten API
-            try:
-                if search_request.court_type == "yargitay":
-                    court_types = ["yargitay"]
-                elif search_request.court_type == "danistay":
-                    court_types = ["danistay"]
-                else:
-                    court_types = ["yargitay", "danistay", "yerel_hukuk"]
-                
-                bedesten_results = await search_bedesten_unified(
-                    phrase=search_request.query,
-                    court_types=court_types,
-                    birimAdi="",
-                    kararTarihiStart=search_request.date_start,
-                    kararTarihiEnd=search_request.date_end,
-                    pageSize=10
-                )
-                
-                # Convert bedesten results to our format
-                if bedesten_results.get("success") and bedesten_results.get("data"):
-                    for item in bedesten_results["data"][:10]:  # Limit to 10 results
-                        results.append(SearchResult(
-                            id=item.get("documentId", ""),
-                            title=item.get("baslik", "Başlık Yok")[:100] + "...",
-                            court=get_court_name(item.get("mahkeme", "")),
-                            date=format_date(item.get("kararTarihi", "")),
-                            summary=item.get("icerik", "")[:200] + "..." if item.get("icerik") else "Özet mevcut değil",
-                            url=item.get("url", "")
-                        ))
-                        
-            except Exception as e:
-                logger.error(f"Bedesten search error: {e}")
-        
-        elif search_request.court_type == "emsal":
-            # Use Emsal API
-            try:
-                emsal_results = await search_emsal_detailed_decisions(
-                    keyword=search_request.query,
-                    pageSize=10
-                )
-                
-                if emsal_results.get("success") and emsal_results.get("data"):
-                    for item in emsal_results["data"][:10]:
-                        results.append(SearchResult(
-                            id=item.get("id", ""),
-                            title=item.get("baslik", "Başlık Yok")[:100] + "...",
-                            court="Emsal (UYAP)",
-                            date=format_date(item.get("tarih", "")),
-                            summary=item.get("ozet", "")[:200] + "..." if item.get("ozet") else "Özet mevcut değil",
-                            url=item.get("url", "")
-                        ))
-                        
-            except Exception as e:
-                logger.error(f"Emsal search error: {e}")
-        
-        # Convert results to dict for JSON response
-        results_dict = [result.dict() for result in results]
+        # Basit mock sonuçlar (şimdilik)
+        results = [
+            {
+                "id": "test-1",
+                "title": "Örnek Yargıtay Kararı",
+                "court": "Yargıtay 1. Hukuk Dairesi",
+                "date": "2024-07-27",
+                "summary": f"'{search_request.query}' ile ilgili örnek karar özeti..."
+            },
+            {
+                "id": "test-2", 
+                "title": "Örnek Danıştay Kararı",
+                "court": "Danıştay 5. Daire",
+                "date": "2024-07-26",
+                "summary": f"'{search_request.query}' konusunda örnek idari karar..."
+            }
+        ]
         
         return JSONResponse({
             "success": True,
-            "results": results_dict,
-            "total": len(results_dict),
+            "results": results,
+            "total": len(results),
             "query": search_request.query
         })
         
@@ -124,17 +66,29 @@ async def search_api(search_request: SearchRequest):
 async def view_document(request: Request, document_id: str):
     """Doküman detay sayfası"""
     try:
-        # Import document retrieval functions
-        from yargi_mcp.bedesten_unified_client import get_bedesten_document_markdown
+        # Mock document content
+        content = f"""
+        # Örnek Karar Metni
         
-        # Try to get document content
-        document_content = await get_bedesten_document_markdown(document_id)
+        **Karar ID:** {document_id}
         
-        if document_content.get("success"):
-            content = document_content.get("content", "İçerik bulunamadı")
-            title = document_content.get("title", "Karar Detayı")
-        else:
-            content = "Doküman içeriği alınamadı."
-            title = "Hata"
-            
-        return templates.TemplateRespon
+        ## Karar Özeti
+        Bu örnek bir karar metnider. Gerçek MCP entegrasyonu sonraki aşamada eklenecektir.
+        
+        ## Hukuki Gerekçe
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit...
+        
+        ## Sonuç
+        Karar bu şekilde verilmiştir.
+        """
+        
+        return templates.TemplateResponse("document.html", {
+            "request": request,
+            "document_id": document_id,
+            "title": f"Karar {document_id}",
+            "content": content
+        })
+        
+    except Exception as e:
+        logger.error(f"Document view error: {e}")
+        raise HTTPException(status_code=404, detail="Doküman bulunamadı")
