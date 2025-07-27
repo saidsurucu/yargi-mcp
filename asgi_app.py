@@ -617,13 +617,14 @@ __all__ = ["app"]
 # ============================================================================
 # WEB UI INTEGRATION - GEÇİCİ DEVRE DIŞI
 # ============================================================================
+from fastapi.staticfiles import StaticFiles
+# from web_routes import web_router  # WEB ROUTES KAPALI
 
-# from fastapi.staticfiles import StaticFiles
-# from web_routes import web_router
+# Static files (CSS, JS, images) - AKTİF
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# # Static files (CSS, JS, images)
-# app.mount("/static", StaticFiles(directory="static"), name="static")
-
+# # Web routes (HTML pages) - KAPALI
+# app.include_router(web_router)
 # # Web routes (HTML pages)
 # app.include_router(web_router)
 
