@@ -615,17 +615,17 @@ logger.info("MCP app mounted successfully at /mcp/")
 # Export for uvicorn
 __all__ = ["app"]
 # ============================================================================
-# WEB UI INTEGRATION - Eklenen Bölüm
+# WEB UI INTEGRATION - GEÇİCİ DEVRE DIŞI
 # ============================================================================
 
-from fastapi.staticfiles import StaticFiles
-from web_routes import web_router
+# from fastapi.staticfiles import StaticFiles
+# from web_routes import web_router
 
-# Static files (CSS, JS, images)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# # Static files (CSS, JS, images)
+# app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Web routes (HTML pages)
-app.include_router(web_router)
+# # Web routes (HTML pages)
+# app.include_router(web_router)
 
 # Health check endpoint for web UI
 @app.get("/health")
@@ -641,13 +641,11 @@ async def api_info():
         "service": "Yargı MCP API",
         "version": "1.0.0",
         "endpoints": {
-            "web": "/",
             "mcp": "/mcp/",
-            "health": "/health",
-            "search": "/api/search"
+            "health": "/health"
         }
     }
 
-print("🌐 Web UI enabled - Access at http://your-domain/")
-print("🔍 Search API available at http://your-domain/api/search")
+print("🔧 Web UI temporarily disabled - MCP API only")
 print("💚 Health check at http://your-domain/health")
+print("🔗 MCP endpoint at http://your-domain/mcp/")
