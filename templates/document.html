@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - Yargı MCP</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/style.css" rel="stylesheet">
+    <style>
+        .document-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            line-height: 1.8;
+        }
+        
+        .document-header {
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .btn-back {
+            background: linear-gradient(45deg, #6c757d, #495057);
+            border: none;
+            color: white;
+        }
+        
+        .btn-back:hover {
+            transform: translateY(-2px);
+            color: white;
+        }
+        
+        .copy-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        .markdown-content h1,
+        .markdown-content h2,
+        .markdown-content h3 {
+            color: #2c3e50;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+        
+        .markdown-content p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+        
+        .markdown-content strong {
+            color: #667eea;
+        }
+        
+        .document-id {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.9em;
+            border-left: 3px solid #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4 mb-5">
+        <div class="document-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1>📄 {{ title }}</h1>
+                    <div class="document-id">
+                        <strong>Doküman ID:</strong> {{ document_id }}
+                    </div>
+                </div>
+                <div>
+                    <a href="/" class="btn btn-back">
+                        ← Ana Sayfaya Dön
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="document-content">
+            <div class="markdown-content">
+                {{ content | safe }}
+            </div>
+        </div>
+        
+        <!-- Copy button -->
+        <button class="btn btn-primary copy-btn" onclick="copyContent()" title="İçeriği Kopyala">
+            📋
+        </button>
+        
+        <!-- Loading overlay for copy operations -->
+        <div id="copyToast" class="position-fixed top-0 end-0 p-3" style="z-index: 9999; display: none;">
+            <div class="toast show" role="alert">
+                <div class="toast-body bg-success text-white rounded">
+                    ✅ İçerik kopyalandı!
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <script>
+        // Convert markdown to HTML if needed
+        document.addEventListener('DOMContentLoaded', function() {
+            const content = document.querySelector('.markdown-content');
+            const htmlContent = content.innerHTML;
+            
+            // Check if content looks like markdown
+            if (htmlContent.includes('##') || htmlContent.includes('**') || htmlContent.includes('*')) {
+                // Convert markdown to HTML
+                content.innerHTML = marked.parse(htmlContent);
+            }
+        });
+        
+        function copyContent() {
+            const content = document.querySelector('.markdown-content').innerText;
+            
+            navigator.clipboard.writeText(content).then(() => {
+                // Show success toast
+                const toast = document.getElementById('copyToast');
+                toast.style.display = 'block';
+                
+                setTimeout(() => {
+                    toast.style.display = 'none';
+                }, 3000);
+            }).catch(err => {
+                console.error('Copy failed:', err);
+                alert('Kopyalama başarısız!');
+            });
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+C for copy
+            if (e.ctrlKey && e.key === 'c' && !window.getSelection().toString()) {
+                copyContent();
+                e.preventDefault();
+            }
+            
+            // Escape to go back
+            if (e.key === 'Escape') {
+                window.location.href = '/';
+            }
+        });
+        
+        // Print functionality
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'p') {
+                window.print();
+                e.preventDefault();
+            }
+        });
+    </script>
+    
+    <style media="print">
+        .btn, .copy-btn, .document-header .btn-back {
+            display: none !important;
+        }
+        
+        .container {
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        
+        .document-content {
+            box-shadow: none !important;
+            border: none !important;
+        }
+    </style>
+</body>
+</html>
