@@ -12,7 +12,7 @@ Usage:
 import os
 import time
 import logging
-import json
+from token_manager import persistent_token_manager
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.responses import JSONResponse, HTMLResponse, Response
@@ -168,13 +168,18 @@ async def custom_401_handler(request: Request, exc: HTTPException):
 @app.get("/health")
 async def health_check():
     """Health check endpoint for monitoring"""
+    # Token manager stats
+    token_stats = persistent_token_manager.get_token_stats()
+    
     return {
         "status": "healthy",
         "service": "Yargı MCP Server",
         "version": "0.1.0",
-        "tools_count": len(mcp_server._tool_manager._tools),
-        "auth_enabled": os.getenv("ENABLE_AUTH", "false").lower() == "true"
-    }
+        "tools_count": 21,
+        "auth_enabled": os.getenv("ENABLE_AUTH", "false").lower() == "true",
+        "token_manager": "active",
+        "token_stats": token_stats
+    } 
 
 # Add explicit redirect for /mcp to /mcp/ with method preservation
 @app.api_route("/mcp", methods=["GET", "POST", "HEAD", "OPTIONS"])
