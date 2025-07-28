@@ -218,3 +218,7 @@ token_manager = PersistentTokenManager()
 def get_development_token(user_id: str = "dev-user") -> str:
     """Get a development token (for testing)"""
     return token_manager.get_valid_token(user_id)
+persistent_token_manager = PersistentTokenManager()
+def get_development_token(user_id: str = "dev-user") -> str:
+    """Get a development token (for testing)"""
+    return persistent_token_manager.get_valid_token(user_id)
