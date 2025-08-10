@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from yargi_mcp import MCPApp
+from yargitay_mcp_module import MCPApp   # ✅ Doğru paket adı
 import os, jwt
 from datetime import datetime, timedelta
 
@@ -20,7 +20,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 app = FastAPI(
-    title="Yargı MCP API",
+    title="Yargıtay MCP API",
     description="Web UI + JWT Auth + MCP API",
     version="1.1.0"
 )
@@ -36,7 +36,7 @@ def health():
 @app.get("/")
 def root():
     return {
-        "message": "Yargı MCP API aktif",
+        "message": "Yargıtay MCP API aktif",
         "docs_url": "/docs",
         "mcp_api": "/mcp"
     }
