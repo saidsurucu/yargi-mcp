@@ -1542,12 +1542,24 @@ This ASGI support transforms the Yargı MCP server into a versatile web service 
 **Authentication**: ✅ **OAuth 2.0 + Bearer JWT** - Cross-origin authentication working
 **Last Updated**: 2025-01-21 - All critical issues resolved
 
+**Free Deployment**: `https://yargi-mcp-free.fly.dev` - No authentication required
+**Status**: ✅ **OPERATIONAL** - Authorization disabled for open access
+**Use Case**: Development, testing, and open-source usage without OAuth setup
+
 #### Live Production Endpoints
+
+**Authenticated Deployment (api.yargimcp.com)**:
 - **Health Check**: https://api.yargimcp.com/health
 - **OAuth Login**: https://api.yargimcp.com/auth/login  
 - **MCP Endpoint (HTTP)**: https://api.yargimcp.com/mcp/
 - **MCP Endpoint (SSE)**: https://api.yargimcp.com/sse/
 - **OAuth Discovery**: https://api.yargimcp.com/.well-known/oauth-authorization-server
+
+**Free Deployment (yargi-mcp-free.fly.dev)**:
+- **Health Check**: https://yargi-mcp-free.fly.dev/health
+- **MCP Endpoint (HTTP)**: https://yargi-mcp-free.fly.dev/mcp/
+- **MCP Endpoint (SSE)**: https://yargi-mcp-free.fly.dev/sse/
+- **Direct Access**: No authentication required - immediate usage
 
 ### Redis Configuration (Fly.io Native Upstash) ✅
 
@@ -1631,6 +1643,8 @@ ENABLE_AUTH=true
 ```
 
 #### MCP Connection Details for Claude AI
+
+**Authenticated Production (api.yargimcp.com)**:
 ```
 MCP Server URL (HTTP): https://api.yargimcp.com/mcp/
 MCP Server URL (SSE): https://api.yargimcp.com/sse/
@@ -1638,6 +1652,15 @@ OAuth Authorization: https://api.yargimcp.com/authorize
 Token Exchange: https://api.yargimcp.com/token
 Authentication: OAuth 2.0 with PKCE + JWT tokens + Bearer JWT (optional)
 Transports: HTTP (Streamable) + SSE (Server-Sent Events)
+```
+
+**Free Open Access (yargi-mcp-free.fly.dev)**:
+```
+MCP Server URL (HTTP): https://yargi-mcp-free.fly.dev/mcp/
+MCP Server URL (SSE): https://yargi-mcp-free.fly.dev/sse/
+Authentication: None - Direct access
+Transports: HTTP (Streamable) + SSE (Server-Sent Events)
+Use Case: Development, testing, immediate usage without OAuth setup
 ```
 
 #### SSE Transport Implementation ✅
@@ -2068,6 +2091,17 @@ build-backend = "setuptools.build_meta"
   - ✅ 308 redirect for /mcp endpoint
   - ✅ Session management and tool discovery
 - **Claude AI**: Successfully connects and uses all Turkish legal database tools
+
+#### ✅ Bedesten Tools Null Safety Fixes (Completed - Jul 23, 2025)
+- **Issue**: TypeError "cannot convert undefined or null to object" in Bedesten search and document tools
+- **Root Cause**: API responses containing null/undefined fields without proper validation
+- **Fixes Applied**:
+  - ✅ **Search Function**: Added null safety checks for `response.data.emsalKararList` and `response.data.total`
+  - ✅ **Document Function**: Added comprehensive validation for `doc_response.data`, `content`, and `mimeType` fields
+  - ✅ **Error Handling**: Added descriptive error messages and graceful fallbacks
+  - ✅ **Base64 Decoding**: Protected base64 operations with try-catch blocks
+- **Result**: Bedesten tools now handle API edge cases gracefully without crashing
+- **Production Status**: Deployed and operational on api.yargimcp.com
 
 ### Key Features
 - **FastMCP Framework**: Modern MCP server implementation
