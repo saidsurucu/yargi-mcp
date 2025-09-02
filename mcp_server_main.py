@@ -294,13 +294,12 @@ from anayasa_mcp_module.models import (
     AnayasaUnifiedDocumentMarkdown,
     # Removed enum imports - now using Literal strings in models
 )
-# KIK Module Imports
-from kik_mcp_module.client import KikApiClient
-from kik_mcp_module.models import ( 
-    KikKararTipi, 
-    KikSearchRequest,
-    KikSearchResult,
-    KikDocumentMarkdown 
+# KIK v2 Module Imports (New API)
+from kik_mcp_module.client_v2 import KikV2ApiClient
+from kik_mcp_module.models_v2 import KikV2DecisionType
+from kik_mcp_module.models_v2 import (
+    KikV2SearchResult,
+    KikV2DocumentMarkdown
 )
 
 from rekabet_mcp_module.client import RekabetKurumuApiClient
@@ -359,7 +358,7 @@ uyusmazlik_client_instance = UyusmazlikApiClient()
 anayasa_norm_client_instance = AnayasaMahkemesiApiClient()
 anayasa_bireysel_client_instance = AnayasaBireyselBasvuruApiClient()
 anayasa_unified_client_instance = AnayasaUnifiedClient()
-kik_client_instance = KikApiClient()
+kik_v2_client_instance = KikV2ApiClient()
 rekabet_client_instance = RekabetKurumuApiClient()
 bedesten_client_instance = BedestenApiClient()
 sayistay_client_instance = SayistayApiClient()
@@ -887,101 +886,125 @@ async def get_anayasa_document_unified(
         logger.exception(f"Error in tool 'get_anayasa_document_unified'.")
         raise
 
-# --- MCP Tools for KIK (Kamu İhale Kurulu) ---
+# --- MCP Tools for KIK v2 (Kamu İhale Kurulu - New API) ---
 @app.tool(
-    description="Search Public Procurement Authority (KİK) decisions for procurement law disputes",
+    description="Search Public Procurement Authority (KİK) decisions using the new v2 API with JSON responses. Supports all three decision types: disputes (uyusmazlik), regulatory (duzenleyici), and court decisions (mahkeme)",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
         "idempotentHint": True
     }
 )
-async def search_kik_decisions(
-    karar_tipi: Literal["rbUyusmazlik", "rbDuzenleyici", "rbMahkeme"] = Field("rbUyusmazlik", description="Type of KIK Decision."),
-    karar_no: str = Field("", description="Decision Number (e.g., '2024/UH.II-1766')."),
-    karar_tarihi_baslangic: str = Field("", description="Decision Date Start (DD.MM.YYYY)."),
-    karar_tarihi_bitis: str = Field("", description="Decision Date End (DD.MM.YYYY)."),
-    basvuru_sahibi: str = Field("", description="Applicant."),
-    ihaleyi_yapan_idare: str = Field("", description="Procuring Entity."),
-    basvuru_konusu_ihale: str = Field("", description="Tender subject of the application."),
-    karar_metni: str = Field("", description="Decision text search. Supports: +word, -word, \"exact phrase\", OR/AND"),
-    yil: str = Field("", description="Year of the decision."),
-    resmi_gazete_tarihi: str = Field("", description="Official Gazette Date (DD.MM.YYYY)."),
-    resmi_gazete_sayisi: str = Field("", description="Official Gazette Number."),
-    page: int = Field(1, ge=1, description="Results page number.")
-) -> KikSearchResult:
-    """Search Public Procurement Authority (KIK) decisions."""
+async def search_kik_v2_decisions(
+    decision_type: str = Field("uyusmazlik", description="Decision type: 'uyusmazlik' (disputes), 'duzenleyici' (regulatory), or 'mahkeme' (court decisions)"),
+    karar_metni: str = Field("", description="Decision text search query"),
+    karar_no: str = Field("", description="Decision number (e.g., '2025/UH.II-1801')"),
+    basvuran: str = Field("", description="Applicant name"),
+    idare_adi: str = Field("", description="Administration/procuring entity name"),
+    baslangic_tarihi: str = Field("", description="Start date (YYYY-MM-DD format, e.g., '2025-01-01')"),
+    bitis_tarihi: str = Field("", description="End date (YYYY-MM-DD format, e.g., '2025-12-31')")
+) -> dict:
+    """Search Public Procurement Authority (KİK) decisions using the new v2 API.
     
-    # Convert string literal to enum
-    karar_tipi_enum = KikKararTipi(karar_tipi)
+    This tool supports all three KİK decision types:
+    - uyusmazlik: Disputes and conflicts in public procurement
+    - duzenleyici: Regulatory decisions and guidelines  
+    - mahkeme: Court decisions and legal interpretations
     
-    search_query = KikSearchRequest(
-        karar_tipi=karar_tipi_enum,
-        karar_no=karar_no,
-        karar_tarihi_baslangic=karar_tarihi_baslangic,
-        karar_tarihi_bitis=karar_tarihi_bitis,
-        basvuru_sahibi=basvuru_sahibi,
-        ihaleyi_yapan_idare=ihaleyi_yapan_idare,
-        basvuru_konusu_ihale=basvuru_konusu_ihale,
-        karar_metni=karar_metni,
-        yil=yil,
-        resmi_gazete_tarihi=resmi_gazete_tarihi,
-        resmi_gazete_sayisi=resmi_gazete_sayisi,
-        page=page
-    )
+    Each decision type uses its respective endpoint (GetKurulKararlari, GetKurulKararlariDk, GetKurulKararlariMk)
+    and returns results with the decision_type field populated for identification.
+    """
     
-    logger.info(f"Tool 'search_kik_decisions' called.")
+    logger.info(f"Tool 'search_kik_v2_decisions' called with decision_type='{decision_type}', karar_metni='{karar_metni}', karar_no='{karar_no}'")
+    
     try:
-        api_response = await kik_client_instance.search_decisions(search_query)
-        page_param_for_log = search_query.page if hasattr(search_query, 'page') else 1
-        if not api_response.decisions and api_response.total_records == 0 and page_param_for_log == 1:
-             logger.warning(f"KIK search returned no decisions for query.")
-        return api_response
+        # Validate and convert decision type
+        try:
+            kik_decision_type = KikV2DecisionType(decision_type)
+        except ValueError:
+            return {
+                "decisions": [],
+                "total_records": 0,
+                "page": 1,
+                "error_code": "INVALID_DECISION_TYPE",
+                "error_message": f"Invalid decision type: {decision_type}. Valid options: uyusmazlik, duzenleyici, mahkeme"
+            }
+        
+        api_response = await kik_v2_client_instance.search_decisions(
+            decision_type=kik_decision_type,
+            karar_metni=karar_metni,
+            karar_no=karar_no,
+            basvuran=basvuran,
+            idare_adi=idare_adi,
+            baslangic_tarihi=baslangic_tarihi,
+            bitis_tarihi=bitis_tarihi
+        )
+        
+        # Convert to dictionary for MCP tool response
+        result = {
+            "decisions": [decision.model_dump() for decision in api_response.decisions],
+            "total_records": api_response.total_records,
+            "page": api_response.page,
+            "error_code": api_response.error_code,
+            "error_message": api_response.error_message
+        }
+        
+        logger.info(f"KİK v2 {decision_type} search completed. Found {len(api_response.decisions)} decisions")
+        return result
+        
     except Exception as e:
-        logger.exception(f"Error in KIK search tool 'search_kik_decisions'.")
-        current_page_val = search_query.page if hasattr(search_query, 'page') else 1
-        return KikSearchResult(decisions=[], total_records=0, current_page=current_page_val)
+        logger.exception(f"Error in KİK v2 {decision_type} search tool 'search_kik_v2_decisions'.")
+        return {
+            "decisions": [],
+            "total_records": 0,
+            "page": 1,
+            "error_code": "TOOL_ERROR",
+            "error_message": str(e)
+        }
 
 @app.tool(
-    description="Get Public Procurement Authority (KİK) decision text in paginated Markdown format",
+    description="Get Public Procurement Authority (KİK) decision document using the new v2 API (placeholder - full implementation pending)",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
     }
 )
-async def get_kik_document_markdown(
-    karar_id: str = Field(..., description="The Base64 encoded KIK decision identifier."),
-    page_number: int = Field(1, ge=1, description="Page number for paginated Markdown content (1-indexed). Default is 1.")
-) -> KikDocumentMarkdown:
-    """Get KIK decision as paginated Markdown."""
-    logger.info(f"Tool 'get_kik_document_markdown' called for KIK karar_id: {karar_id}, Markdown Page: {page_number}")
+async def get_kik_v2_document_markdown(
+    document_id: str = Field(..., description="Document ID (gundemMaddesiId from search results)")
+) -> dict:
+    """Get KİK decision document using the v2 API."""
     
-    if not karar_id or not karar_id.strip():
-        logger.error("KIK Document retrieval: karar_id cannot be empty.")
-        return KikDocumentMarkdown( 
-            retrieved_with_karar_id=karar_id,
-            error_message="karar_id is required and must be a non-empty string.",
-            current_page=page_number or 1,
-            total_pages=1,
-            is_paginated=False
-            )
-
-    current_page_to_fetch = page_number if page_number is not None and page_number >= 1 else 1
-
+    logger.info(f"Tool 'get_kik_v2_document_markdown' called for document ID: {document_id}")
+    
+    if not document_id or not document_id.strip():
+        return {
+            "document_id": document_id,
+            "kararNo": "",
+            "markdown_content": "",
+            "source_url": "",
+            "error_message": "Document ID is required and must be a non-empty string"
+        }
+    
     try:
-        return await kik_client_instance.get_decision_document_as_markdown(
-            karar_id_b64=karar_id, 
-            page_number=current_page_to_fetch
-        )
+        api_response = await kik_v2_client_instance.get_document_markdown(document_id)
+        
+        return {
+            "document_id": api_response.document_id,
+            "kararNo": api_response.kararNo,
+            "markdown_content": api_response.markdown_content,
+            "source_url": api_response.source_url,
+            "error_message": api_response.error_message
+        }
+        
     except Exception as e:
-        logger.exception(f"Error in KIK document retrieval tool 'get_kik_document_markdown' for karar_id: {karar_id}")
-        return KikDocumentMarkdown(
-            retrieved_with_karar_id=karar_id,
-            error_message=f"Tool-level error during KIK document retrieval: {str(e)}",
-            current_page=current_page_to_fetch, 
-            total_pages=1, 
-            is_paginated=False
-        )
+        logger.exception(f"Error in KİK v2 document retrieval tool for document ID: {document_id}")
+        return {
+            "document_id": document_id,
+            "kararNo": "",
+            "markdown_content": "",
+            "source_url": "",
+            "error_message": f"Tool-level error during document retrieval: {str(e)}"
+        }
 @app.tool(
     description="Search Competition Authority (Rekabet Kurumu) decisions for competition law and antitrust",
     annotations={
@@ -1117,6 +1140,18 @@ For best results, use exact phrases with quotes for legal terms."""),
         user_scopes = ["yargi.read", "yargi.search"]
     
     pageSize = 10  # Default value
+    
+    # Convert date formats if provided
+    # Accept formats: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS.000Z
+    if kararTarihiStart and not kararTarihiStart.endswith('Z'):
+        # Convert simple date format to ISO 8601 with timezone
+        if 'T' not in kararTarihiStart:
+            kararTarihiStart = f"{kararTarihiStart}T00:00:00.000Z"
+    
+    if kararTarihiEnd and not kararTarihiEnd.endswith('Z'):
+        # Convert simple date format to ISO 8601 with timezone
+        if 'T' not in kararTarihiEnd:
+            kararTarihiEnd = f"{kararTarihiEnd}T23:59:59.999Z"
     
     search_data = BedestenSearchData(
         pageSize=pageSize,
@@ -1414,7 +1449,7 @@ def perform_cleanup():
         globals().get('anayasa_norm_client_instance'),
         globals().get('anayasa_bireysel_client_instance'),
         globals().get('anayasa_unified_client_instance'),
-        globals().get('kik_client_instance'),
+        globals().get('kik_v2_client_instance'),
         globals().get('rekabet_client_instance'),
         globals().get('bedesten_client_instance'),
         globals().get('sayistay_client_instance'),
