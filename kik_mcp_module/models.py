@@ -1,5 +1,5 @@
 # kik_mcp_module/models.py
-from pydantic import BaseModel, Field, HttpUrl, computed_field, ConfigDict
+from pydantic import BaseModel, Field, computed_field, ConfigDict
 from typing import List, Optional
 from enum import Enum
 import base64 # Base64 encoding/decoding için

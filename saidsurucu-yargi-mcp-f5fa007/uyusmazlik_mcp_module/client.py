@@ -3,7 +3,7 @@
 import httpx 
 import aiohttp 
 from bs4 import BeautifulSoup
-from typing import Dict, Any, List, Optional, Union, Tuple 
+from typing import List, Optional, Tuple 
 import logging
 import html
 import re

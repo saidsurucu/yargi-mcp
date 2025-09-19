@@ -1,8 +1,7 @@
 # bedesten_mcp_module/models.py
 
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Literal, Union
-from datetime import datetime
+from typing import List, Optional, Dict, Any, Literal
 
 # Import compressed BirimAdiEnum for chamber filtering
 from .enums import BirimAdiEnum

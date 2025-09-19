@@ -1,13 +1,12 @@
 # bddk_mcp_module/client.py
 
 import httpx
-from typing import List, Optional, Dict, Any
+from typing import Optional
 import logging
 import os
 import re
 import io
 import math
-from urllib.parse import urlparse
 from markitdown import MarkItDown
 
 from .models import (

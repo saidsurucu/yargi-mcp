@@ -1,7 +1,7 @@
 # rekabet_mcp_module/models.py
 
 from pydantic import BaseModel, Field, HttpUrl
-from typing import List, Optional, Any
+from typing import List, Optional
 from enum import Enum
 
 # Enum for decision type GUIDs (used by the client and expected by the website)

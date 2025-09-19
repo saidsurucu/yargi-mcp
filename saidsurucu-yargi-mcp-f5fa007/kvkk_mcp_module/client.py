@@ -2,13 +2,13 @@
 
 import httpx
 from bs4 import BeautifulSoup
-from typing import List, Optional, Dict, Any
+from typing import Optional, Dict, Any
 import logging
 import os
 import re
 import io
 import math
-from urllib.parse import urljoin, urlparse, parse_qs
+from urllib.parse import urlparse
 from markitdown import MarkItDown
 from pydantic import HttpUrl
 

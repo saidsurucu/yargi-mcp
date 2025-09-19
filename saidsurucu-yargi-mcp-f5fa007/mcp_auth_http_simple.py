@@ -6,7 +6,7 @@ Uses Redis for authorization code storage to support multi-machine deployment
 import os
 import logging
 from typing import Optional
-from urllib.parse import urlencode, quote
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request, Query, HTTPException
 from fastapi.responses import RedirectResponse, JSONResponse
@@ -39,7 +39,6 @@ def get_redis_session_store():
     if redis_store is None:
         try:
             import concurrent.futures
-            import functools
             
             # Use thread pool with timeout to prevent hanging
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
@@ -206,7 +205,6 @@ async def oauth_callback(
             auth_code = f"clerk_auth_{os.urandom(16).hex()}"
             
             # Prepare code data
-            import time
             code_data = {
                 "user_id": user_id,
                 "session_id": session_id,
@@ -225,7 +223,7 @@ async def oauth_callback(
                 if success:
                     logger.info(f"Stored authorization code {auth_code[:10]}... in Redis with real JWT token")
                 else:
-                    logger.error(f"Failed to store authorization code in Redis, falling back to in-memory")
+                    logger.error("Failed to store authorization code in Redis, falling back to in-memory")
                     # Fall back to in-memory storage
                     if not hasattr(oauth_callback, '_code_storage'):
                         oauth_callback._code_storage = {}
@@ -236,7 +234,7 @@ async def oauth_callback(
                 if not hasattr(oauth_callback, '_code_storage'):
                     oauth_callback._code_storage = {}
                 oauth_callback._code_storage[auth_code] = code_data
-                logger.info(f"Stored authorization code in memory (fallback)")
+                logger.info("Stored authorization code in memory (fallback)")
             
             # Redirect back to client with authorization code
             redirect_params = {

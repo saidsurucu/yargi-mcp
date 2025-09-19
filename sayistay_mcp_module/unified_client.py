@@ -2,8 +2,6 @@
 # Unified client for all three Sayıştay decision types
 
 import logging
-from typing import Optional, Dict, Any
-from urllib.parse import urlparse
 
 from .models import (
     SayistayUnifiedSearchRequest,

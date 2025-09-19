@@ -1,20 +1,16 @@
 # yargitay_mcp_module/client.py
 
 import httpx
-from bs4 import BeautifulSoup # Still needed for pre-processing HTML before markitdown
-from typing import Dict, Any, List, Optional
+from typing import Optional
 import logging
 import html
-import re
 import io
 from markitdown import MarkItDown
 
 from .models import (
     YargitayDetailedSearchRequest,
     YargitayApiSearchResponse,      
-    YargitayApiDecisionEntry,
-    YargitayDocumentMarkdown,     
-    CompactYargitaySearchResult 
+    YargitayDocumentMarkdown 
 )
 
 logger = logging.getLogger(__name__)

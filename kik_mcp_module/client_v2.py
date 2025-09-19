@@ -1,13 +1,9 @@
 # kik_mcp_module/client_v2.py
 
 import httpx
-import requests
 import logging
 import uuid
-import base64
 import ssl
-from typing import Optional
-from datetime import datetime
 
 from .models_v2 import (
     KikV2DecisionType, KikV2SearchPayload, KikV2SearchPayloadDk, KikV2SearchPayloadMk,

@@ -10,16 +10,13 @@ Usage:
 """
 
 import os
-import time
 import logging
 import json
-from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.responses import JSONResponse, HTMLResponse, Response
 from fastapi.exception_handlers import http_exception_handler
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
 
 # Import the proper create_app function that includes all middleware
 from mcp_server_main import create_app
@@ -505,14 +502,14 @@ async def mcp_oauth_callback(request: Request, clerk_token: str = Query(None)):
         logger.info("User authenticated successfully via Clerk")
         
         # Return success response
-        return HTMLResponse(f"""
+        return HTMLResponse("""
         <html>
             <head>
                 <title>MCP Connection Successful</title>
                 <style>
-                    body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; }}
-                    .success {{ color: #28a745; }}
-                    .token {{ background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; word-break: break-all; }}
+                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                    .success { color: #28a745; }
+                    .token { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; word-break: break-all; }
                 </style>
             </head>
             <body>
@@ -525,13 +522,13 @@ async def mcp_oauth_callback(request: Request, clerk_token: str = Query(None)):
                 <p>You can now close this window and return to your MCP client.</p>
                 <script>
                     // Try to close the popup if opened as such
-                    if (window.opener) {{
-                        window.opener.postMessage({{
+                    if (window.opener) {
+                        window.opener.postMessage({
                             type: 'MCP_AUTH_SUCCESS',
                             token: 'use_clerk_jwt_token'
-                        }}, '*');
+                        }, '*');
                         setTimeout(() => window.close(), 3000);
-                    }}
+                    }
                 </script>
             </body>
         </html>

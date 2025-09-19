@@ -8,7 +8,6 @@ and trying to reverse engineer the hash generation logic.
 import asyncio
 import json
 import hashlib
-import hmac
 import base64
 from fastmcp import Client
 from mcp_server_main import app
@@ -152,7 +151,7 @@ async def test_hash_generation_comprehensive():
                 
                 # Test with first decision
                 sample_decision = decisions[0]
-                print(f"\n📋 Sample decision for hash analysis:")
+                print("\n📋 Sample decision for hash analysis:")
                 for key, value in sample_decision.items():
                     print(f"   {key}: {value}")
                 
@@ -162,20 +161,20 @@ async def test_hash_generation_comprehensive():
                 all_hashes = {}
                 
                 # Test different hash generation methods
-                print(f"\n🔨 Testing webpack-style hashing...")
+                print("\n🔨 Testing webpack-style hashing...")
                 webpack_hashes = test_webpack_style_hashing(sample_decision)
                 all_hashes.update(webpack_hashes)
                 
-                print(f"🔨 Testing Angular routing hashes...")  
+                print("🔨 Testing Angular routing hashes...")  
                 angular_hashes = test_angular_routing_hashes(sample_decision)
                 all_hashes.update(angular_hashes)
                 
-                print(f"🔨 Testing base64 encoding variants...")
+                print("🔨 Testing base64 encoding variants...")
                 b64_hashes = test_base64_encoding_variants(sample_decision)
                 all_hashes.update(b64_hashes)
                 
                 # Check for matches
-                print(f"\n🎯 Checking for hash matches...")
+                print("\n🎯 Checking for hash matches...")
                 matches_found = []
                 partial_matches = []
                 
@@ -191,13 +190,13 @@ async def test_hash_generation_comprehensive():
                         print(f"   🔍 Partial match (last 8): {hash_name} -> ...{hash_value[-16:]}")
                 
                 if not matches_found and not partial_matches:
-                    print(f"   ❌ No matches found")
-                    print(f"\n📝 Sample generated hashes (first 10):")
+                    print("   ❌ No matches found")
+                    print("\n📝 Sample generated hashes (first 10):")
                     for i, (hash_name, hash_value) in enumerate(list(all_hashes.items())[:10]):
                         print(f"   {hash_name}: {hash_value}")
                 
                 # Try combinations with other decisions
-                print(f"\n🔄 Testing hash combinations with multiple decisions...")
+                print("\n🔄 Testing hash combinations with multiple decisions...")
                 if len(decisions) > 1:
                     for i, decision in enumerate(decisions[1:3]):  # Test 2 more
                         print(f"\n   Testing decision {i+2}: {decision.get('kararNo')}")
@@ -209,7 +208,7 @@ async def test_hash_generation_comprehensive():
                                 matches_found.append((f"decision_{i+2}_{hash_name}", hash_value))
                 
                 # Try composite hashes (combining multiple fields)
-                print(f"\n🔗 Testing composite hash generation...")
+                print("\n🔗 Testing composite hash generation...")
                 composite_tests = [
                     f"{sample_decision.get('gundemMaddesiId')}_{sample_decision.get('kararNo')}",
                     f"{sample_decision.get('kararNo')}_{sample_decision.get('kararTarihi')}",
@@ -224,7 +223,7 @@ async def test_hash_generation_comprehensive():
                         print(f"   🎉 COMPOSITE MATCH FOUND: test_{i} -> {composite_str[:50]}...")
                         matches_found.append((f"composite_{i}", composite_hash))
                         
-                print(f"\n🎯 Hash analysis completed!")
+                print("\n🎯 Hash analysis completed!")
                 print(f"   Total matches found: {len(matches_found)}")
                 print(f"   Partial matches: {len(partial_matches)}")
                 

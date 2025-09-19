@@ -1,7 +1,7 @@
 # kvkk_mcp_module/models.py
 
 from pydantic import BaseModel, Field, HttpUrl
-from typing import List, Optional, Any
+from typing import List, Optional
 
 class KvkkSearchRequest(BaseModel):
     """Model for KVKK (Personal Data Protection Authority) search request via Brave API."""

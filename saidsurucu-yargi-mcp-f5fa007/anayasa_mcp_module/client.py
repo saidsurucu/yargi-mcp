@@ -3,12 +3,12 @@
 
 import httpx
 from bs4 import BeautifulSoup
-from typing import Dict, Any, List, Optional, Tuple
+from typing import List, Optional, Tuple
 import logging
 import html
 import re
 import io
-from urllib.parse import urlencode, urljoin, quote
+from urllib.parse import urljoin
 from markitdown import MarkItDown
 import math # For math.ceil for pagination
 

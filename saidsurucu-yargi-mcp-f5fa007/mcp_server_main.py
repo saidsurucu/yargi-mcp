@@ -8,8 +8,7 @@ import json
 import time
 from collections import defaultdict
 from pydantic import HttpUrl, Field 
-from typing import Optional, Dict, List, Literal, Any, Union
-import urllib.parse
+from typing import Dict, List, Literal, Any
 import tiktoken
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.server.dependencies import get_access_token, AccessToken
@@ -159,7 +158,7 @@ class TokenCountingMiddleware(Middleware):
             
             return result
             
-        except Exception as e:
+        except Exception:
             duration_ms = (time.perf_counter() - start_time) * 1000
             self.log_token_usage("tool_call_error", input_tokens, 0, 
                                tool_name, duration_ms)
@@ -189,7 +188,7 @@ class TokenCountingMiddleware(Middleware):
             
             return result
             
-        except Exception as e:
+        except Exception:
             duration_ms = (time.perf_counter() - start_time) * 1000
             self.log_token_usage("resource_read_error", 0, 0, 
                                resource_uri, duration_ms)
@@ -219,7 +218,7 @@ class TokenCountingMiddleware(Middleware):
             
             return result
             
-        except Exception as e:
+        except Exception:
             duration_ms = (time.perf_counter() - start_time) * 1000
             self.log_token_usage("prompt_get_error", 0, 0, 
                                prompt_name, duration_ms)
@@ -260,10 +259,6 @@ def create_app(auth=None):
 
 # --- Module Imports ---
 from yargitay_mcp_module.client import YargitayOfficialApiClient
-from yargitay_mcp_module.models import (
-    YargitayDetailedSearchRequest, YargitayDocumentMarkdown, CompactYargitaySearchResult,
-    YargitayBirimEnum, CleanYargitayDecisionEntry
-)
 from bedesten_mcp_module.client import BedestenApiClient
 from bedesten_mcp_module.models import (
     BedestenSearchRequest, BedestenSearchData,
@@ -271,10 +266,6 @@ from bedesten_mcp_module.models import (
 )
 from bedesten_mcp_module.enums import BirimAdiEnum
 from danistay_mcp_module.client import DanistayApiClient
-from danistay_mcp_module.models import (
-    DanistayKeywordSearchRequest, DanistayDetailedSearchRequest,
-    DanistayDocumentMarkdown, CompactDanistaySearchResult
-)
 from emsal_mcp_module.client import EmsalApiClient
 from emsal_mcp_module.models import (
     EmsalSearchRequest, EmsalDocumentMarkdown, CompactEmsalSearchResult
@@ -288,15 +279,7 @@ from anayasa_mcp_module.client import AnayasaMahkemesiApiClient
 from anayasa_mcp_module.bireysel_client import AnayasaBireyselBasvuruApiClient
 from anayasa_mcp_module.unified_client import AnayasaUnifiedClient
 from anayasa_mcp_module.models import (
-    AnayasaNormDenetimiSearchRequest,
-    AnayasaSearchResult,
-    AnayasaDocumentMarkdown,
-    AnayasaBireyselReportSearchRequest,
-    AnayasaBireyselReportSearchResult,
-    AnayasaBireyselBasvuruDocumentMarkdown,
     AnayasaUnifiedSearchRequest,
-    AnayasaUnifiedSearchResult,
-    AnayasaUnifiedDocumentMarkdown,
     # Removed enum imports - now using Literal strings in models
 )
 # KIK Module Imports
@@ -318,14 +301,9 @@ from rekabet_mcp_module.models import (
 
 from sayistay_mcp_module.client import SayistayApiClient
 from sayistay_mcp_module.models import (
-    GenelKurulSearchRequest, GenelKurulSearchResponse,
-    TemyizKuruluSearchRequest, TemyizKuruluSearchResponse,
-    DaireSearchRequest, DaireSearchResponse,
-    SayistayDocumentMarkdown,
     SayistayUnifiedSearchRequest, SayistayUnifiedSearchResult,
     SayistayUnifiedDocumentMarkdown
 )
-from sayistay_mcp_module.enums import DaireEnum, KamuIdaresiTuruEnum, WebKararKonusuEnum
 from sayistay_mcp_module.unified_client import SayistayUnifiedClient
 
 # KVKK Module Imports
@@ -339,14 +317,11 @@ from kvkk_mcp_module.models import (
 # BDDK Module Imports
 from bddk_mcp_module.client import BddkApiClient
 from bddk_mcp_module.models import (
-    BddkSearchRequest,
-    BddkSearchResult,
-    BddkDocumentMarkdown
+    BddkSearchRequest
 )
 
 
 # Create a placeholder app that will be properly initialized after tools are defined
-from fastmcp import FastMCP
 
 # Placeholder app for decorators - will be replaced in create_app() after all tools are defined
 app = FastMCP("Yargı MCP Server Placeholder")
@@ -1372,7 +1347,7 @@ async def search_emsal_detailed_decisions(
         page_size=page_size
     )
     
-    logger.info(f"Tool 'search_emsal_detailed_decisions' called.")
+    logger.info("Tool 'search_emsal_detailed_decisions' called.")
     try:
         api_response = await emsal_client_instance.search_detailed_decisions(search_query)
         if api_response.data:
@@ -1384,8 +1359,8 @@ async def search_emsal_detailed_decisions(
             )
         logger.warning("API response for Emsal search did not contain expected data structure.")
         return CompactEmsalSearchResult(decisions=[], total_records=0, requested_page=search_query.page_number, page_size=search_query.page_size)
-    except Exception as e:
-        logger.exception(f"Error in tool 'search_emsal_detailed_decisions'.")
+    except Exception:
+        logger.exception("Error in tool 'search_emsal_detailed_decisions'.")
         raise
 
 @app.tool(
@@ -1401,8 +1376,8 @@ async def get_emsal_document_markdown(id: str) -> EmsalDocumentMarkdown:
     if not id or not id.strip(): raise ValueError("Document ID required for Emsal.")
     try:
         return await emsal_client_instance.get_decision_document_as_markdown(id)
-    except Exception as e:
-        logger.exception(f"Error in tool 'get_emsal_document_markdown'.")
+    except Exception:
+        logger.exception("Error in tool 'get_emsal_document_markdown'.")
         raise
 
 # --- MCP Tools for Uyusmazlik ---
@@ -1470,11 +1445,11 @@ async def search_uyusmazlik_decisions(
         not_hepsi=not_hepsi
     )
     
-    logger.info(f"Tool 'search_uyusmazlik_decisions' called.")
+    logger.info("Tool 'search_uyusmazlik_decisions' called.")
     try:
         return await uyusmazlik_client_instance.search_decisions(search_params)
-    except Exception as e:
-        logger.exception(f"Error in tool 'search_uyusmazlik_decisions'.")
+    except Exception:
+        logger.exception("Error in tool 'search_uyusmazlik_decisions'.")
         raise
 
 @app.tool(
@@ -1493,8 +1468,8 @@ async def get_uyusmazlik_document_markdown_from_url(
         raise ValueError("Document URL (document_url) is required for Uyuşmazlık document retrieval.")
     try:
         return await uyusmazlik_client_instance.get_decision_document_as_markdown(str(document_url))
-    except Exception as e:
-        logger.exception(f"Error in tool 'get_uyusmazlik_document_markdown_from_url'.")
+    except Exception:
+        logger.exception("Error in tool 'get_uyusmazlik_document_markdown_from_url'.")
         raise
 
 # --- DEACTIVATED: MCP Tools for Anayasa Mahkemesi (Individual Tools) ---
@@ -1585,8 +1560,8 @@ async def search_anayasa_unified(
         result = await anayasa_unified_client_instance.search_unified(request)
         return json.dumps(result.model_dump(), ensure_ascii=False, indent=2)
         
-    except Exception as e:
-        logger.exception(f"Error in tool 'search_anayasa_unified'.")
+    except Exception:
+        logger.exception("Error in tool 'search_anayasa_unified'.")
         raise
 
 @app.tool(
@@ -1607,8 +1582,8 @@ async def get_anayasa_document_unified(
         result = await anayasa_unified_client_instance.get_document_unified(document_url, page_number)
         return json.dumps(result.model_dump(mode='json'), ensure_ascii=False, indent=2)
         
-    except Exception as e:
-        logger.exception(f"Error in tool 'get_anayasa_document_unified'.")
+    except Exception:
+        logger.exception("Error in tool 'get_anayasa_document_unified'.")
         raise
 
 # --- MCP Tools for KIK (Kamu İhale Kurulu) ---
@@ -1654,15 +1629,15 @@ async def search_kik_decisions(
         page=page
     )
     
-    logger.info(f"Tool 'search_kik_decisions' called.")
+    logger.info("Tool 'search_kik_decisions' called.")
     try:
         api_response = await kik_client_instance.search_decisions(search_query)
         page_param_for_log = search_query.page if hasattr(search_query, 'page') else 1
         if not api_response.decisions and api_response.total_records == 0 and page_param_for_log == 1:
-             logger.warning(f"KIK search returned no decisions for query.")
+             logger.warning("KIK search returned no decisions for query.")
         return api_response
-    except Exception as e:
-        logger.exception(f"Error in KIK search tool 'search_kik_decisions'.")
+    except Exception:
+        logger.exception("Error in KIK search tool 'search_kik_decisions'.")
         current_page_val = search_query.page if hasattr(search_query, 'page') else 1
         return KikSearchResult(decisions=[], total_records=0, current_page=current_page_val)
 
@@ -1758,7 +1733,7 @@ async def search_rekabet_kurumu_decisions(
     try:
        
         return await rekabet_client_instance.search_decisions(search_query)
-    except Exception as e:
+    except Exception:
         logger.exception("Error in tool 'search_rekabet_kurumu_decisions'.")
         return RekabetSearchResult(decisions=[], retrieved_page_number=page, total_records_found=0, total_pages=0)
 
@@ -1781,7 +1756,7 @@ async def get_rekabet_kurumu_document(
     try:
       
         return await rekabet_client_instance.get_decision_document(karar_id, page_number=current_page_to_fetch)
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error in tool 'get_rekabet_kurumu_document'. Karar ID: {karar_id}")
         raise 
 
@@ -1876,7 +1851,7 @@ For best results, use exact phrases with quotes for legal terms."""),
             "page_size": pageSize,
             "searched_courts": court_types
         }
-    except Exception as e:
+    except Exception:
         logger.exception("Error in tool 'search_bedesten_unified'")
         raise
 
@@ -1898,7 +1873,7 @@ async def get_bedesten_document_markdown(
     
     try:
         return await bedesten_client_instance.get_document_as_markdown(documentId)
-    except Exception as e:
+    except Exception:
         logger.exception("Error in tool 'get_kyb_bedesten_document_markdown'")
         raise
 
@@ -2087,7 +2062,7 @@ async def search_sayistay_unified(
             web_karar_metni=web_karar_metni
         )
         return await sayistay_unified_client_instance.search_unified(search_request)
-    except Exception as e:
+    except Exception:
         logger.exception("Error in tool 'search_sayistay_unified'")
         raise
 
@@ -2111,7 +2086,7 @@ async def get_sayistay_document_unified(
     
     try:
         return await sayistay_unified_client_instance.get_document_unified(decision_id, decision_type)
-    except Exception as e:
+    except Exception:
         logger.exception("Error in tool 'get_sayistay_document_unified'")
         raise
 
@@ -2698,7 +2673,7 @@ async def search(
         logger.info(f"ChatGPT Deep Research search completed. Found {len(results)} results via Bedesten API.")
         return {"results": results}
         
-    except Exception as e:
+    except Exception:
         logger.exception("Error in ChatGPT Deep Research search tool")
         # Return partial results if any were found
         if results:
@@ -2827,7 +2802,7 @@ async def fetch(
             doc = await bedesten_client_instance.get_document_as_markdown(doc_id)
         """
         
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error fetching ChatGPT Deep Research document {id}")
         raise
 
@@ -2874,7 +2849,7 @@ def main():
         app.run()
     except KeyboardInterrupt: 
         logger.info("Server shut down by user (KeyboardInterrupt).")
-    except Exception as e: 
+    except Exception: 
         logger.exception("Server failed to start or crashed.")
     finally:
         logger.info(f"{app.name} server has shut down.")

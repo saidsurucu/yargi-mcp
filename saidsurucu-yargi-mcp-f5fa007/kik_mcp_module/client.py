@@ -10,13 +10,12 @@ from playwright.async_api import (
 )
 from bs4 import BeautifulSoup
 import logging
-from typing import Dict, Any, List, Optional
+from typing import List, Optional
 import urllib.parse 
 import base64 # Base64 için
 import re
 import html as html_parser 
 from markitdown import MarkItDown 
-import os
 import math 
 import io
 import random
@@ -907,7 +906,7 @@ class KikApiClient:
                     event_target_for_submit = self.FIELD_LOCATORS['search_button_id']
                     # Use human-like clicking for search button
                     search_button_selector = f"a[id='{event_target_for_submit}']"
-                    logger.info(f"Performing human-like search button click...")
+                    logger.info("Performing human-like search button click...")
                     
                     try:
                         # Hide datepicker first to prevent interference
@@ -1181,7 +1180,7 @@ class KikApiClient:
             try: 
                 if await current_main_page.locator(self.MODAL_CLOSE_BUTTON_SELECTOR).is_visible(timeout=2000): 
                     await current_main_page.locator(self.MODAL_CLOSE_BUTTON_SELECTOR).click()
-                    await current_main_page.wait_for_selector(f"div#detayPopUp:not(.in)", timeout=5000) 
+                    await current_main_page.wait_for_selector("div#detayPopUp:not(.in)", timeout=5000) 
             except: pass
 
             return KikDocumentMarkdown(

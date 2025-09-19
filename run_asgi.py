@@ -93,7 +93,7 @@ def main():
         config["workers"] = args.workers
     
     # Print startup information
-    print(f"Starting Yargı MCP server...")
+    print("Starting Yargı MCP server...")
     print(f"Host: {args.host}")
     print(f"Port: {args.port}")
     print(f"Transport: {args.transport}")

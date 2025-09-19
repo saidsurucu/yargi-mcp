@@ -1,13 +1,11 @@
 # sayistay_mcp_module/client.py
 
 import httpx
-import re
 from bs4 import BeautifulSoup
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 import logging
-import html
 import io
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode
 from markitdown import MarkItDown
 
 from .models import (
@@ -16,7 +14,7 @@ from .models import (
     DaireSearchRequest, DaireSearchResponse, DaireDecision,
     SayistayDocumentMarkdown
 )
-from .enums import DaireEnum, KamuIdaresiTuruEnum, WebKararKonusuEnum, WEB_KARAR_KONUSU_MAPPING
+from .enums import WEB_KARAR_KONUSU_MAPPING
 
 logger = logging.getLogger(__name__)
 if not logger.hasHandlers():

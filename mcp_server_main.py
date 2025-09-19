@@ -8,8 +8,7 @@ import json
 import time
 from collections import defaultdict
 from pydantic import HttpUrl, Field 
-from typing import Optional, Dict, List, Literal, Any, Union
-import urllib.parse
+from typing import Dict, List, Literal, Any
 import tiktoken
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.server.dependencies import get_access_token, AccessToken
@@ -159,7 +158,7 @@ class TokenCountingMiddleware(Middleware):
             
             return result
             
-        except Exception as e:
+        except Exception:
             duration_ms = (time.perf_counter() - start_time) * 1000
             self.log_token_usage("tool_call_error", input_tokens, 0, 
                                tool_name, duration_ms)
@@ -189,7 +188,7 @@ class TokenCountingMiddleware(Middleware):
             
             return result
             
-        except Exception as e:
+        except Exception:
             duration_ms = (time.perf_counter() - start_time) * 1000
             self.log_token_usage("resource_read_error", 0, 0, 
                                resource_uri, duration_ms)
@@ -219,7 +218,7 @@ class TokenCountingMiddleware(Middleware):
             
             return result
             
-        except Exception as e:
+        except Exception:
             duration_ms = (time.perf_counter() - start_time) * 1000
             self.log_token_usage("prompt_get_error", 0, 0, 
                                prompt_name, duration_ms)
@@ -255,21 +254,18 @@ def create_app(auth=None):
 
 # --- Module Imports ---
 from yargitay_mcp_module.client import YargitayOfficialApiClient
-from yargitay_mcp_module.models import (
-    YargitayDetailedSearchRequest, YargitayDocumentMarkdown, CompactYargitaySearchResult,
-    YargitayBirimEnum, CleanYargitayDecisionEntry
-)
 from bedesten_mcp_module.client import BedestenApiClient
 from bedesten_mcp_module.models import (
     BedestenSearchRequest, BedestenSearchData,
     BedestenDocumentMarkdown, BedestenCourtTypeEnum
 )
 from bedesten_mcp_module.enums import BirimAdiEnum
+
+# Semantic Search Module Imports
+from semantic_search.embedder import EmbeddingGemma
+from semantic_search.vector_store import VectorStore
+from semantic_search.processor import DocumentProcessor
 from danistay_mcp_module.client import DanistayApiClient
-from danistay_mcp_module.models import (
-    DanistayKeywordSearchRequest, DanistayDetailedSearchRequest,
-    DanistayDocumentMarkdown, CompactDanistaySearchResult
-)
 from emsal_mcp_module.client import EmsalApiClient
 from emsal_mcp_module.models import (
     EmsalSearchRequest, EmsalDocumentMarkdown, CompactEmsalSearchResult
@@ -283,24 +279,12 @@ from anayasa_mcp_module.client import AnayasaMahkemesiApiClient
 from anayasa_mcp_module.bireysel_client import AnayasaBireyselBasvuruApiClient
 from anayasa_mcp_module.unified_client import AnayasaUnifiedClient
 from anayasa_mcp_module.models import (
-    AnayasaNormDenetimiSearchRequest,
-    AnayasaSearchResult,
-    AnayasaDocumentMarkdown,
-    AnayasaBireyselReportSearchRequest,
-    AnayasaBireyselReportSearchResult,
-    AnayasaBireyselBasvuruDocumentMarkdown,
     AnayasaUnifiedSearchRequest,
-    AnayasaUnifiedSearchResult,
-    AnayasaUnifiedDocumentMarkdown,
     # Removed enum imports - now using Literal strings in models
 )
 # KIK v2 Module Imports (New API)
 from kik_mcp_module.client_v2 import KikV2ApiClient
 from kik_mcp_module.models_v2 import KikV2DecisionType
-from kik_mcp_module.models_v2 import (
-    KikV2SearchResult,
-    KikV2DocumentMarkdown
-)
 
 from rekabet_mcp_module.client import RekabetKurumuApiClient
 from rekabet_mcp_module.models import (
@@ -312,14 +296,9 @@ from rekabet_mcp_module.models import (
 
 from sayistay_mcp_module.client import SayistayApiClient
 from sayistay_mcp_module.models import (
-    GenelKurulSearchRequest, GenelKurulSearchResponse,
-    TemyizKuruluSearchRequest, TemyizKuruluSearchResponse,
-    DaireSearchRequest, DaireSearchResponse,
-    SayistayDocumentMarkdown,
     SayistayUnifiedSearchRequest, SayistayUnifiedSearchResult,
     SayistayUnifiedDocumentMarkdown
 )
-from sayistay_mcp_module.enums import DaireEnum, KamuIdaresiTuruEnum, WebKararKonusuEnum
 from sayistay_mcp_module.unified_client import SayistayUnifiedClient
 
 # KVKK Module Imports
@@ -333,14 +312,11 @@ from kvkk_mcp_module.models import (
 # BDDK Module Imports
 from bddk_mcp_module.client import BddkApiClient
 from bddk_mcp_module.models import (
-    BddkSearchRequest,
-    BddkSearchResult,
-    BddkDocumentMarkdown
+    BddkSearchRequest
 )
 
 
 # Create a placeholder app that will be properly initialized after tools are defined
-from fastmcp import FastMCP
 
 # MCP app for Turkish legal databases with explicit capabilities
 app = FastMCP(
@@ -647,7 +623,7 @@ async def search_emsal_detailed_decisions(
         page_size=page_size
     )
     
-    logger.info(f"Tool 'search_emsal_detailed_decisions' called.")
+    logger.info("Tool 'search_emsal_detailed_decisions' called.")
     try:
         api_response = await emsal_client_instance.search_detailed_decisions(search_query)
         if api_response.data:
@@ -659,8 +635,8 @@ async def search_emsal_detailed_decisions(
             )
         logger.warning("API response for Emsal search did not contain expected data structure.")
         return CompactEmsalSearchResult(decisions=[], total_records=0, requested_page=search_query.page_number, page_size=search_query.page_size)
-    except Exception as e:
-        logger.exception(f"Error in tool 'search_emsal_detailed_decisions'.")
+    except Exception:
+        logger.exception("Error in tool 'search_emsal_detailed_decisions'.")
         raise
 
 @app.tool(
@@ -676,8 +652,8 @@ async def get_emsal_document_markdown(id: str) -> EmsalDocumentMarkdown:
     if not id or not id.strip(): raise ValueError("Document ID required for Emsal.")
     try:
         return await emsal_client_instance.get_decision_document_as_markdown(id)
-    except Exception as e:
-        logger.exception(f"Error in tool 'get_emsal_document_markdown'.")
+    except Exception:
+        logger.exception("Error in tool 'get_emsal_document_markdown'.")
         raise
 
 # --- MCP Tools for Uyusmazlik ---
@@ -745,11 +721,11 @@ async def search_uyusmazlik_decisions(
         not_hepsi=not_hepsi
     )
     
-    logger.info(f"Tool 'search_uyusmazlik_decisions' called.")
+    logger.info("Tool 'search_uyusmazlik_decisions' called.")
     try:
         return await uyusmazlik_client_instance.search_decisions(search_params)
-    except Exception as e:
-        logger.exception(f"Error in tool 'search_uyusmazlik_decisions'.")
+    except Exception:
+        logger.exception("Error in tool 'search_uyusmazlik_decisions'.")
         raise
 
 @app.tool(
@@ -768,8 +744,8 @@ async def get_uyusmazlik_document_markdown_from_url(
         raise ValueError("Document URL (document_url) is required for Uyuşmazlık document retrieval.")
     try:
         return await uyusmazlik_client_instance.get_decision_document_as_markdown(str(document_url))
-    except Exception as e:
-        logger.exception(f"Error in tool 'get_uyusmazlik_document_markdown_from_url'.")
+    except Exception:
+        logger.exception("Error in tool 'get_uyusmazlik_document_markdown_from_url'.")
         raise
 
 # --- DEACTIVATED: MCP Tools for Anayasa Mahkemesi (Individual Tools) ---
@@ -860,8 +836,8 @@ async def search_anayasa_unified(
         result = await anayasa_unified_client_instance.search_unified(request)
         return json.dumps(result.model_dump(), ensure_ascii=False, indent=2)
         
-    except Exception as e:
-        logger.exception(f"Error in tool 'search_anayasa_unified'.")
+    except Exception:
+        logger.exception("Error in tool 'search_anayasa_unified'.")
         raise
 
 @app.tool(
@@ -882,8 +858,8 @@ async def get_anayasa_document_unified(
         result = await anayasa_unified_client_instance.get_document_unified(document_url, page_number)
         return json.dumps(result.model_dump(mode='json'), ensure_ascii=False, indent=2)
         
-    except Exception as e:
-        logger.exception(f"Error in tool 'get_anayasa_document_unified'.")
+    except Exception:
+        logger.exception("Error in tool 'get_anayasa_document_unified'.")
         raise
 
 # --- MCP Tools for KIK v2 (Kamu İhale Kurulu - New API) ---
@@ -1057,7 +1033,7 @@ async def search_rekabet_kurumu_decisions(
     try:
        
         return await rekabet_client_instance.search_decisions(search_query)
-    except Exception as e:
+    except Exception:
         logger.exception("Error in tool 'search_rekabet_kurumu_decisions'.")
         return RekabetSearchResult(decisions=[], retrieved_page_number=page, total_records_found=0, total_pages=0)
 
@@ -1080,7 +1056,7 @@ async def get_rekabet_kurumu_document(
     try:
       
         return await rekabet_client_instance.get_decision_document(karar_id, page_number=current_page_to_fetch)
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error in tool 'get_rekabet_kurumu_document'. Karar ID: {karar_id}")
         raise 
 
@@ -1191,7 +1167,7 @@ For best results, use exact phrases with quotes for legal terms."""),
             "page_size": pageSize,
             "searched_courts": court_types
         }
-    except Exception as e:
+    except Exception:
         logger.exception("Error in tool 'search_bedesten_unified'")
         raise
 
@@ -1213,7 +1189,7 @@ async def get_bedesten_document_markdown(
     
     try:
         return await bedesten_client_instance.get_document_as_markdown(documentId)
-    except Exception as e:
+    except Exception:
         logger.exception("Error in tool 'get_kyb_bedesten_document_markdown'")
         raise
 
@@ -1402,7 +1378,7 @@ async def search_sayistay_unified(
             web_karar_metni=web_karar_metni
         )
         return await sayistay_unified_client_instance.search_unified(search_request)
-    except Exception as e:
+    except Exception:
         logger.exception("Error in tool 'search_sayistay_unified'")
         raise
 
@@ -1426,7 +1402,7 @@ async def get_sayistay_document_unified(
     
     try:
         return await sayistay_unified_client_instance.get_document_unified(decision_id, decision_type)
-    except Exception as e:
+    except Exception:
         logger.exception("Error in tool 'get_sayistay_document_unified'")
         raise
 
@@ -1839,6 +1815,234 @@ async def get_bddk_document_markdown(
             "error": str(e)
         }
 
+# --- Semantic Search Tool ---
+
+@app.tool(
+    description="Semantic search for Turkish legal decisions using EmbeddingGemma for intelligent ranking",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": True,
+        "idempotentHint": True
+    }
+)
+async def search_bedesten_semantic(
+    query: str = Field(..., description="Search query in Turkish for semantic matching"),
+    initial_keyword: str = Field(..., description="Initial keyword for Bedesten API search (broad term)"),
+    court_types: List[BedestenCourtTypeEnum] = Field(
+        default=["YARGITAYKARARI", "DANISTAYKARAR", "YERELHUKUK", "ISTINAFHUKUK", "KYB"],
+        description="Court types to search: YARGITAYKARARI, DANISTAYKARAR, YERELHUKUK, ISTINAFHUKUK, KYB (default: all)"
+    ),
+    top_k: int = Field(10, ge=1, le=50, description="Number of top results to return (1-50)")
+) -> Dict[str, Any]:
+    """
+    Perform semantic search on Turkish legal decisions using EmbeddingGemma.
+    
+    This tool:
+    1. Searches Bedesten API with initial keyword (retrieves 100 results)
+    2. Fetches full document content for each result
+    3. Generates embeddings using Google's EmbeddingGemma model
+    4. Performs semantic similarity search with the query
+    5. Returns re-ranked results based on semantic relevance
+    
+    Benefits over keyword search:
+    - Better understanding of context and meaning
+    - Finds semantically similar documents even with different wording
+    - More accurate ranking based on relevance
+    - Supports multilingual queries (100+ languages)
+    """
+    logger.info(f"Semantic search tool called with query: {query}, keyword: {initial_keyword}")
+    
+    try:
+        # Initialize components
+        embedder = EmbeddingGemma()
+        vector_store = VectorStore(dimension=256)  # Always use 256 for optimal speed/quality balance
+        processor = DocumentProcessor(chunk_size=1500, chunk_overlap=300)
+        
+        # Step 1: Initial keyword search to get document IDs
+        logger.info(f"Step 1: Searching Bedesten API with keyword: {initial_keyword}")
+        
+        all_decisions = []
+        
+        # Search each court type
+        for court_type in court_types:
+            try:
+                # Calculate page size per court type to get 100 total
+                per_court_limit = max(20, 100 // len(court_types))
+                
+                search_results = await bedesten_client_instance.search_documents(
+                    BedestenSearchRequest(
+                        data=BedestenSearchData(
+                            phrase=initial_keyword,
+                            itemTypeList=[court_type],
+                            pageSize=per_court_limit,  # Distribute 100 across court types
+                            pageNumber=1
+                        )
+                    )
+                )
+                
+                if search_results.data and search_results.data.emsalKararList:
+                    all_decisions.extend(search_results.data.emsalKararList)
+                    logger.info(f"Found {len(search_results.data.emsalKararList)} results from {court_type}")
+                
+            except Exception as e:
+                logger.warning(f"Error searching {court_type}: {e}")
+        
+        if not all_decisions:
+            logger.warning("No documents found from initial search")
+            return {
+                "status": "no_results",
+                "message": "No documents found matching the initial keyword",
+                "results": []
+            }
+        
+        logger.info(f"Total documents found: {len(all_decisions)}")
+        
+        # Step 2: Fetch document content and process
+        logger.info("Step 2: Fetching and processing document content...")
+        
+        documents_data = []
+        failed_fetches = 0
+        
+        # Process up to 100 documents total
+        decisions_to_process = all_decisions[:100]
+        
+        for i, decision in enumerate(decisions_to_process):
+            try:
+                # Fetch document content
+                doc = await bedesten_client_instance.get_document_as_markdown(decision.documentId)
+                
+                if doc.markdown_content:
+                    # Process document into chunks
+                    metadata = {
+                        "document_id": decision.documentId,
+                        "birim_adi": decision.birimAdi,
+                        "esas_no": decision.esasNo,
+                        "karar_no": decision.kararNo,
+                        "karar_tarihi": decision.kararTarihiStr,
+                        "court_type": decision.itemType.name if decision.itemType else None
+                    }
+                    
+                    chunks = processor.process_document(
+                        document_id=decision.documentId,
+                        text=doc.markdown_content,
+                        metadata=metadata
+                    )
+                    
+                    # For now, use the full document as one chunk (can be optimized later)
+                    if chunks:
+                        full_text = " ".join([chunk.text for chunk in chunks])
+                        documents_data.append({
+                            "id": decision.documentId,
+                            "text": full_text[:3000],  # Limit text for embedding
+                            "metadata": metadata
+                        })
+                
+                # Log progress every 10 documents
+                if (i + 1) % 10 == 0:
+                    logger.info(f"Processed {i + 1}/{len(decisions_to_process)} documents")
+                    
+            except Exception as e:
+                logger.warning(f"Failed to fetch document {decision.documentId}: {e}")
+                failed_fetches += 1
+        
+        if not documents_data:
+            logger.warning("No documents could be processed")
+            return {
+                "status": "processing_error",
+                "message": "Could not process any documents",
+                "results": []
+            }
+        
+        logger.info(f"Successfully processed {len(documents_data)} documents, {failed_fetches} failed")
+        
+        # Step 3: Generate embeddings
+        logger.info("Step 3: Generating embeddings...")
+        
+        # Generate query embedding
+        query_embedding = embedder.encode_query(query, task="search result")
+        
+        # Generate document embeddings
+        doc_texts = [doc["text"] for doc in documents_data]
+        doc_titles = [doc["metadata"].get("birim_adi", "none") for doc in documents_data]
+        doc_embeddings = embedder.encode_documents(doc_texts, titles=doc_titles)
+        
+        # Always reduce to 256 dimensions for optimal speed/quality balance
+        query_embedding = embedder.reduce_dimensions(query_embedding, 256)
+        doc_embeddings = embedder.reduce_dimensions(doc_embeddings, 256)
+        
+        # Step 4: Add to vector store and search
+        logger.info("Step 4: Performing semantic search...")
+        
+        # Add documents to vector store
+        doc_ids = [doc["id"] for doc in documents_data]
+        doc_metadatas = [doc["metadata"] for doc in documents_data]
+        
+        vector_store.add_documents(
+            ids=doc_ids,
+            texts=doc_texts,
+            embeddings=doc_embeddings,
+            metadata=doc_metadatas
+        )
+        
+        # Perform semantic search
+        search_results = vector_store.search(
+            query_embedding=query_embedding,
+            top_k=top_k,
+            threshold=0.3  # Minimum similarity threshold
+        )
+        
+        # Step 5: Format results
+        logger.info(f"Step 5: Formatting {len(search_results)} results")
+        
+        formatted_results = []
+        for doc, score in search_results:
+            # Build title from metadata
+            title_parts = []
+            if doc.metadata.get("birim_adi"):
+                title_parts.append(doc.metadata["birim_adi"])
+            if doc.metadata.get("esas_no"):
+                title_parts.append(f"Esas: {doc.metadata['esas_no']}")
+            if doc.metadata.get("karar_no"):
+                title_parts.append(f"Karar: {doc.metadata['karar_no']}")
+            if doc.metadata.get("karar_tarihi"):
+                title_parts.append(f"Tarih: {doc.metadata['karar_tarihi']}")
+            
+            title = " - ".join(title_parts) if title_parts else f"Document {doc.id}"
+            
+            formatted_results.append({
+                "document_id": doc.id,
+                "title": title,
+                "similarity_score": float(score),
+                "preview": doc.text[:500] + "..." if len(doc.text) > 500 else doc.text,
+                "metadata": doc.metadata,
+                "source_url": f"https://mevzuat.adalet.gov.tr/ictihat/{doc.id}"
+            })
+        
+        # Get vector store stats
+        stats = vector_store.get_stats()
+        
+        return {
+            "status": "success",
+            "query": query,
+            "initial_keyword": initial_keyword,
+            "total_documents_processed": len(documents_data),
+            "embedding_dimension": 256,  # Fixed at 256 for optimal performance
+            "results": formatted_results,
+            "stats": {
+                "documents_in_store": stats["num_documents"],
+                "memory_usage_mb": round(stats["memory_usage_mb"], 2),
+                "failed_fetches": failed_fetches
+            }
+        }
+        
+    except Exception as e:
+        logger.exception(f"Error in semantic search: {e}")
+        return {
+            "status": "error",
+            "message": str(e),
+            "results": []
+        }
+
 # --- ChatGPT Deep Research Compatible Tools ---
 
 def get_preview_text(markdown_content: str, skip_chars: int = 100, preview_chars: int = 200) -> str:
@@ -2012,7 +2216,7 @@ async def search(
         logger.info(f"ChatGPT Deep Research search completed. Found {len(results)} results via Bedesten API.")
         return {"results": results}
         
-    except Exception as e:
+    except Exception:
         logger.exception("Error in ChatGPT Deep Research search tool")
         # Return partial results if any were found
         if results:
@@ -2141,7 +2345,7 @@ async def fetch(
             doc = await bedesten_client_instance.get_document_as_markdown(doc_id)
         """
         
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error fetching ChatGPT Deep Research document {id}")
         raise
 
@@ -2192,7 +2396,7 @@ def main():
         app.run()
     except KeyboardInterrupt: 
         logger.info("Server shut down by user (KeyboardInterrupt).")
-    except Exception as e: 
+    except Exception: 
         logger.exception("Server failed to start or crashed.")
     finally:
         logger.info(f"{app.name} server has shut down.")

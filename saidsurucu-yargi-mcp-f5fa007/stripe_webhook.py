@@ -1,4 +1,5 @@
-import os, stripe
+import os
+import stripe
 from clerk_backend_api import Clerk                         # Clerk backend SDK
 from fastapi import APIRouter, Request, HTTPException
 

@@ -1,7 +1,7 @@
 # sayistay_mcp_module/models.py
 
 from pydantic import BaseModel, Field
-from typing import Optional, List, Union, Dict, Any, Literal
+from typing import Optional, List, Dict, Any, Literal
 from enum import Enum
 from .enums import DaireEnum, KamuIdaresiTuruEnum, WebKararKonusuEnum
 

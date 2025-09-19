@@ -36,7 +36,7 @@ def create_clerk_oauth_config() -> OAuthConfig:
         scopes=["mcp:tools:read", "mcp:tools:write", "openid", "profile", "email"]
     )
     
-    logger.info(f"Created Clerk OAuth config with adapter endpoints")
+    logger.info("Created Clerk OAuth config with adapter endpoints")
     logger.info(f"Clerk domain: {clerk_domain}")
     logger.debug(f"Authorization endpoint: {config.authorization_endpoint}")
     logger.debug(f"Token endpoint: {config.token_endpoint}")

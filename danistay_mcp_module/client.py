@@ -1,11 +1,9 @@
 # danistay_mcp_module/client.py
 
 import httpx
-from bs4 import BeautifulSoup 
-from typing import Dict, Any, List, Optional
+from typing import Dict, List, Optional
 import logging
 import html
-import re
 import io
 from markitdown import MarkItDown
 

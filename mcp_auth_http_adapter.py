@@ -18,7 +18,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 try:
     from clerk_backend_api import Clerk
     CLERK_AVAILABLE = True
-except ImportError as e:
+except ImportError:
     CLERK_AVAILABLE = False
     Clerk = None
 

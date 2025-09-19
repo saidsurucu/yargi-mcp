@@ -4,10 +4,9 @@ import httpx
 from bs4 import BeautifulSoup
 from typing import List, Optional, Tuple, Dict, Any
 import logging
-import html
 import re
 import io # For io.BytesIO
-from urllib.parse import urlencode, urljoin, quote, parse_qs, urlparse
+from urllib.parse import urljoin, parse_qs, urlparse
 from markitdown import MarkItDown
 import math
 
@@ -18,8 +17,7 @@ from .models import (
     RekabetKurumuSearchRequest,
     RekabetDecisionSummary,
     RekabetSearchResult,
-    RekabetDocument,
-    RekabetKararTuruGuidEnum
+    RekabetDocument
 )
 from pydantic import HttpUrl # Ensure HttpUrl is imported from pydantic
 

@@ -1,7 +1,6 @@
 # kik_mcp_module/models_v2.py
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional
-from datetime import datetime
+from typing import List
 from enum import Enum
 
 # New KIK v2 API Models

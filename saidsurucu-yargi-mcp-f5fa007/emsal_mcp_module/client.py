@@ -2,10 +2,9 @@
 
 import httpx
 # from bs4 import BeautifulSoup # Uncomment if needed for advanced HTML pre-processing
-from typing import Dict, Any, List, Optional
+from typing import Dict, Optional
 import logging
 import html
-import re
 import io
 from markitdown import MarkItDown
 
