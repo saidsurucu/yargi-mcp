@@ -21,24 +21,13 @@ class ToolError(Exception):
     pass
 
 # --- Logging Configuration Start ---
-LOG_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
-if not os.path.exists(LOG_DIRECTORY):
-    os.makedirs(LOG_DIRECTORY)
-LOG_FILE_PATH = os.path.join(LOG_DIRECTORY, "mcp_server.log")
-
 root_logger = logging.getLogger()
-root_logger.setLevel(logging.DEBUG) 
-
-log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(threadName)s - %(message)s')
-
-file_handler = logging.FileHandler(LOG_FILE_PATH, mode='a', encoding='utf-8')
-file_handler.setFormatter(log_formatter)
-file_handler.setLevel(logging.DEBUG)
-root_logger.addHandler(file_handler)
+root_logger.setLevel(logging.INFO)
 
 console_handler = logging.StreamHandler()
+log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 console_handler.setFormatter(log_formatter)
-console_handler.setLevel(logging.INFO) 
+console_handler.setLevel(logging.INFO)
 root_logger.addHandler(console_handler)
 
 logger = logging.getLogger(__name__)
@@ -50,7 +39,7 @@ class TokenCountingMiddleware(Middleware):
     
     def __init__(self, model: str = "cl100k_base"):
         """Initialize token counting middleware.
-        
+
         Args:
             model: Tiktoken model name (cl100k_base for GPT-4/Claude compatibility)
         """
@@ -58,14 +47,6 @@ class TokenCountingMiddleware(Middleware):
         self.model = model
         self.token_stats = defaultdict(lambda: {"input": 0, "output": 0, "calls": 0})
         self.logger = logging.getLogger("token_counter")
-        
-        # Create separate log file for token metrics
-        token_log_path = os.path.join(LOG_DIRECTORY, "token_metrics.log")
-        token_handler = logging.FileHandler(token_log_path, mode='a', encoding='utf-8')
-        token_formatter = logging.Formatter('%(asctime)s - %(message)s')
-        token_handler.setFormatter(token_formatter)
-        token_handler.setLevel(logging.INFO)
-        self.logger.addHandler(token_handler)
         self.logger.setLevel(logging.INFO)
     
     def count_tokens(self, text: str) -> int:
