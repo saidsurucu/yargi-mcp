@@ -10,8 +10,15 @@ from collections import defaultdict
 from pydantic import HttpUrl, Field 
 from typing import Optional, Dict, List, Literal, Any, Union
 import urllib.parse
-import tiktoken
 from fastmcp.server.middleware import Middleware, MiddlewareContext
+
+# Optional tiktoken import for token counting
+try:
+    import tiktoken
+    TIKTOKEN_AVAILABLE = True
+except ImportError:
+    TIKTOKEN_AVAILABLE = False
+    tiktoken = None
 from fastmcp.server.dependencies import get_access_token, AccessToken
 from fastmcp import Context
 
@@ -43,6 +50,9 @@ class TokenCountingMiddleware(Middleware):
         Args:
             model: Tiktoken model name (cl100k_base for GPT-4/Claude compatibility)
         """
+        if not TIKTOKEN_AVAILABLE:
+            raise ImportError("tiktoken is required for token counting. Install with: pip install tiktoken")
+
         self.encoder = tiktoken.get_encoding(model)
         self.model = model
         self.token_stats = defaultdict(lambda: {"input": 0, "output": 0, "calls": 0})
@@ -228,9 +238,14 @@ def create_app(auth=None):
     else:
         logger.info("MCP server created with standard capabilities...")
     
-    token_counter = TokenCountingMiddleware()
-    app.add_middleware(token_counter)
-    logger.info("Token counting middleware added to MCP server")
+    # Add token counting middleware only if tiktoken is available
+    if TIKTOKEN_AVAILABLE:
+        try:
+            token_counter = TokenCountingMiddleware()
+            app.add_middleware(token_counter)
+            logger.info("Token counting middleware added to MCP server")
+        except Exception as e:
+            logger.warning(f"Failed to add token counting middleware: {e}")
     
     return app
 

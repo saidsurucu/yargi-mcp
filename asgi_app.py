@@ -24,11 +24,24 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # Import the proper create_app function that includes all middleware
 from mcp_server_main import create_app
 
-# Import Stripe webhook router
-from stripe_webhook import router as stripe_router
+# Conditional auth-related imports (only if auth enabled)
+_auth_check = os.getenv("ENABLE_AUTH", "false").lower() == "true"
 
-# Import simplified MCP Auth HTTP adapter
-from mcp_auth_http_simple import router as mcp_auth_router
+if _auth_check:
+    # Import MCP Auth HTTP adapter (OAuth endpoints)
+    try:
+        from mcp_auth_http_simple import router as mcp_auth_router
+    except ImportError:
+        mcp_auth_router = None
+
+    # Import Stripe webhook router
+    try:
+        from stripe_webhook import router as stripe_router
+    except ImportError:
+        stripe_router = None
+else:
+    mcp_auth_router = None
+    stripe_router = None
 
 # OAuth configuration from environment variables
 CLERK_ISSUER = os.getenv("CLERK_ISSUER", "https://clerk.yargimcp.com")
@@ -121,11 +134,12 @@ app = FastAPI(
     redirect_slashes=False  # Disable to prevent 307 redirects on /mcp endpoint
 )
 
-# Add Stripe webhook router to FastAPI
-app.include_router(stripe_router, prefix="/api/stripe")
+# Add auth-related routers to FastAPI (only if available)
+if stripe_router:
+    app.include_router(stripe_router, prefix="/api/stripe")
 
-# Add MCP Auth HTTP adapter to FastAPI (handles OAuth endpoints)
-app.include_router(mcp_auth_router)
+if mcp_auth_router:
+    app.include_router(mcp_auth_router)
 
 # Custom 401 exception handler for MCP spec compliance
 @app.exception_handler(401)
