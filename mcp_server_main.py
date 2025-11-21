@@ -619,7 +619,7 @@ async def search_emsal_detailed_decisions(
     sort_direction: str = Field("desc", description="Sorting direction ('asc' or 'desc')."),
     page_number: int = Field(1, ge=1, description="Page number (accepts int)."),
     # page_size: int = Field(10, ge=1, le=10, description="Results per page.")
-) -> CompactEmsalSearchResult:
+) -> Dict[str, Any]:
     """Search Emsal precedent decisions with detailed criteria."""
     
     page_size = 10  # Default value
@@ -652,9 +652,9 @@ async def search_emsal_detailed_decisions(
                 total_records=api_response.data.recordsTotal if api_response.data.recordsTotal is not None else 0,
                 requested_page=search_query.page_number,
                 page_size=search_query.page_size
-            )
+            ).model_dump()
         logger.warning("API response for Emsal search did not contain expected data structure.")
-        return CompactEmsalSearchResult(decisions=[], total_records=0, requested_page=search_query.page_number, page_size=search_query.page_size)
+        return CompactEmsalSearchResult(decisions=[], total_records=0, requested_page=search_query.page_number, page_size=search_query.page_size).model_dump()
     except Exception as e:
         logger.exception(f"Error in tool 'search_emsal_detailed_decisions'.")
         raise
@@ -666,12 +666,13 @@ async def search_emsal_detailed_decisions(
         "idempotentHint": True
     }
 )
-async def get_emsal_document_markdown(id: str) -> EmsalDocumentMarkdown:
+async def get_emsal_document_markdown(id: str) -> Dict[str, Any]:
     """Get document as Markdown."""
     logger.info(f"Tool 'get_emsal_document_markdown' called for ID: {id}")
     if not id or not id.strip(): raise ValueError("Document ID required for Emsal.")
     try:
-        return await emsal_client_instance.get_decision_document_as_markdown(id)
+        result = await emsal_client_instance.get_decision_document_as_markdown(id)
+        return result.model_dump()
     except Exception as e:
         logger.exception(f"Error in tool 'get_emsal_document_markdown'.")
         raise
@@ -704,7 +705,7 @@ async def search_uyusmazlik_decisions(
     hepsi: str = Field("", description="Search for texts containing all specified words."),
     herhangi_birisi: str = Field("", description="Search for texts containing any of the specified words."),
     not_hepsi: str = Field("", description="Exclude texts containing these specified words.")
-) -> UyusmazlikSearchResponse:
+) -> Dict[str, Any]:
     """Search Court of Jurisdictional Disputes decisions."""
     
     # Convert string literals to enums
@@ -743,7 +744,8 @@ async def search_uyusmazlik_decisions(
     
     logger.info(f"Tool 'search_uyusmazlik_decisions' called.")
     try:
-        return await uyusmazlik_client_instance.search_decisions(search_params)
+        result = await uyusmazlik_client_instance.search_decisions(search_params)
+        return result.model_dump()
     except Exception as e:
         logger.exception(f"Error in tool 'search_uyusmazlik_decisions'.")
         raise
@@ -757,13 +759,14 @@ async def search_uyusmazlik_decisions(
 )
 async def get_uyusmazlik_document_markdown_from_url(
     document_url: str = Field(..., description="Full URL to the Uyuşmazlık Mahkemesi decision document from search results")
-) -> UyusmazlikDocumentMarkdown:
+) -> Dict[str, Any]:
     """Get Uyuşmazlık Mahkemesi decision as Markdown."""
     logger.info(f"Tool 'get_uyusmazlik_document_markdown_from_url' called for URL: {str(document_url)}")
     if not document_url:
         raise ValueError("Document URL (document_url) is required for Uyuşmazlık document retrieval.")
     try:
-        return await uyusmazlik_client_instance.get_decision_document_as_markdown(str(document_url))
+        result = await uyusmazlik_client_instance.get_decision_document_as_markdown(str(document_url))
+        return result.model_dump()
     except Exception as e:
         logger.exception(f"Error in tool 'get_uyusmazlik_document_markdown_from_url'.")
         raise
@@ -1027,7 +1030,7 @@ async def search_rekabet_kurumu_decisions(
     KararSayisi: str = Field("", description="Decision number (Karar Sayısı)."),
     KararTarihi: str = Field("", description="Decision date (Karar Tarihi), e.g., DD.MM.YYYY."),
     page: int = Field(1, ge=1, description="Page number to fetch for the results list.")
-) -> RekabetSearchResult:
+) -> Dict[str, Any]:
     """Search Competition Authority decisions."""
     
     karar_turu_guid_enum = KARAR_TURU_ADI_TO_GUID_ENUM_MAP.get(KararTuru)
@@ -1052,10 +1055,11 @@ async def search_rekabet_kurumu_decisions(
     logger.info(f"Tool 'search_rekabet_kurumu_decisions' called. Query: {search_query.model_dump_json(exclude_none=True, indent=2)}")
     try:
        
-        return await rekabet_client_instance.search_decisions(search_query)
+        result = await rekabet_client_instance.search_decisions(search_query)
+        return result.model_dump()
     except Exception as e:
         logger.exception("Error in tool 'search_rekabet_kurumu_decisions'.")
-        return RekabetSearchResult(decisions=[], retrieved_page_number=page, total_records_found=0, total_pages=0)
+        return RekabetSearchResult(decisions=[], retrieved_page_number=page, total_records_found=0, total_pages=0).model_dump()
 
 @app.tool(
     description="Get Competition Authority decision text in paginated Markdown format",
@@ -1067,15 +1071,15 @@ async def search_rekabet_kurumu_decisions(
 async def get_rekabet_kurumu_document(
     karar_id: str = Field(..., description="GUID (kararId) of the Rekabet Kurumu decision. This ID is obtained from search results."),
     page_number: int = Field(1, ge=1, description="Requested page number for the Markdown content converted from PDF (1-indexed, accepts int). Default is 1.")
-) -> RekabetDocument:
+) -> Dict[str, Any]:
     """Get Competition Authority decision as paginated Markdown."""
     logger.info(f"Tool 'get_rekabet_kurumu_document' called. Karar ID: {karar_id}, Markdown Page: {page_number}")
     
     current_page_to_fetch = page_number if page_number >= 1 else 1
     
     try:
-      
-        return await rekabet_client_instance.get_decision_document(karar_id, page_number=current_page_to_fetch)
+        result = await rekabet_client_instance.get_decision_document(karar_id, page_number=current_page_to_fetch)
+        return result.model_dump()
     except Exception as e:
         logger.exception(f"Error in tool 'get_rekabet_kurumu_document'. Karar ID: {karar_id}")
         raise 
@@ -1371,10 +1375,10 @@ async def search_sayistay_unified(
     yargilama_dairesi: Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8"] = Field("ALL", description="Chamber selection (daire only)"),
     hesap_yili: str = Field("", description="Account year (daire only)"),
     web_karar_metni: str = Field("", description="Decision text search (daire only)")
-) -> SayistayUnifiedSearchResult:
+) -> Dict[str, Any]:
     """Search Sayıştay decisions across all three decision types with unified interface."""
     logger.info(f"Tool 'search_sayistay_unified' called with decision_type={decision_type}")
-    
+
     try:
         search_request = SayistayUnifiedSearchRequest(
             decision_type=decision_type,
@@ -1397,7 +1401,8 @@ async def search_sayistay_unified(
             hesap_yili=hesap_yili,
             web_karar_metni=web_karar_metni
         )
-        return await sayistay_unified_client_instance.search_unified(search_request)
+        result = await sayistay_unified_client_instance.search_unified(search_request)
+        return result.model_dump()
     except Exception as e:
         logger.exception("Error in tool 'search_sayistay_unified'")
         raise
@@ -1413,15 +1418,16 @@ async def search_sayistay_unified(
 async def get_sayistay_document_unified(
     decision_id: str = Field(..., description="Decision ID from search_sayistay_unified results"),
     decision_type: Literal["genel_kurul", "temyiz_kurulu", "daire"] = Field(..., description="Decision type: genel_kurul, temyiz_kurulu, or daire")
-) -> SayistayUnifiedDocumentMarkdown:
+) -> Dict[str, Any]:
     """Get Sayıştay decision document as Markdown for any decision type."""
     logger.info(f"Tool 'get_sayistay_document_unified' called for ID: {decision_id}, type: {decision_type}")
-    
+
     if not decision_id or not decision_id.strip():
         raise ValueError("Decision ID must be a non-empty string.")
-    
+
     try:
-        return await sayistay_unified_client_instance.get_document_unified(decision_id, decision_type)
+        result = await sayistay_unified_client_instance.get_document_unified(decision_id, decision_type)
+        return result.model_dump()
     except Exception as e:
         logger.exception("Error in tool 'get_sayistay_document_unified'")
         raise
@@ -1646,22 +1652,22 @@ async def search_kvkk_decisions(
     keywords: str = Field(..., description="Turkish keywords. Supports +required -excluded \"exact phrase\" operators"),
     page: int = Field(1, ge=1, le=50, description="Page number for results (1-50)."),
     # pageSize: int = Field(10, ge=1, le=20, description="Number of results per page (1-20).")
-) -> KvkkSearchResult:
+) -> Dict[str, Any]:
     """Search function for legal decisions."""
     logger.info(f"KVKK search tool called with keywords: {keywords}")
-    
+
     pageSize = 10  # Default value
-    
+
     search_request = KvkkSearchRequest(
         keywords=keywords,
         page=page,
         pageSize=pageSize
     )
-    
+
     try:
         result = await kvkk_client_instance.search_decisions(search_request)
         logger.info(f"KVKK search completed. Found {len(result.decisions)} decisions on page {page}")
-        return result
+        return result.model_dump()
     except Exception as e:
         logger.exception(f"Error in KVKK search: {e}")
         # Return empty result on error
@@ -1671,7 +1677,7 @@ async def search_kvkk_decisions(
             page=page,
             pageSize=pageSize,
             query=keywords
-        )
+        ).model_dump()
 
 @app.tool(
     description="Get KVKK decision document in Markdown format with metadata extraction",
@@ -1684,10 +1690,10 @@ async def search_kvkk_decisions(
 async def get_kvkk_document_markdown(
     decision_url: str = Field(..., description="KVKK decision URL from search results"),
     page_number: int = Field(1, ge=1, description="Page number for paginated Markdown content (1-indexed, accepts int). Default is 1 (first 5,000 characters).")
-) -> KvkkDocumentMarkdown:
+) -> Dict[str, Any]:
     """Get KVKK decision as paginated Markdown."""
     logger.info(f"KVKK document retrieval tool called for URL: {decision_url}")
-    
+
     if not decision_url or not decision_url.strip():
         return KvkkDocumentMarkdown(
             source_url=HttpUrl("https://www.kvkk.gov.tr"),
@@ -1700,7 +1706,7 @@ async def get_kvkk_document_markdown(
             total_pages=0,
             is_paginated=False,
             error_message="Decision URL is required and cannot be empty."
-        )
+        ).model_dump()
     
     try:
         # Validate URL format
@@ -1716,11 +1722,11 @@ async def get_kvkk_document_markdown(
                 total_pages=0,
                 is_paginated=False,
                 error_message="Invalid KVKK decision URL format. URL must start with https://www.kvkk.gov.tr/"
-            )
-        
+            ).model_dump()
+
         result = await kvkk_client_instance.get_decision_document(decision_url, page_number or 1)
         logger.info(f"KVKK document retrieved successfully. Page {result.current_page}/{result.total_pages}, Content length: {len(result.markdown_chunk) if result.markdown_chunk else 0}")
-        return result
+        return result.model_dump()
         
     except Exception as e:
         logger.exception(f"Error retrieving KVKK document: {e}")
@@ -1735,7 +1741,7 @@ async def get_kvkk_document_markdown(
             total_pages=0,
             is_paginated=False,
             error_message=f"Error retrieving KVKK document: {str(e)}"
-        )
+        ).model_dump()
 
 # --- MCP Tools for BDDK (Banking Regulation Authority) ---
 @app.tool(
