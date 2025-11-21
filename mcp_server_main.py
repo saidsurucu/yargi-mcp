@@ -2208,7 +2208,7 @@ def main():
     app = create_app()
     
     logger.info(f"Starting {app.name} server via main() function...")
-    logger.info(f"Logs will be written to: {LOG_FILE_PATH}")
+    # logger.info(f"Logs will be written to: {LOG_FILE_PATH}")  # File logging disabled
     
     # Ensure Playwright browsers are installed
     ensure_playwright_browsers()
