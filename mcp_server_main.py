@@ -7,7 +7,7 @@ import httpx
 import json
 import time
 from collections import defaultdict
-from pydantic import HttpUrl, Field 
+from pydantic import BaseModel, HttpUrl, Field 
 from typing import Optional, Dict, List, Literal, Any, Union
 import urllib.parse
 from fastmcp.server.middleware import Middleware, MiddlewareContext
@@ -1882,6 +1882,19 @@ def get_preview_text(markdown_content: str, skip_chars: int = 100, preview_chars
     
     return preview.strip()
 
+
+# Pydantic models for ChatGPT Deep Research compatibility
+class SearchResultItem(BaseModel):
+    """Individual search result item for Deep Research."""
+    id: str = Field(..., description="Document identifier")
+    title: str = Field(..., description="Document title with metadata")
+    text: str = Field(..., description="Document preview text")
+    url: str = Field(..., description="Document URL")
+
+class SearchResponse(BaseModel):
+    """Search response wrapper for Deep Research."""
+    results: List[SearchResultItem] = Field(..., description="List of search results")
+
 @app.tool(
     description="DO NOT USE unless you are ChatGPT Deep Research. Search Turkish courts (Turkish keywords only). Supports: +term (must have), -term (exclude), \"exact phrase\", term1 OR term2",
     annotations={
@@ -1892,7 +1905,7 @@ def get_preview_text(markdown_content: str, skip_chars: int = 100, preview_chars
 )
 async def search(
     query: str = Field(..., description="Turkish search query")
-) -> Dict[str, List[Dict[str, str]]]:
+) -> SearchResponse:
     """
     Bedesten API search tool for ChatGPT Deep Research compatibility.
     
@@ -2006,13 +2019,29 @@ async def search(
         """
         
         logger.info(f"ChatGPT Deep Research search completed. Found {len(results)} results via Bedesten API.")
-        return {"results": results}
+        return SearchResponse(results=[
+            SearchResultItem(
+                id=item["id"],
+                title=item["title"],
+                text=item["text"],
+                url=item["url"]
+            )
+            for item in results
+        ])
         
     except Exception as e:
         logger.exception("Error in ChatGPT Deep Research search tool")
         # Return partial results if any were found
         if results:
-            return {"results": results}
+            return SearchResponse(results=[
+                SearchResultItem(
+                    id=item["id"],
+                    title=item["title"],
+                    text=item["text"],
+                    url=item["url"]
+                )
+                for item in results
+            ])
         raise
 
 @app.tool(
