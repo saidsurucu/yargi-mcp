@@ -1,6 +1,6 @@
 [project]
 name = "yargi-mcp"
-version = "0.1.7"
+version = "0.1.8"
 description = "MCP Server For Turkish Legal Databases"
 readme = "README.md"
 requires-python = ">=3.11"
