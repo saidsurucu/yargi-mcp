@@ -41,8 +41,9 @@ class KikV2ApiClient:
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
         
-        # Enable legacy server connect option for older SSL implementations
-        ssl_context.options |= ssl.OP_LEGACY_SERVER_CONNECT
+        # Enable legacy server connect option for older SSL implementations (Python 3.12+)
+        if hasattr(ssl, 'OP_LEGACY_SERVER_CONNECT'):
+            ssl_context.options |= ssl.OP_LEGACY_SERVER_CONNECT
         
         # Set broader cipher suite support including legacy ciphers
         ssl_context.set_ciphers('ALL:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA')
