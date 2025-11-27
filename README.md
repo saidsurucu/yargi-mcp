@@ -4,6 +4,28 @@
 
 Bu proje, çeşitli Türk hukuk kaynaklarına (Yargıtay, Danıştay, Emsal Kararlar, Uyuşmazlık Mahkemesi, Anayasa Mahkemesi - Norm Denetimi ile Bireysel Başvuru Kararları, Kamu İhale Kurulu Kararları, Rekabet Kurumu Kararları, Sayıştay Kararları, KVKK Kararları ve BDDK Kararları) erişimi kolaylaştıran bir [FastMCP](https://gofastmcp.com/) sunucusu oluşturur. Bu sayede, bu kaynaklardan veri arama ve belge getirme işlemleri, Model Context Protocol (MCP) destekleyen LLM (Büyük Dil Modeli) uygulamaları (örneğin Claude Desktop veya [5ire](https://5ire.app)) ve diğer istemciler tarafından araç (tool) olarak kullanılabilir hale gelir.
 
+---
+
+## 🚀 5 Dakikada Başla (Remote MCP)
+
+### ✅ Kurulum Gerektirmez! Hemen Kullan!
+
+🔗 **Remote MCP Adresi:** `https://yargimcp.fastmcp.app/mcp`
+
+### Claude Desktop ile Kullanım
+
+1. **Claude Desktop'ı açın**
+2. **Settings → Connectors → Add Custom Connector**
+3. **Bilgileri girin:**
+   - **Name:** `Yargı MCP`
+   - **URL:** `https://yargimcp.fastmcp.app/mcp`
+4. **Add** butonuna tıklayın
+5. **Hemen kullanmaya başlayın!** 🎉
+
+> 💡 **İpucu:** Remote MCP sayesinde Python, uv veya herhangi bir kurulum yapmadan doğrudan Claude Desktop üzerinden Türk hukuk kaynaklarına erişebilirsiniz!
+
+---
+
 ![örnek](./ornek.png)
 
 🎯 **Temel Özellikler**
