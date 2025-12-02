@@ -362,6 +362,9 @@ sayistay_unified_client_instance = SayistayUnifiedClient()
 kvkk_client_instance = KvkkApiClient()
 bddk_client_instance = BddkApiClient()
 
+# Health check client (singleton for reuse)
+_health_check_client: Optional[httpx.AsyncClient] = None
+
 
 KARAR_TURU_ADI_TO_GUID_ENUM_MAP = {
     "": RekabetKararTuruGuidEnum.TUMU,  # Keep for backward compatibility
@@ -1465,6 +1468,11 @@ def perform_cleanup():
             if client_instance and hasattr(client_instance, 'close_client_session') and callable(client_instance.close_client_session):
                 logger.info(f"Scheduling close for client session: {client_instance.__class__.__name__}")
                 tasks.append(client_instance.close_client_session())
+        # Close health check client if it was created
+        global _health_check_client
+        if _health_check_client is not None:
+            logger.info("Closing health check HTTP client")
+            tasks.append(_health_check_client.aclose())
         if tasks:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for i, result in enumerate(results):
@@ -1485,6 +1493,19 @@ def perform_cleanup():
     logger.info("MCP Server atexit cleanup process finished.")
 
 atexit.register(perform_cleanup)
+
+
+def get_or_create_health_check_client() -> httpx.AsyncClient:
+    """Get or create a reusable HTTP client for health checks."""
+    global _health_check_client
+    if _health_check_client is None:
+        _health_check_client = httpx.AsyncClient(
+            timeout=10.0,
+            verify=False,
+            follow_redirects=True
+        )
+    return _health_check_client
+
 
 # --- Health Check Tools ---
 @app.tool(
