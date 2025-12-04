@@ -6,6 +6,8 @@ import logging
 import uuid
 import base64
 import ssl
+import subprocess
+import shutil
 from typing import Optional
 from datetime import datetime
 
@@ -392,20 +394,58 @@ class KikV2ApiClient:
                     logger.info(f"KikV2ApiClient: Retrieved content via Playwright, length: {len(html_content)}")
                     
             except ImportError:
-                logger.info("KikV2ApiClient: Playwright not available, falling back to httpx")
-                # Fallback to httpx
-                response = await self.http_client.get(
-                    document_url,
-                    headers={
-                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                        "Accept-Language": "tr,en-US;q=0.5",
-                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
-                        "Referer": "https://ekap.kik.gov.tr/",
-                        "Cache-Control": "no-cache"
-                    }
-                )
-                response.raise_for_status()
-                html_content = response.text
+                logger.info("KikV2ApiClient: Playwright not available, falling back to curl")
+                # Fallback to curl (bypasses Python SSL issues with legacy servers)
+                curl_path = shutil.which('curl')
+                if not curl_path:
+                    return KikV2DocumentMarkdown(
+                        document_id=document_id,
+                        kararNo="",
+                        markdown_content="",
+                        source_url=document_url,
+                        error_message="Neither Playwright nor curl available for document retrieval"
+                    )
+
+                try:
+                    result = subprocess.run(
+                        [curl_path, '-k', '-s', '-L',
+                         '-H', 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                         '-H', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                         '-H', 'Accept-Language: tr,en-US;q=0.5',
+                         document_url],
+                        capture_output=True,
+                        text=True,
+                        timeout=60
+                    )
+
+                    if result.returncode != 0:
+                        return KikV2DocumentMarkdown(
+                            document_id=document_id,
+                            kararNo="",
+                            markdown_content="",
+                            source_url=document_url,
+                            error_message=f"curl failed with return code {result.returncode}: {result.stderr}"
+                        )
+
+                    html_content = result.stdout
+                    logger.info(f"KikV2ApiClient: Retrieved content via curl, length: {len(html_content)}")
+
+                except subprocess.TimeoutExpired:
+                    return KikV2DocumentMarkdown(
+                        document_id=document_id,
+                        kararNo="",
+                        markdown_content="",
+                        source_url=document_url,
+                        error_message="curl request timed out after 60 seconds"
+                    )
+                except Exception as curl_error:
+                    return KikV2DocumentMarkdown(
+                        document_id=document_id,
+                        kararNo="",
+                        markdown_content="",
+                        source_url=document_url,
+                        error_message=f"curl request failed: {str(curl_error)}"
+                    )
             
             # Convert HTML to Markdown using MarkItDown with BytesIO
             try:
