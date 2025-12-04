@@ -29,6 +29,7 @@ dependencies = [
     "fastmcp>=2.10.5",
     "pypdf>=5.5.0",
     "fastapi>=0.115.14",
+    "cryptography>=44.0.0",
 ]
 
 [project.optional-dependencies]

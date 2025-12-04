@@ -2333,6 +2333,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "beautifulsoup4" },
+    { name = "cryptography" },
     { name = "fastapi" },
     { name = "fastmcp" },
     { name = "httpx" },
@@ -2368,6 +2369,7 @@ requires-dist = [
     { name = "aiohttp", specifier = ">=3.11.18" },
     { name = "beautifulsoup4", specifier = ">=4.13.4" },
     { name = "clerk-backend-api", marker = "extra == 'saas'", specifier = ">=3.0.0" },
+    { name = "cryptography", specifier = ">=44.0.0" },
     { name = "fastapi", specifier = ">=0.115.14" },
     { name = "fastapi", marker = "extra == 'api'", specifier = ">=0.115.0" },
     { name = "fastmcp", specifier = ">=2.10.5" },

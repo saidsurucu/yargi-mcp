@@ -8,8 +8,17 @@ import base64
 import ssl
 import subprocess
 import shutil
+import os
 from typing import Optional
 from datetime import datetime
+
+# Cryptography imports for AES-256-CBC encryption of document IDs
+try:
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    from cryptography.hazmat.backends import default_backend
+    HAS_CRYPTOGRAPHY = True
+except ImportError:
+    HAS_CRYPTOGRAPHY = False
 
 from .models_v2 import (
     KikV2DecisionType, KikV2SearchPayload, KikV2SearchPayloadDk, KikV2SearchPayloadMk,
@@ -33,10 +42,58 @@ class KikV2ApiClient:
     # Endpoint mappings for different decision types
     ENDPOINTS = {
         KikV2DecisionType.UYUSMAZLIK: "/b_ihalearaclari/api/KurulKararlari/GetKurulKararlari",
-        KikV2DecisionType.DUZENLEYICI: "/b_ihalearaclari/api/KurulKararlari/GetKurulKararlariDk", 
+        KikV2DecisionType.DUZENLEYICI: "/b_ihalearaclari/api/KurulKararlari/GetKurulKararlariDk",
         KikV2DecisionType.MAHKEME: "/b_ihalearaclari/api/KurulKararlari/GetKurulKararlariMk"
     }
-    
+
+    # AES-256-CBC encryption key for document ID encryption (reverse engineered from ekapv2.kik.gov.tr Angular app)
+    # This key is used to encrypt numeric gundemMaddesiId values to 64-character hex hashes for document URLs
+    DOCUMENT_ID_ENCRYPTION_KEY = bytes([
+        236, 193, 164, 43, 12, 135, 121, 170, 4, 244, 123, 219, 82, 158, 124, 174,
+        174, 228, 219, 174, 208, 104, 174, 120, 32, 76, 250, 4, 143, 159, 211, 176
+    ])
+
+    @staticmethod
+    def encrypt_document_id(numeric_id: str) -> str:
+        """
+        Encrypt a numeric KİK gundemMaddesiId to the 64-character hex hash
+        used in document URLs.
+
+        Algorithm: AES-256-CBC with PKCS7 padding
+        Output format: IV (16 bytes hex) + Ciphertext (16 bytes hex) = 64 chars
+
+        Args:
+            numeric_id: The numeric document ID from search results (e.g., "177280")
+
+        Returns:
+            64-character hex string for use in document URL KararId parameter
+        """
+        if not HAS_CRYPTOGRAPHY:
+            raise ImportError("cryptography library required for document ID encryption")
+
+        # Generate random IV (16 bytes)
+        iv = os.urandom(16)
+
+        # Create AES-CBC cipher with the encryption key
+        cipher = Cipher(
+            algorithms.AES(KikV2ApiClient.DOCUMENT_ID_ENCRYPTION_KEY),
+            modes.CBC(iv),
+            backend=default_backend()
+        )
+        encryptor = cipher.encryptor()
+
+        # Encode plaintext and apply PKCS7 padding
+        plaintext = numeric_id.encode('utf-8')
+        block_size = 16
+        padding_len = block_size - (len(plaintext) % block_size)
+        padded_plaintext = plaintext + bytes([padding_len] * padding_len)
+
+        # Encrypt
+        ciphertext = encryptor.update(padded_plaintext) + encryptor.finalize()
+
+        # Return IV + ciphertext as lowercase hex (64 characters total)
+        return iv.hex() + ciphertext.hex()
+
     def __init__(self, request_timeout: float = 60.0):
         # Create SSL context with legacy server support
         ssl_context = ssl.create_default_context()
@@ -322,14 +379,32 @@ class KikV2ApiClient:
                     error_message="Could not get document URL from GetSorgulamaUrl API"
                 )
             
-            # Construct full document URL with the actual document ID
-            document_url = f"{base_document_url}?KararId={document_id}"
+            # If document_id is numeric, encrypt it to get the KararId hash
+            # The web interface uses AES-256-CBC encrypted hashes for document URLs
+            karar_id = document_id
+            if document_id.isdigit():
+                try:
+                    karar_id = self.encrypt_document_id(document_id)
+                    logger.info(f"KikV2ApiClient: Encrypted numeric ID {document_id} to hash: {karar_id}")
+                except Exception as enc_error:
+                    logger.warning(f"KikV2ApiClient: Could not encrypt document ID, using as-is: {enc_error}")
+
+            # Construct full document URL with the encrypted KararId
+            document_url = f"{base_document_url}?KararId={karar_id}"
             logger.info(f"KikV2ApiClient: Step 2 - Retrieved document URL: {document_url}")
-            
+
         except Exception as e:
             logger.error(f"KikV2ApiClient: Error getting document URL for ID {document_id}: {str(e)}")
             # Fallback to old method if GetSorgulamaUrl fails
-            document_url = f"https://ekap.kik.gov.tr/EKAP/Vatandas/KurulKararGoster.aspx?KararId={document_id}"
+            # Also encrypt numeric IDs in fallback path
+            karar_id = document_id
+            if document_id.isdigit():
+                try:
+                    karar_id = self.encrypt_document_id(document_id)
+                    logger.info(f"KikV2ApiClient: Encrypted numeric ID in fallback: {karar_id}")
+                except Exception as enc_error:
+                    logger.warning(f"KikV2ApiClient: Could not encrypt in fallback: {enc_error}")
+            document_url = f"https://ekap.kik.gov.tr/EKAP/Vatandas/KurulKararGoster.aspx?KararId={karar_id}"
             logger.info(f"KikV2ApiClient: Falling back to direct URL: {document_url}")
         
         try:
