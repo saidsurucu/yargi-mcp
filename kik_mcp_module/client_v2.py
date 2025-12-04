@@ -1,13 +1,9 @@
 # kik_mcp_module/client_v2.py
 
 import httpx
-import requests
 import logging
 import uuid
-import base64
 import ssl
-import subprocess
-import shutil
 import os
 from typing import Optional
 from datetime import datetime
@@ -408,119 +404,31 @@ class KikV2ApiClient:
             logger.info(f"KikV2ApiClient: Falling back to direct URL: {document_url}")
         
         try:
-            # Step 2: Use Playwright to get the actual document content
-            logger.info(f"KikV2ApiClient: Step 2 - Using Playwright to retrieve document from: {document_url}")
-            
-            try:
-                from playwright.async_api import async_playwright
-                
-                async with async_playwright() as p:
-                    # Launch browser
-                    browser = await p.chromium.launch(
-                        headless=True,
-                        args=['--no-sandbox', '--disable-dev-shm-usage']
-                    )
-                    
-                    page = await browser.new_page(
-                        user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
-                    )
-                    
-                    # Navigate to document page with longer timeout for JS loading
-                    await page.goto(document_url, wait_until="networkidle", timeout=15000)
-                    
-                    # Wait for the document content to load (KİK pages might need more time for JS execution)
-                    await page.wait_for_timeout(3000)
-                    
-                    # Wait for Angular/Zone.js to finish loading and document to be ready
-                    try:
-                        # Wait for Angular zone to be available (this JavaScript code you showed)
-                        await page.wait_for_function(
-                            "typeof Zone !== 'undefined' && Zone.current", 
-                            timeout=10000
-                        )
-                        
-                        # Wait for network to be idle after Angular bootstrap
-                        await page.wait_for_load_state("networkidle", timeout=10000)
-                        
-                        # Wait for specific document content to appear
-                        await page.wait_for_function(
-                            """
-                            document.body.textContent.length > 5000 && 
-                            (document.body.textContent.includes('Karar') || 
-                             document.body.textContent.includes('KURUL') ||
-                             document.body.textContent.includes('Gündem') ||
-                             document.body.textContent.includes('Toplantı'))
-                            """,
-                            timeout=15000
-                        )
-                        
-                        logger.info("KikV2ApiClient: Angular document content loaded successfully")
-                        
-                    except Exception as e:
-                        logger.warning(f"KikV2ApiClient: Angular content loading timed out, proceeding anyway: {str(e)}")
-                        # Give a bit more time for any remaining content to load
-                        await page.wait_for_timeout(5000)
-                    
-                    # Get page content
-                    html_content = await page.content()
-                    
-                    await browser.close()
-                    
-                    logger.info(f"KikV2ApiClient: Retrieved content via Playwright, length: {len(html_content)}")
-                    
-            except Exception as playwright_error:
-                logger.info(f"KikV2ApiClient: Playwright failed ({type(playwright_error).__name__}: {str(playwright_error)[:100]}), falling back to curl")
-                # Fallback to curl (bypasses Python SSL issues with legacy servers)
-                curl_path = shutil.which('curl')
-                if not curl_path:
-                    return KikV2DocumentMarkdown(
-                        document_id=document_id,
-                        kararNo="",
-                        markdown_content="",
-                        source_url=document_url,
-                        error_message="Neither Playwright nor curl available for document retrieval"
-                    )
+            # Step 2: Use httpx to get the document content
+            logger.info(f"KikV2ApiClient: Step 2 - Using httpx to retrieve document from: {document_url}")
 
-                try:
-                    result = subprocess.run(
-                        [curl_path, '-k', '-s', '-L',
-                         '-H', 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-                         '-H', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                         '-H', 'Accept-Language: tr,en-US;q=0.5',
-                         document_url],
-                        capture_output=True,
-                        text=True,
-                        timeout=60
-                    )
+            # Create a separate httpx client for document retrieval with HTML headers
+            doc_ssl_context = ssl.create_default_context()
+            doc_ssl_context.check_hostname = False
+            doc_ssl_context.verify_mode = ssl.CERT_NONE
+            if hasattr(ssl, 'OP_LEGACY_SERVER_CONNECT'):
+                doc_ssl_context.options |= ssl.OP_LEGACY_SERVER_CONNECT
+            doc_ssl_context.set_ciphers('ALL:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA')
 
-                    if result.returncode != 0:
-                        return KikV2DocumentMarkdown(
-                            document_id=document_id,
-                            kararNo="",
-                            markdown_content="",
-                            source_url=document_url,
-                            error_message=f"curl failed with return code {result.returncode}: {result.stderr}"
-                        )
-
-                    html_content = result.stdout
-                    logger.info(f"KikV2ApiClient: Retrieved content via curl, length: {len(html_content)}")
-
-                except subprocess.TimeoutExpired:
-                    return KikV2DocumentMarkdown(
-                        document_id=document_id,
-                        kararNo="",
-                        markdown_content="",
-                        source_url=document_url,
-                        error_message="curl request timed out after 60 seconds"
-                    )
-                except Exception as curl_error:
-                    return KikV2DocumentMarkdown(
-                        document_id=document_id,
-                        kararNo="",
-                        markdown_content="",
-                        source_url=document_url,
-                        error_message=f"curl request failed: {str(curl_error)}"
-                    )
+            async with httpx.AsyncClient(
+                verify=doc_ssl_context,
+                headers={
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "tr,en-US;q=0.5",
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
+                },
+                timeout=60.0,
+                follow_redirects=True
+            ) as doc_client:
+                response = await doc_client.get(document_url)
+                response.raise_for_status()
+                html_content = response.text
+                logger.info(f"KikV2ApiClient: Retrieved content via httpx, length: {len(html_content)}")
             
             # Convert HTML to Markdown using MarkItDown with BytesIO
             try:
