@@ -972,24 +972,24 @@ async def search_kik_v2_decisions(
     }
 )
 async def get_kik_v2_document_markdown(
-    document_id: str = Field(..., description="Document ID (gundemMaddesiId from search results)")
+    gundemMaddesiId: str = Field(..., description="gundemMaddesiId from search_kik_v2_decisions results")
 ) -> dict:
-    """Get KİK decision document using the v2 API."""
-    
-    logger.info(f"Tool 'get_kik_v2_document_markdown' called for document ID: {document_id}")
-    
-    if not document_id or not document_id.strip():
+    """Get KİK decision document in Markdown format."""
+
+    logger.info(f"Tool 'get_kik_v2_document_markdown' called for gundemMaddesiId: {gundemMaddesiId}")
+
+    if not gundemMaddesiId or not gundemMaddesiId.strip():
         return {
-            "document_id": document_id,
+            "document_id": gundemMaddesiId,
             "kararNo": "",
             "markdown_content": "",
             "source_url": "",
-            "error_message": "Document ID is required and must be a non-empty string"
+            "error_message": "gundemMaddesiId is required and must be a non-empty string"
         }
-    
+
     try:
-        api_response = await kik_v2_client_instance.get_document_markdown(document_id)
-        
+        api_response = await kik_v2_client_instance.get_document_markdown(gundemMaddesiId)
+
         return {
             "document_id": api_response.document_id,
             "kararNo": api_response.kararNo,
@@ -997,11 +997,11 @@ async def get_kik_v2_document_markdown(
             "source_url": api_response.source_url,
             "error_message": api_response.error_message
         }
-        
+
     except Exception as e:
-        logger.exception(f"Error in KİK v2 document retrieval tool for document ID: {document_id}")
+        logger.exception(f"Error in KİK v2 document retrieval tool for gundemMaddesiId: {gundemMaddesiId}")
         return {
-            "document_id": document_id,
+            "document_id": gundemMaddesiId,
             "kararNo": "",
             "markdown_content": "",
             "source_url": "",
