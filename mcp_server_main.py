@@ -6,36 +6,11 @@ import os
 import httpx
 import json
 import time
-import subprocess
-import sys
 from collections import defaultdict
 from pydantic import BaseModel, HttpUrl, Field
 from typing import Optional, Dict, List, Literal, Any, Union
 import urllib.parse
 from fastmcp.server.middleware import Middleware, MiddlewareContext
-
-# --- Install Playwright Chromium at startup (for cloud deployments) ---
-def _install_playwright_chromium():
-    """Install Playwright Chromium browser if not already installed."""
-    try:
-        # Check if running in a cloud environment (no display)
-        result = subprocess.run(
-            [sys.executable, "-m", "playwright", "install", "chromium"],
-            capture_output=True,
-            text=True,
-            timeout=300  # 5 minute timeout
-        )
-        if result.returncode == 0:
-            print("Playwright Chromium installed successfully")
-        else:
-            print(f"Playwright Chromium installation warning: {result.stderr}")
-    except subprocess.TimeoutExpired:
-        print("Warning: Playwright Chromium installation timed out")
-    except Exception as e:
-        print(f"Warning: Could not install Playwright Chromium: {e}")
-
-# Run installation at module load time
-_install_playwright_chromium()
 
 # Optional tiktoken import for token counting
 try:
