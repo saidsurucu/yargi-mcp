@@ -393,8 +393,8 @@ class KikV2ApiClient:
                     
                     logger.info(f"KikV2ApiClient: Retrieved content via Playwright, length: {len(html_content)}")
                     
-            except ImportError:
-                logger.info("KikV2ApiClient: Playwright not available, falling back to curl")
+            except Exception as playwright_error:
+                logger.info(f"KikV2ApiClient: Playwright failed ({type(playwright_error).__name__}: {str(playwright_error)[:100]}), falling back to curl")
                 # Fallback to curl (bypasses Python SSL issues with legacy servers)
                 curl_path = shutil.which('curl')
                 if not curl_path:
