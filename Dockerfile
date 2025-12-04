@@ -1,5 +1,5 @@
-# -------- BASE IMAGE (includes Chromium & deps) ----------------------------
-FROM mcr.microsoft.com/playwright/python:v1.53.0-noble
+# -------- BASE IMAGE ---------------------------------------------------------
+FROM python:3.12-slim
 
 # -------- Runtime setup ----------------------------------------------------
 WORKDIR /app

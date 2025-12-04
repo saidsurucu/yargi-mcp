@@ -1,1 +1,0 @@
-# kvkk_mcp_module/__init__.py

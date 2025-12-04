@@ -325,7 +325,7 @@ class KikV2ApiClient:
         
         This method uses a two-step process:
         1. Call GetSorgulamaUrl endpoint to get the actual document URL
-        2. Use Playwright to navigate to that URL and extract content
+        2. Use httpx to fetch the document content
         
         Args:
             document_id: The gundemMaddesiId from search results

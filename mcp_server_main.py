@@ -2191,47 +2191,14 @@ async def fetch(
 
 # --- Token Metrics Tool Removed for Optimization ---
 
-def ensure_playwright_browsers():
-    """Ensure Playwright browsers are installed for KIK tool functionality."""
-    try:
-        import subprocess
-        import os
-        
-        # Check if chromium is already installed
-        chromium_path = os.path.expanduser("~/Library/Caches/ms-playwright/chromium-1179")
-        if os.path.exists(chromium_path):
-            logger.info("Playwright Chromium browser already installed.")
-            return
-        
-        logger.info("Installing Playwright Chromium browser for KIK tool...")
-        result = subprocess.run(
-            ["python", "-m", "playwright", "install", "chromium"],
-            capture_output=True,
-            text=True,
-            timeout=300  # 5 minutes timeout
-        )
-        
-        if result.returncode == 0:
-            logger.info("Playwright Chromium browser installed successfully.")
-        else:
-            logger.warning(f"Failed to install Playwright browser: {result.stderr}")
-            logger.warning("KIK tool may not work properly without Playwright browsers.")
-            
-    except Exception as e:
-        logger.warning(f"Could not auto-install Playwright browsers: {e}")
-        logger.warning("KIK tool may not work properly. Manual installation: 'playwright install chromium'")
-
 def main():
     # Initialize the app properly with create_app()
     global app
     app = create_app()
-    
+
     logger.info(f"Starting {app.name} server via main() function...")
     # logger.info(f"Logs will be written to: {LOG_FILE_PATH}")  # File logging disabled
-    
-    # Ensure Playwright browsers are installed
-    ensure_playwright_browsers()
-    
+
     try:
         app.run()
     except KeyboardInterrupt: 
