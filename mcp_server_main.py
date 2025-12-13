@@ -261,6 +261,12 @@ from bedesten_mcp_module.models import (
     BedestenDocumentMarkdown, BedestenCourtTypeEnum
 )
 from bedesten_mcp_module.enums import BirimAdiEnum
+
+# Semantic Search Module Imports
+from semantic_search.embedder import EmbeddingGemma
+from semantic_search.vector_store import VectorStore
+from semantic_search.processor import DocumentProcessor
+
 from danistay_mcp_module.client import DanistayApiClient
 from danistay_mcp_module.models import (
     DanistayKeywordSearchRequest, DanistayDetailedSearchRequest,
@@ -1219,6 +1225,221 @@ async def get_bedesten_document_markdown(
     except Exception as e:
         logger.exception("Error in tool 'get_kyb_bedesten_document_markdown'")
         raise
+
+
+# --- Semantic Search Tool ---
+@app.tool(
+    description="Perform semantic search on Turkish legal decisions using EmbeddingGemma for intelligent re-ranking",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": True,
+        "idempotentHint": True
+    }
+)
+async def search_bedesten_semantic(
+    query: str = Field(..., description="Search query in Turkish for semantic matching"),
+    initial_keyword: str = Field(..., description="Initial keyword for Bedesten API search (broad term)"),
+    court_types: List[BedestenCourtTypeEnum] = Field(
+        default=["YARGITAYKARARI", "DANISTAYKARAR", "YERELHUKUK", "ISTINAFHUKUK", "KYB"],
+        description="Court types to search: YARGITAYKARARI, DANISTAYKARAR, YERELHUKUK, ISTINAFHUKUK, KYB (default: all)"
+    ),
+    top_k: int = Field(10, ge=1, le=50, description="Number of top results to return (1-50)")
+) -> Dict[str, Any]:
+    """
+    Perform semantic search on Turkish legal decisions using EmbeddingGemma.
+
+    This tool:
+    1. Searches Bedesten API with initial keyword (retrieves 100 results)
+    2. Fetches full document content for each result
+    3. Generates embeddings using Google's EmbeddingGemma model
+    4. Performs semantic similarity search with the query
+    5. Returns re-ranked results based on semantic relevance
+
+    Benefits over keyword search:
+    - Better understanding of context and meaning
+    - Finds semantically similar documents even with different wording
+    - More accurate ranking based on relevance
+    - Supports multilingual queries (100+ languages)
+    """
+    logger.info(f"Semantic search tool called with query: {query}, keyword: {initial_keyword}")
+
+    try:
+        # Initialize components
+        embedder = EmbeddingGemma()
+        vector_store = VectorStore(dimension=256)
+        processor = DocumentProcessor(chunk_size=1500, chunk_overlap=300)
+
+        # Step 1: Initial keyword search to get document IDs
+        logger.info(f"Step 1: Searching Bedesten API with keyword: {initial_keyword}")
+
+        all_decisions = []
+
+        # Search each court type
+        for court_type in court_types:
+            try:
+                per_court_limit = max(20, 100 // len(court_types))
+
+                search_results = await bedesten_client_instance.search_documents(
+                    BedestenSearchRequest(
+                        data=BedestenSearchData(
+                            phrase=initial_keyword,
+                            itemTypeList=[court_type],
+                            pageSize=per_court_limit,
+                            pageNumber=1
+                        )
+                    )
+                )
+
+                if search_results.data and search_results.data.emsalKararList:
+                    all_decisions.extend(search_results.data.emsalKararList)
+                    logger.info(f"Found {len(search_results.data.emsalKararList)} results from {court_type}")
+
+            except Exception as e:
+                logger.warning(f"Error searching {court_type}: {e}")
+
+        if not all_decisions:
+            logger.warning("No documents found from initial search")
+            return {
+                "status": "no_results",
+                "message": "No documents found matching the initial keyword",
+                "results": []
+            }
+
+        logger.info(f"Total documents found: {len(all_decisions)}")
+
+        # Step 2: Fetch document content and process
+        logger.info("Step 2: Fetching and processing document content...")
+
+        documents_data = []
+        failed_fetches = 0
+        decisions_to_process = all_decisions[:100]
+
+        for i, decision in enumerate(decisions_to_process):
+            try:
+                doc = await bedesten_client_instance.get_document_as_markdown(decision.documentId)
+
+                if doc.markdown_content:
+                    metadata = {
+                        "document_id": decision.documentId,
+                        "birim_adi": decision.birimAdi,
+                        "esas_no": decision.esasNo,
+                        "karar_no": decision.kararNo,
+                        "karar_tarihi": decision.kararTarihiStr,
+                        "court_type": decision.itemType.name if decision.itemType else None
+                    }
+
+                    chunks = processor.process_document(
+                        document_id=decision.documentId,
+                        text=doc.markdown_content,
+                        metadata=metadata
+                    )
+
+                    if chunks:
+                        full_text = " ".join([chunk.text for chunk in chunks])
+                        documents_data.append({
+                            "id": decision.documentId,
+                            "text": full_text[:3000],
+                            "metadata": metadata
+                        })
+
+                if (i + 1) % 10 == 0:
+                    logger.info(f"Processed {i + 1}/{len(decisions_to_process)} documents")
+
+            except Exception as e:
+                logger.warning(f"Failed to fetch document {decision.documentId}: {e}")
+                failed_fetches += 1
+
+        if not documents_data:
+            logger.warning("No documents could be processed")
+            return {
+                "status": "processing_error",
+                "message": "Could not process any documents",
+                "results": []
+            }
+
+        logger.info(f"Successfully processed {len(documents_data)} documents, {failed_fetches} failed")
+
+        # Step 3: Generate embeddings
+        logger.info("Step 3: Generating embeddings...")
+
+        query_embedding = embedder.encode_query(query, task="search result")
+
+        doc_texts = [doc["text"] for doc in documents_data]
+        doc_titles = [doc["metadata"].get("birim_adi", "none") for doc in documents_data]
+        doc_embeddings = embedder.encode_documents(doc_texts, titles=doc_titles)
+
+        query_embedding = embedder.reduce_dimensions(query_embedding, 256)
+        doc_embeddings = embedder.reduce_dimensions(doc_embeddings, 256)
+
+        # Step 4: Add to vector store and search
+        logger.info("Step 4: Performing semantic search...")
+
+        doc_ids = [doc["id"] for doc in documents_data]
+        doc_metadatas = [doc["metadata"] for doc in documents_data]
+
+        vector_store.add_documents(
+            ids=doc_ids,
+            texts=doc_texts,
+            embeddings=doc_embeddings,
+            metadata=doc_metadatas
+        )
+
+        search_results = vector_store.search(
+            query_embedding=query_embedding,
+            top_k=top_k,
+            threshold=0.3
+        )
+
+        # Step 5: Format results
+        logger.info(f"Step 5: Formatting {len(search_results)} results")
+
+        formatted_results = []
+        for doc, score in search_results:
+            title_parts = []
+            if doc.metadata.get("birim_adi"):
+                title_parts.append(doc.metadata["birim_adi"])
+            if doc.metadata.get("esas_no"):
+                title_parts.append(f"Esas: {doc.metadata['esas_no']}")
+            if doc.metadata.get("karar_no"):
+                title_parts.append(f"Karar: {doc.metadata['karar_no']}")
+            if doc.metadata.get("karar_tarihi"):
+                title_parts.append(f"Tarih: {doc.metadata['karar_tarihi']}")
+
+            title = " - ".join(title_parts) if title_parts else f"Document {doc.id}"
+
+            formatted_results.append({
+                "document_id": doc.id,
+                "title": title,
+                "similarity_score": float(score),
+                "preview": doc.text[:500] + "..." if len(doc.text) > 500 else doc.text,
+                "metadata": doc.metadata,
+                "source_url": f"https://mevzuat.adalet.gov.tr/ictihat/{doc.id}"
+            })
+
+        stats = vector_store.get_stats()
+
+        return {
+            "status": "success",
+            "query": query,
+            "initial_keyword": initial_keyword,
+            "total_documents_processed": len(documents_data),
+            "embedding_dimension": 256,
+            "results": formatted_results,
+            "stats": {
+                "documents_in_store": stats["num_documents"],
+                "memory_usage_mb": round(stats["memory_usage_mb"], 2),
+                "failed_fetches": failed_fetches
+            }
+        }
+
+    except Exception as e:
+        logger.exception(f"Error in semantic search: {e}")
+        return {
+            "status": "error",
+            "message": str(e),
+            "results": []
+        }
+
 
 # --- MCP Tools for Sayıştay (Turkish Court of Accounts) ---
 
