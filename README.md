@@ -154,10 +154,65 @@ Yargı MCP'yi Gemini CLI ile kullanmak için:
 
 </details>
 
+---
+<details>
+<summary>🧠 <strong>Semantik Arama (Opsiyonel - OpenRouter API)</strong></summary>
+
+Yargı MCP, **semantik arama** özelliği ile kararları anlamsal olarak sıralayabilir. Bu özellik opsiyoneldir ve `OPENROUTER_API_KEY` ayarlandığında otomatik olarak etkinleşir.
+
+### Semantik Arama Nasıl Çalışır?
+1. `initial_keyword` ile Bedesten API'den 100 karar çekilir
+2. `query` ile bu kararlar embedding modeli kullanılarak anlamsal olarak sıralanır
+3. En alakalı kararlar döndürülür
+
+### OpenRouter API Anahtarı Alma
+1. [OpenRouter](https://openrouter.ai/) sitesine gidin
+2. Hesap oluşturun ve API anahtarı alın (ücretsiz kredi ile başlayabilirsiniz)
+
+### Claude Desktop için Yapılandırma
+```json
+{
+  "mcpServers": {
+    "Yargı MCP": {
+      "command": "uvx",
+      "args": ["yargi-mcp"],
+      "env": {
+        "OPENROUTER_API_KEY": "sk-or-v1-xxx..."
+      }
+    }
+  }
+}
+```
+
+### 5ire için Yapılandırma
+Tool ayarlarında **Environment Variables** alanına ekleyin:
+```
+OPENROUTER_API_KEY=sk-or-v1-xxx...
+```
+
+### Gemini CLI için Yapılandırma
+```json
+{
+  "mcpServers": {
+    "yargi_mcp": {
+      "command": "uvx",
+      "args": ["yargi-mcp"],
+      "env": {
+        "OPENROUTER_API_KEY": "sk-or-v1-xxx..."
+      }
+    }
+  }
+}
+```
+
+> 💡 **Not:** `OPENROUTER_API_KEY` ayarlanmazsa semantik arama aracı görünmez, diğer 19 araç normal şekilde çalışmaya devam eder.
+
+</details>
+
 <details>
 <summary>🛠️ <strong>Kullanılabilir Araçlar (MCP Tools)</strong></summary>
 
-Bu FastMCP sunucusu **19 optimize edilmiş MCP aracı** sunar (token verimliliği için optimize edilmiş):
+Bu FastMCP sunucusu **19 temel MCP aracı** + **1 opsiyonel semantik arama aracı** sunar (token verimliliği için optimize edilmiş):
 
 ### **Yargıtay Araçları (Birleşik Bedesten API - Token Optimized)**
 *Not: Yargıtay araçları token verimliliği için birleşik Bedesten API'ye entegre edilmiştir*
@@ -222,7 +277,7 @@ Bu FastMCP sunucusu **19 optimize edilmiş MCP aracı** sunar (token verimliliğ
 
 **GENEL İSTATİSTİKLER:**
 - **Toplam Mahkeme/Kurum:** 13 farklı hukuki kurum (KVKK dahil)
-- **Toplam MCP Tool:** 19 optimize edilmiş arama ve belge getirme aracı  
+- **Toplam MCP Tool:** 19 temel araç + 1 opsiyonel semantik arama aracı  
 - **Daire/Kurul Filtreleme:** 87 farklı seçenek (52 Yargıtay + 27 Danıştay + 8 Sayıştay)
 - **Tarih Filtreleme:** Birleşik Bedesten API aracında ISO 8601 formatında tam tarih aralığı desteği
 - **Kesin Cümle Arama:** Birleşik Bedesten API aracında çift tırnak ile tam cümle arama (`"\"mülkiyet kararı\""` formatı)
