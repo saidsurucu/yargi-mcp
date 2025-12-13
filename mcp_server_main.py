@@ -1212,8 +1212,39 @@ if SEMANTIC_SEARCH_AVAILABLE:
         }
     )
     async def search_bedesten_semantic(
-        query: str = Field(..., description="Search query in Turkish for semantic matching"),
-        initial_keyword: str = Field(..., description="Initial keyword for Bedesten API search (broad term)"),
+        initial_keyword: str = Field(..., description="""Bedesten API'den ilk sonuçları çekmek için anahtar kelime veya arama ifadesi.
+Bu terim ile API'den 100 karar çekilir, sonra semantik sıralama yapılır.
+
+ARAMA OPERATÖRLERİ:
+• Basit arama: "muvazaa" (kelimeyi içeren kararlar)
+• Tam eşleşme: "\"muris muvazaası\"" (tırnak içi aynen aranır)
+• AND: "muvazaa AND tapu" (her iki terim zorunlu)
+• OR: "ecrimisil OR kira" (en az biri yeterli)
+• NOT: "muvazaa NOT miras" (muvazaa içeren ama miras içermeyen)
+• Zorunlu: "+muvazaa tapu" (muvazaa zorunlu, tapu opsiyonel)
+• Hariç: "muvazaa -miras" (muvazaa içeren, miras hariç)
+
+ÖRNEKLER:
+• "muvazaa" - geniş arama
+• "\"muris muvazaası\"" - tam ifade
+• "muvazaa AND tapu AND iptal" - tüm terimler zorunlu
+• "ecrimisil OR haksız işgal" - alternatifli arama"""),
+        query: str = Field(..., description="""Semantik benzerlik için DETAYLI arama sorgusu.
+initial_keyword ile bulunan kararlar bu sorguya göre anlamsal olarak sıralanır.
+
+ÖNEMLİ: Embedding modeli anlamlı cümleler bekler, anahtar kelimeler DEĞİL.
+Aradığınız hukuki meseleyi CÜMLE olarak yazın.
+
+DOĞRU KULLANIM:
+• "Mirasçının muvazaalı satış işlemine karşı tapu iptali ve tescil davası açması"
+• "Taşınmazın fiili kullanımı ve zilyetlik durumunun değerlendirilmesi"
+• "İş sözleşmesinin feshinde kıdem tazminatı hesaplama yöntemi"
+
+YANLIŞ KULLANIM:
+• "muvazaa tapu iptal" (sadece kelimeler, cümle değil)
+• "kıdem tazminat hesap" (bağlamsız kelimeler)
+
+İPUCU: Ne arıyorsanız onu bir cümle olarak ifade edin."""),
         court_types: List[BedestenCourtTypeEnum] = Field(
             default=["YARGITAYKARARI", "DANISTAYKARAR", "YERELHUKUK", "ISTINAFHUKUK", "KYB"],
             description="Court types to search: YARGITAYKARARI, DANISTAYKARAR, YERELHUKUK, ISTINAFHUKUK, KYB (default: all)"
@@ -1238,7 +1269,7 @@ if SEMANTIC_SEARCH_AVAILABLE:
 
         Note: Requires OPENROUTER_API_KEY environment variable to be set.
         """
-        logger.info(f"Semantic search tool called with query: {query}, keyword: {initial_keyword}")
+        logger.info(f"Semantic search tool called with initial_keyword: {initial_keyword}, query: {query}")
 
         try:
             # Initialize components
