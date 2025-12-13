@@ -29,6 +29,8 @@ dependencies = [
     "pypdf>=5.5.0",
     "fastapi>=0.115.14",
     "cryptography>=44.0.0",
+    "openai>=1.0.0",
+    "numpy>=1.24.0",
 ]
 
 [project.optional-dependencies]
@@ -59,7 +61,7 @@ yargi-mcp = "mcp_server_main:main"
 py-modules = ["mcp_server_main", "mcp_auth_factory", "mcp_auth_http_adapter", "asgi_app", "fastapi_app", "starlette_app", "run_asgi", "stripe_webhook"]
 
 [tool.setuptools.packages.find]
-include = ["*_mcp_module", "mcp_auth"]
+include = ["*_mcp_module", "mcp_auth", "semantic_search"]
 
 [build-system]
 requires = ["setuptools>=65.0", "wheel"]
