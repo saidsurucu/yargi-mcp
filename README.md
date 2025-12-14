@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/saidsurucu-yargi-mcp-badge.png)](https://mseep.ai/app/saidsurucu-yargi-mcp)
+
 # Yargı MCP: Türk Hukuk Kaynakları için MCP Sunucusu
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/yargi-mcp&type=Date)](https://www.star-history.com/#saidsurucu/yargi-mcp&Date)
