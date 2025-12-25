@@ -359,7 +359,7 @@ KARAR_TURU_ADI_TO_GUID_ENUM_MAP = {
 # --- MCP Tools for Yargitay ---
 """
 @app.tool(
-    description="Search Yargıtay decisions with 52 chamber filtering and advanced operators",
+    description="Use this when searching Turkish Court of Cassation (Yargıtay) decisions. Supports 52 chamber filtering and advanced operators (+required, -excluded, \"exact phrase\").",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -433,7 +433,7 @@ async def search_yargitay_detailed(
         raise
 
 @app.tool(
-    description="Get Yargıtay decision text in Markdown format",
+    description="Use this when retrieving full text of a Yargıtay (Court of Cassation) decision. Returns clean Markdown format.",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -453,7 +453,7 @@ async def get_yargitay_document_markdown(id: str) -> YargitayDocumentMarkdown:
 # --- MCP Tools for Danistay ---
 """
 @app.tool(
-    description="Search Danıştay decisions with keyword logic (AND/OR/NOT operators)",
+    description="Use this when searching Turkish Council of State (Danıştay) decisions using AND/OR/NOT keyword logic.",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -497,7 +497,7 @@ async def search_danistay_by_keyword(
         raise
 
 @app.tool(
-    description="Search Danıştay decisions with detailed criteria (chamber selection, case numbers)",
+    description="Use this when searching Danıştay decisions with specific chamber, case numbers, and date filters.",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -559,7 +559,7 @@ async def search_danistay_detailed(
         raise
 
 @app.tool(
-    description="Get Danıştay decision text in Markdown format",
+    description="Use this when retrieving full text of a Danıştay (Council of State) decision. Returns clean Markdown format.",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -578,7 +578,7 @@ async def get_danistay_document_markdown(id: str) -> DanistayDocumentMarkdown:
 
 # --- MCP Tools for Emsal ---
 @app.tool(
-    description="Search Emsal precedent decisions with detailed criteria",
+    description="Use this when searching UYAP precedent decisions (Emsal). For lower court decisions and case law.",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -643,7 +643,7 @@ async def search_emsal_detailed_decisions(
         raise
 
 @app.tool(
-    description="Get Emsal precedent decision text in Markdown format",
+    description="Use this when retrieving full text of an Emsal precedent decision. Returns clean Markdown format.",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -662,7 +662,7 @@ async def get_emsal_document_markdown(id: str) -> Dict[str, Any]:
 
 # --- MCP Tools for Uyusmazlik ---
 @app.tool(
-    description="Search Uyuşmazlık Mahkemesi decisions for jurisdictional disputes",
+    description="Use this when searching jurisdictional dispute court (Uyuşmazlık Mahkemesi) decisions. Resolves conflicts between civil and administrative courts.",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -734,7 +734,7 @@ async def search_uyusmazlik_decisions(
         raise
 
 @app.tool(
-    description="Get Uyuşmazlık Mahkemesi decision text from URL in Markdown format",
+    description="Use this when retrieving full text of an Uyuşmazlık Mahkemesi decision. Returns clean Markdown format.",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -759,7 +759,7 @@ async def get_uyusmazlik_document_markdown_from_url(
 
 """
 @app.tool(
-    description="Search Constitutional Court norm control decisions with comprehensive filtering",
+    description="Use this when searching Turkish Constitutional Court norm control decisions. For constitutional review and legislation challenges.",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -792,7 +792,7 @@ async def get_uyusmazlik_document_markdown_from_url(
 
 # --- Unified MCP Tools for Anayasa Mahkemesi ---
 @app.tool(
-    description="Unified search for Constitutional Court decisions: both norm control (normkararlarbilgibankasi) and individual applications (kararlarbilgibankasi) in one tool",
+    description="Use this when searching Turkish Constitutional Court decisions. Supports both norm control (legislation review) and individual applications (rights violations).",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -847,7 +847,7 @@ async def search_anayasa_unified(
         raise
 
 @app.tool(
-    description="Unified document retrieval for Constitutional Court decisions: auto-detects norm control vs individual applications based on URL",
+    description="Use this when retrieving full text of a Constitutional Court decision. Auto-detects decision type from URL.",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": False,
@@ -870,7 +870,7 @@ async def get_anayasa_document_unified(
 
 # --- MCP Tools for KIK v2 (Kamu İhale Kurulu - New API) ---
 @app.tool(
-    description="Search Public Procurement Authority (KİK) decisions using the new v2 API with JSON responses. Supports all three decision types: disputes (uyusmazlik), regulatory (duzenleyici), and court decisions (mahkeme)",
+    description="Use this when searching Turkish public procurement disputes (KİK). Supports dispute, regulatory, and court decision types.",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -945,7 +945,7 @@ async def search_kik_v2_decisions(
         }
 
 @app.tool(
-    description="Get Public Procurement Authority (KİK) decision document using the new v2 API (placeholder - full implementation pending)",
+    description="Use this when retrieving full text of a KİK procurement decision. Returns document in Markdown format.",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -988,7 +988,7 @@ async def get_kik_v2_document_markdown(
             "error_message": f"Tool-level error during document retrieval: {str(e)}"
         }
 @app.tool(
-    description="Search Competition Authority (Rekabet Kurumu) decisions for competition law and antitrust",
+    description="Use this when searching Turkish competition law and antitrust decisions (Rekabet Kurumu).",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1045,7 +1045,7 @@ async def search_rekabet_kurumu_decisions(
         return RekabetSearchResult(decisions=[], retrieved_page_number=page, total_records_found=0, total_pages=0).model_dump()
 
 @app.tool(
-    description="Get Competition Authority decision text in paginated Markdown format",
+    description="Use this when retrieving full text of a Competition Authority decision. Returns paginated Markdown format.",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -1069,7 +1069,7 @@ async def get_rekabet_kurumu_document(
 
 # --- MCP Tools for Bedesten (Unified Search Across All Courts) ---
 @app.tool(
-    description="Search multiple Turkish courts (Yargıtay, Danıştay, Local Courts, Appeals Courts, KYB)",
+    description="Use this when searching across multiple Turkish courts in a single query. Supports Yargıtay, Danıştay, Local Courts, Appeals Courts, and KYB.",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1179,7 +1179,7 @@ For best results, use exact phrases with quotes for legal terms."""),
         raise
 
 @app.tool(
-    description="Get legal decision document from Bedesten API in Markdown format",
+    description="Use this when retrieving full text of any Bedesten-supported court decision. Returns clean Markdown format.",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -1204,7 +1204,7 @@ async def get_bedesten_document_markdown(
 # --- Semantic Search Tool (Conditional - requires OPENROUTER_API_KEY) ---
 if SEMANTIC_SEARCH_AVAILABLE:
     @app.tool(
-        description="Perform semantic search on Turkish legal decisions using OpenRouter Gemini embeddings for intelligent re-ranking",
+        description="Use this when you need intelligent semantic search on Turkish legal decisions. Uses AI embeddings for relevance re-ranking.",
         annotations={
             "readOnlyHint": True,
             "openWorldHint": True,
@@ -1569,7 +1569,7 @@ YANLIŞ KULLANIM:
 # --- UNIFIED MCP Tools for Sayıştay (Turkish Court of Accounts) ---
 
 @app.tool(
-    description="Search Sayıştay decisions unified across all three decision types (Genel Kurul, Temyiz Kurulu, Daire) with comprehensive filtering",
+    description="Use this when searching Turkish Court of Accounts (Sayıştay) audit decisions. Supports Genel Kurul, Temyiz Kurulu, and Daire decisions.",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1639,7 +1639,7 @@ async def search_sayistay_unified(
         raise
 
 @app.tool(
-    description="Get Sayıştay decision document in Markdown format for any decision type",
+    description="Use this when retrieving full text of a Sayıştay audit decision. Returns clean Markdown format.",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": False,
@@ -1737,7 +1737,7 @@ def get_or_create_health_check_client() -> httpx.AsyncClient:
 
 # --- Health Check Tools ---
 @app.tool(
-    description="Check if Turkish government legal database servers are operational",
+    description="Use this when checking if Turkish legal database servers are online and responding.",
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -1890,7 +1890,7 @@ async def check_government_servers_health() -> Dict[str, Any]:
 
 # --- MCP Tools for KVKK ---
 @app.tool(
-    description="Search KVKK data protection authority decisions",
+    description="Use this when searching Turkish data protection (KVKK/GDPR equivalent) decisions. For privacy, consent, and data breach cases.",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1929,7 +1929,7 @@ async def search_kvkk_decisions(
         ).model_dump()
 
 @app.tool(
-    description="Get KVKK decision document in Markdown format with metadata extraction",
+    description="Use this when retrieving full text of a KVKK data protection decision. Returns paginated Markdown with metadata.",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": False,
@@ -1994,7 +1994,7 @@ async def get_kvkk_document_markdown(
 
 # --- MCP Tools for BDDK (Banking Regulation Authority) ---
 @app.tool(
-    description="Search BDDK banking regulation decisions",
+    description="Use this when searching Turkish banking regulation (BDDK) decisions. For banking licenses, fintech, and payment services.",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -2046,7 +2046,7 @@ async def search_bddk_decisions(
         }
 
 @app.tool(
-    description="Get BDDK decision document as Markdown",
+    description="Use this when retrieving full text of a BDDK banking regulation decision. Returns paginated Markdown format.",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": False,
@@ -2139,7 +2139,7 @@ def get_preview_text(markdown_content: str, skip_chars: int = 100, preview_chars
 
 
 @app.tool(
-    description="DO NOT USE unless you are ChatGPT Deep Research. Search Turkish courts (Turkish keywords only). Supports: +term (must have), -term (exclude), \"exact phrase\", term1 OR term2",
+    description="Only for ChatGPT Deep Research. Use this when searching across all Turkish legal databases in a single query. Returns results in ChatGPT Deep Research compatible format (id, title, text, url). Supports: +term (must have), -term (exclude), \"exact phrase\", term1 OR term2. Use Turkish keywords for best results.",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -2292,7 +2292,7 @@ async def search(
         raise
 
 @app.tool(
-    description="DO NOT USE unless you are ChatGPT Deep Research. Fetch document by ID. See docs for details",
+    description="Only for ChatGPT Deep Research. Use this when retrieving a Turkish legal document by ID. Returns full document in ChatGPT Deep Research compatible format (id, title, text, url, metadata).",
     annotations={
         "readOnlyHint": True,
         "openWorldHint": False,  # Retrieves specific documents, not exploring

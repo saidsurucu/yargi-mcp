@@ -469,6 +469,28 @@ doc8 = await get_kvkk_document_markdown(decision_url="https://www.kvkk.gov.tr/Ic
   - **Fallback Token**: If not set, uses a limited free token automatically
   - KVKK search tools will work without configuration (with rate limits)
 
+### Rate Limits
+
+| API | Rate Limit | Notes |
+|-----|------------|-------|
+| Bedesten Unified | Unknown | Ministry of Justice API - no documented limits |
+| Yargıtay Primary | Unknown | Official government API |
+| Danıştay | Unknown | Official government API |
+| Anayasa Mahkemesi | Unknown | Constitutional Court API |
+| KİK v2 | Unknown | Public Procurement Authority API |
+| Rekabet Kurumu | Unknown | Competition Authority API |
+| Sayıştay | Unknown | Court of Accounts API |
+| Uyuşmazlık | Unknown | Jurisdictional Disputes Court API |
+| Emsal | Unknown | UYAP Precedent Database API |
+| KVKK (Brave) | 1,000/month | Brave Search API free tier limit |
+| BDDK | Unknown | Banking Regulation API |
+
+**Recommendations:**
+- Implement client-side caching for repeated queries
+- Use pagination parameters to limit result sizes
+- Space out requests during bulk operations
+- Consider implementing retry logic with exponential backoff
+
 ### OAuth Authentication Configuration
 
 The server uses **Clerk JWT tokens** for all authentication. **Cross-origin authentication** is implemented using Bearer JWT tokens as per Clerk's best practices.
