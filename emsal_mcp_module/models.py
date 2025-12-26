@@ -84,7 +84,7 @@ class EmsalApiResponseInnerData(BaseModel):
 
 class EmsalApiResponse(BaseModel):
     """Model for the complete search response from the Emsal API."""
-    data: EmsalApiResponseInnerData
+    data: Optional[EmsalApiResponseInnerData] = None
     metadata: Optional[Dict[str, Any]] = Field(None, description="Optional metadata (Meta Veri) from API, if any.")
 
 class EmsalDocumentMarkdown(BaseModel):
