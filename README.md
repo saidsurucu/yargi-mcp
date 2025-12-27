@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/saidsurucu-yargi-mcp-badge.png)](https://mseep.ai/app/saidsurucu-yargi-mcp)
+
 # Yargı MCP: Türk Hukuk Kaynakları için MCP Sunucusu
 
 ## Word'den UDF'ye profesyonel dönüşüm için yeni uygulamam [udfcevir.com](https://udfcevir.com) adresinde! 
