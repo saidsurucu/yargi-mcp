@@ -55,43 +55,61 @@ logger = logging.getLogger(__name__)
 # Configure CORS and Auth middleware
 cors_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
-# Import FastMCP Bearer Auth Provider
-from fastmcp.server.auth import BearerAuthProvider
-from fastmcp.server.auth.providers.bearer import RSAKeyPair
-
-# Import Clerk SDK at module level for performance
-try:
-    from clerk_backend_api import Clerk
-    CLERK_SDK_AVAILABLE = True
-except ImportError:
-    CLERK_SDK_AVAILABLE = False
-    logger.warning("Clerk SDK not available - falling back to development mode")
-
 # Configure Bearer token authentication based on ENABLE_AUTH
 auth_enabled = os.getenv("ENABLE_AUTH", "false").lower() == "true"
 bearer_auth = None
 
-if CLERK_SECRET_KEY and CLERK_ISSUER:
-    # Production: Use Clerk JWKS endpoint for token validation
-    bearer_auth = BearerAuthProvider(
-        jwks_uri=f"{CLERK_ISSUER}/.well-known/jwks.json",
-        issuer=None,
-        algorithm="RS256",
-        audience=None,
-        required_scopes=[]
-    )
-else:
-    # Development: Generate RSA key pair for testing
-    dev_key_pair = RSAKeyPair.generate()
-    bearer_auth = BearerAuthProvider(
-        public_key=dev_key_pair.public_key,
-        issuer="https://dev.yargimcp.com",
-        audience="dev-mcp-server",
-        required_scopes=["yargi.read"]
-    )
+# Only import and configure auth if enabled
+if auth_enabled:
+    # Import FastMCP JWT Verifier (handles both old and new FastMCP versions)
+    try:
+        # FastMCP 2.12+ uses JWTVerifier
+        from fastmcp.server.auth.providers.jwt import JWTVerifier, RSAKeyPair
+        AuthProviderClass = JWTVerifier
+    except ImportError:
+        try:
+            # Older FastMCP versions used BearerAuthProvider
+            from fastmcp.server.auth import BearerAuthProvider
+            from fastmcp.server.auth.providers.bearer import RSAKeyPair
+            AuthProviderClass = BearerAuthProvider
+        except ImportError:
+            logger.error("No compatible auth provider found in FastMCP")
+            AuthProviderClass = None
+            RSAKeyPair = None
 
-# Create MCP app with Bearer authentication
-mcp_server = create_app(auth=bearer_auth if auth_enabled else None)
+    # Import Clerk SDK at module level for performance
+    try:
+        from clerk_backend_api import Clerk
+        CLERK_SDK_AVAILABLE = True
+    except ImportError:
+        CLERK_SDK_AVAILABLE = False
+        logger.warning("Clerk SDK not available - falling back to development mode")
+
+    if AuthProviderClass:
+        if CLERK_SECRET_KEY and CLERK_ISSUER:
+            # Production: Use Clerk JWKS endpoint for token validation
+            bearer_auth = AuthProviderClass(
+                jwks_uri=f"{CLERK_ISSUER}/.well-known/jwks.json",
+                issuer=None,
+                algorithm="RS256",
+                audience=None,
+                required_scopes=[]
+            )
+        elif RSAKeyPair:
+            # Development: Generate RSA key pair for testing
+            dev_key_pair = RSAKeyPair.generate()
+            bearer_auth = AuthProviderClass(
+                public_key=dev_key_pair.public_key,
+                issuer="https://dev.yargimcp.com",
+                audience="dev-mcp-server",
+                required_scopes=["yargi.read"]
+            )
+else:
+    CLERK_SDK_AVAILABLE = False
+    logger.info("Authentication disabled (ENABLE_AUTH=false)")
+
+# Create MCP app with Bearer authentication (None if auth disabled)
+mcp_server = create_app(auth=bearer_auth)
 
 # Create MCP Starlette sub-application with root path - mount will add /mcp prefix
 mcp_app = mcp_server.http_app(path="/")
