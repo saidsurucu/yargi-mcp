@@ -14,7 +14,7 @@ Bu proje, çeşitli Türk hukuk kaynaklarına (Yargıtay, Danıştay, Emsal Kara
 
 🔗 **Remote MCP Adresi:** `https://yargimcp.fastmcp.app/mcp`
 
-### Claude Desktop ile Kullanım
+### Claude Desktop ile Kullanım (Ücretli abonelik gerekir)
 
 1. **Claude Desktop'ı açın**
 2. **Settings → Connectors → Add Custom Connector**
