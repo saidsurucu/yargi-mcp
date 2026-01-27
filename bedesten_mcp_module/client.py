@@ -135,7 +135,7 @@ class BedestenApiClient:
             return BedestenDocumentMarkdown(
                 documentId=document_id,
                 markdown_content=markdown_content,
-                source_url=f"{self.BASE_URL}/document/{document_id}",
+                source_url=f"https://mevzuat.adalet.gov.tr/ictihat/{document_id}",
                 mime_type=mime_type
             )
             
