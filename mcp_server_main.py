@@ -324,6 +324,14 @@ from bddk_mcp_module.models import (
     BddkSearchRequest
 )
 
+# GİB Module Imports
+from gib_mcp_module.client import GibApiClient
+from gib_mcp_module.models import (
+    GibSearchRequest,
+    GibSearchResult,
+    GibDocumentMarkdown
+)
+
 # Sigorta Tahkim Module Imports
 from sigorta_tahkim_mcp_module.client import SigortaTahkimApiClient
 from sigorta_tahkim_mcp_module.models import (
@@ -356,6 +364,7 @@ sayistay_client_instance = SayistayApiClient()
 sayistay_unified_client_instance = SayistayUnifiedClient()
 kvkk_client_instance = KvkkApiClient()
 bddk_client_instance = BddkApiClient()
+gib_client_instance = GibApiClient()
 sigorta_tahkim_client_instance = SigortaTahkimApiClient()
 
 # Health check client (singleton for reuse)
@@ -1687,6 +1696,7 @@ def perform_cleanup():
         globals().get('sayistay_unified_client_instance'),
         globals().get('kvkk_client_instance'),
         globals().get('bddk_client_instance'),
+        globals().get('gib_client_instance'),
         globals().get('sigorta_tahkim_client_instance')
     ]
     async def close_all_clients_async():
@@ -2088,6 +2098,90 @@ async def get_bddk_document_markdown(
             "total_pages": 0,
             "error": str(e)
         }
+
+# --- MCP Tools for GİB (Gelir İdaresi Başkanlığı / Revenue Administration) Özelgeler ---
+@app.tool(
+    description="Search Turkish GİB özelgeler (Revenue Administration tax rulings) - 18k+ rulings on VAT, income tax, corporate tax, stamp duty interpretations. Supports keyword, date range, and law number filtering.",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": True,
+        "idempotentHint": True
+    }
+)
+async def search_gib_ozelge(
+    keywords: str = Field("", description="Turkish keywords searched in title, kanunNo and description (e.g., 'KDV oranı', 'kurumlar vergisi istisna')"),
+    ozelgeNo: str = Field("", description="Exact özelge reference number (e.g., 'E-40247694-130-15524')"),
+    kanunNo: str = Field("", description="Law number filter, e.g. '3065' for KDV, '193' for Gelir Vergisi"),
+    ozelgeStartDate: str = Field("", description="Start date YYYY-MM-DD (e.g., '2024-01-01') or full ISO 8601"),
+    ozelgeEndDate: str = Field("", description="End date YYYY-MM-DD (e.g., '2024-12-31') or full ISO 8601"),
+    page: int = Field(1, ge=1, description="Page number (1-indexed)"),
+    pageSize: int = Field(10, ge=1, le=50, description="Results per page (1-50)")
+) -> dict:
+    """Search GİB özelgeler (Turkish Revenue Administration tax rulings)."""
+    logger.info(
+        f"GİB search tool called with keywords='{keywords}', ozelgeNo='{ozelgeNo}', "
+        f"kanunNo='{kanunNo}', start={ozelgeStartDate}, end={ozelgeEndDate}, "
+        f"page={page}, pageSize={pageSize}"
+    )
+
+    try:
+        search_request = GibSearchRequest(
+            keywords=keywords,
+            ozelgeNo=ozelgeNo,
+            kanunNo=kanunNo,
+            ozelgeStartDate=ozelgeStartDate,
+            ozelgeEndDate=ozelgeEndDate,
+            page=page,
+            pageSize=pageSize,
+        )
+        result = await gib_client_instance.search_ozelge(search_request)
+        logger.info(
+            f"GİB search completed. Found {len(result.ozelgeler)} rulings on page {page} "
+            f"(total {result.total_results})"
+        )
+        return result.model_dump()
+    except Exception as e:
+        logger.exception(f"Error searching GİB özelgeler: {e}")
+        return GibSearchResult(
+            ozelgeler=[],
+            total_results=0,
+            total_pages=0,
+            current_page=page,
+            page_size=pageSize,
+        ).model_dump()
+
+
+@app.tool(
+    description="Retrieve full text of a GİB özelge (tax ruling) by numeric ID. Returns paginated Markdown (5000-char chunks) with title, reference number, date and law metadata.",
+    annotations={
+        "readOnlyHint": True,
+        "openWorldHint": False,
+        "idempotentHint": True
+    }
+)
+async def get_gib_ozelge_document_markdown(
+    ozelge_id: int = Field(..., ge=1, description="Numeric özelge ID from search results (e.g., 38849)"),
+    page_number: int = Field(1, ge=1, description="Page number for paginated Markdown (1-indexed)")
+) -> dict:
+    """Retrieve a GİB özelge document in paginated Markdown format."""
+    logger.info(f"GİB document retrieval tool called for id={ozelge_id}, page={page_number}")
+
+    try:
+        result = await gib_client_instance.get_ozelge_document(ozelge_id, page_number)
+        logger.info(
+            f"GİB document retrieved. id={ozelge_id} page={result.current_page}/{result.total_pages}"
+        )
+        return result.model_dump()
+    except Exception as e:
+        logger.exception(f"Error retrieving GİB document: {e}")
+        return GibDocumentMarkdown(
+            ozelge_id=ozelge_id,
+            current_page=page_number,
+            total_pages=0,
+            is_paginated=False,
+            error_message=str(e),
+        ).model_dump()
+
 
 # --- MCP Tools for Sigorta Tahkim Komisyonu (Insurance Arbitration Commission) ---
 @app.tool(
