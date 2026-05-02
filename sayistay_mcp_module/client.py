@@ -42,11 +42,17 @@ class SayistayApiClient:
     """
     
     BASE_URL = "https://www.sayistay.gov.tr"
-    
+
     # Search endpoints for each decision type
     GENEL_KURUL_ENDPOINT = "/KararlarGenelKurul/DataTablesList"
-    TEMYIZ_KURULU_ENDPOINT = "/KararlarTemyiz/DataTablesList" 
+    TEMYIZ_KURULU_ENDPOINT = "/KararlarTemyiz/DataTablesList"
     DAIRE_ENDPOINT = "/KararlarDaire/DataTablesList"
+
+    # Marker present in the upstream WAF block page (also returns HTTP 418).
+    # Verified 2026-05-03 against real Chrome — the block targets POSTs to
+    # the DataTablesList endpoints regardless of headers/cookies/CSRF, so
+    # we surface a specific error instead of the generic "I'm a teapot".
+    _WAF_BLOCK_MARKER = "Bilgi Güvenliği Politikaları Gereği Kısıtlanmıştır"
     
     # Page endpoints for session initialization and document access
     GENEL_KURUL_PAGE = "/KararlarGenelKurul"
@@ -140,6 +146,23 @@ class SayistayApiClient:
             return WEB_KARAR_KONUSU_MAPPING.get(enum_value, enum_value)
         
         return enum_value
+
+    def _raise_if_waf_blocked(self, response: httpx.Response, endpoint_label: str) -> None:
+        """
+        Sayıştay's upstream WAF returns HTTP 418 with a Turkish HTML block
+        page for POSTs to the DataTablesList endpoints. This affects every
+        client (verified with real Chrome on 2026-05-03), so there is no
+        client-side workaround. Detect it and raise a clear error.
+        """
+        if response.status_code == 418 or self._WAF_BLOCK_MARKER in response.text:
+            raise RuntimeError(
+                f"Sayıştay upstream WAF blocked the {endpoint_label} request "
+                f"(HTTP {response.status_code} from {response.request.url}). "
+                "This is a server-side restriction at sayistay.gov.tr — affects "
+                "all clients including a real browser — and cannot be worked "
+                "around from yargi-mcp. Try again later or contact Sayıştay if "
+                "the block persists."
+            )
 
     def _build_datatables_params(self, start: int, length: int, draw: int = 1) -> List[Tuple[str, str]]:
         """Build standard DataTables parameters for all endpoints."""
@@ -384,9 +407,10 @@ class SayistayApiClient:
                 data=encoded_data,
                 headers=headers
             )
+            self._raise_if_waf_blocked(response, "Genel Kurul")
             response.raise_for_status()
             response_json = response.json()
-            
+
             # Parse response
             decisions = []
             for item in response_json.get('data', []):
@@ -443,6 +467,7 @@ class SayistayApiClient:
                 data=encoded_data,
                 headers=headers
             )
+            self._raise_if_waf_blocked(response, "Temyiz Kurulu")
             response.raise_for_status()
             response_json = response.json()
             
@@ -502,6 +527,7 @@ class SayistayApiClient:
                 data=encoded_data,
                 headers=headers
             )
+            self._raise_if_waf_blocked(response, "Daire")
             response.raise_for_status()
             response_json = response.json()
             
