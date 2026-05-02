@@ -265,17 +265,18 @@ from bedesten_mcp_module.models import (
 )
 from bedesten_mcp_module.enums import BirimAdiEnum
 
-# Semantic Search Module Imports (conditional based on OPENROUTER_API_KEY)
-from semantic_search.embedder import is_openrouter_available
-SEMANTIC_SEARCH_AVAILABLE = is_openrouter_available()
+# Semantic Search Module Imports (enabled if any embedding provider is configured)
+from semantic_search.embedder import is_semantic_search_available, is_local_embedding_configured
+SEMANTIC_SEARCH_AVAILABLE = is_semantic_search_available()
 
 if SEMANTIC_SEARCH_AVAILABLE:
-    from semantic_search.embedder import OpenRouterEmbedder
+    from semantic_search.embedder import get_embedder
     from semantic_search.vector_store import VectorStore
     from semantic_search.processor import DocumentProcessor
-    logger.info("Semantic search enabled (OPENROUTER_API_KEY found)")
+    provider = "local" if is_local_embedding_configured() else "openrouter"
+    logger.info(f"Semantic search enabled (provider={provider})")
 else:
-    logger.info("Semantic search disabled (OPENROUTER_API_KEY not set)")
+    logger.info("Semantic search disabled (no embedding provider configured)")
 
 from danistay_mcp_module.client import DanistayApiClient
 from emsal_mcp_module.client import EmsalApiClient
@@ -1279,8 +1280,9 @@ YANLIŞ KULLANIM:
         logger.info(f"Semantic search tool called with initial_keyword: {initial_keyword}, query: {query}")
 
         try:
-            # Initialize components
-            embedder = OpenRouterEmbedder()
+            # Initialize components (provider chosen via EMBEDDING_PROVIDER /
+            # OPENROUTER_API_KEY env vars)
+            embedder = get_embedder()
             vector_store = VectorStore(dimension=embedder.dimension)
             processor = DocumentProcessor(chunk_size=1500, chunk_overlap=300)
 
