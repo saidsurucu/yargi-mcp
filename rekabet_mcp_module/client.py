@@ -141,30 +141,30 @@ class RekabetKurumuApiClient:
 
                     # Row 1: Publication Date, Decision Number, Related Cases Link
                     td_elements_r1 = rows[0].find_all("td")
-                    pub_date = td_elements_r1[0].get_text(strip=True) if len(td_elements_r1) > 0 else None
-                    dec_num = td_elements_r1[1].get_text(strip=True) if len(td_elements_r1) > 1 else None
-                    
+                    pub_date = td_elements_r1[0].get_text(strip=True) if len(td_elements_r1) > 0 else ""
+                    dec_num = td_elements_r1[1].get_text(strip=True) if len(td_elements_r1) > 1 else ""
+
                     related_cases_link_tag = td_elements_r1[2].find("a", href=True) if len(td_elements_r1) > 2 else None
-                    related_cases_url_str: Optional[str] = None
-                    karar_id_from_related: Optional[str] = None
+                    related_cases_url_str: str = ""
+                    karar_id_from_related: str = ""
                     if related_cases_link_tag and related_cases_link_tag.has_attr('href'):
                         related_cases_url_str = urljoin(self.BASE_URL, related_cases_link_tag['href'])
                         qs_related = parse_qs(urlparse(related_cases_link_tag['href']).query)
                         if 'kararId' in qs_related and qs_related['kararId']:
                             karar_id_from_related = qs_related['kararId'][0]
-                    
+
                     # Row 2: Decision Date, Decision Type
                     td_elements_r2 = rows[1].find_all("td")
-                    dec_date = td_elements_r2[0].get_text(strip=True) if len(td_elements_r2) > 0 else None
-                    dec_type_text = td_elements_r2[1].get_text(strip=True) if len(td_elements_r2) > 1 else None
+                    dec_date = td_elements_r2[0].get_text(strip=True) if len(td_elements_r2) > 0 else ""
+                    dec_type_text = td_elements_r2[1].get_text(strip=True) if len(td_elements_r2) > 1 else ""
 
                     # Row 3: Title and Main Decision Link
                     title_cell = rows[2].find("td", colspan="5")
                     decision_link_tag = title_cell.find("a", href=True) if title_cell else None
-                    
-                    title_text: Optional[str] = None
-                    decision_landing_url_str: Optional[str] = None 
-                    karar_id_from_main_link: Optional[str] = None
+
+                    title_text: str = ""
+                    decision_landing_url_str: str = ""
+                    karar_id_from_main_link: str = ""
 
                     if decision_link_tag and decision_link_tag.has_attr('href'):
                         title_text = decision_link_tag.get_text(strip=True)
@@ -178,23 +178,19 @@ class RekabetKurumuApiClient:
                             logger.warning(f"Table {idx+1} decision link has unexpected format: {href_val}")
                     else:
                         logger.warning(f"Table {idx+1} could not find title/decision link tag.")
-                    
+
                     current_karar_id = karar_id_from_main_link or karar_id_from_related
 
-                    if not current_karar_id: 
+                    if not current_karar_id:
                         logger.warning(f"Table {idx+1} Karar ID not found. Skipping. Title (if any): {title_text}")
                         continue
-                    
-                    # Convert string URLs to HttpUrl for the model
-                    final_decision_url = HttpUrl(decision_landing_url_str) if decision_landing_url_str else None
-                    final_related_cases_url = HttpUrl(related_cases_url_str) if related_cases_url_str else None
 
                     processed_decisions.append(RekabetDecisionSummary(
                         publication_date=pub_date, decision_number=dec_num, decision_date=dec_date,
-                        decision_type_text=dec_type_text, title=title_text, 
-                        decision_url=final_decision_url, 
-                        karar_id=current_karar_id, 
-                        related_cases_url=final_related_cases_url
+                        decision_type_text=dec_type_text, title=title_text,
+                        decision_url=decision_landing_url_str,
+                        karar_id=current_karar_id,
+                        related_cases_url=related_cases_url_str
                     ))
                     logger.debug(f"Table {idx+1} parsed successfully: Karar ID '{current_karar_id}', Title '{title_text[:50] if title_text else 'N/A'}...'")
 
