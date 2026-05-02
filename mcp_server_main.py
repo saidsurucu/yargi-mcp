@@ -1281,7 +1281,7 @@ YANLIŞ KULLANIM:
         try:
             # Initialize components
             embedder = OpenRouterEmbedder()
-            vector_store = VectorStore(dimension=3072)  # Gemini embedding dimension
+            vector_store = VectorStore(dimension=embedder.dimension)
             processor = DocumentProcessor(chunk_size=1500, chunk_overlap=300)
 
             # Step 1: Initial keyword search to get document IDs
@@ -1437,7 +1437,8 @@ YANLIŞ KULLANIM:
                 "query": query,
                 "initial_keyword": initial_keyword,
                 "total_documents_processed": len(documents_data),
-                "embedding_dimension": 3072,
+                "embedding_model": embedder.model,
+                "embedding_dimension": embedder.dimension,
                 "results": formatted_results,
                 "stats": {
                     "documents_in_store": stats["num_documents"],

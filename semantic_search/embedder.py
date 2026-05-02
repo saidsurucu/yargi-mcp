@@ -8,6 +8,10 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+DEFAULT_MODEL = "google/gemini-embedding-001"
+DEFAULT_DIMENSION = 3072
+
+
 def is_openrouter_available() -> bool:
     """Check if OpenRouter API key is available."""
     return bool(os.getenv("OPENROUTER_API_KEY"))
@@ -15,16 +19,36 @@ def is_openrouter_available() -> bool:
 
 class OpenRouterEmbedder:
     """
-    Embedder using OpenRouter API with Google's Gemini Embedding model.
-    Requires OPENROUTER_API_KEY environment variable.
+    Embedder using OpenRouter's embedding API.
+
+    The model and dimension are configurable so users can pick any OpenRouter
+    embedding model (e.g. when one becomes paid or when a different model fits
+    the budget better). Configuration precedence: explicit constructor args >
+    environment variables > defaults.
+
+    Environment variables:
+        OPENROUTER_API_KEY (required): OpenRouter credential
+        OPENROUTER_EMBEDDING_MODEL (optional): override the embedding model id
+        OPENROUTER_EMBEDDING_DIMENSION (optional): override the vector size
+
+    Defaults preserve backward compatibility: ``google/gemini-embedding-001``
+    at 3072 dimensions.
     """
 
-    def __init__(self):
+    def __init__(self, model: Optional[str] = None, dimension: Optional[int] = None):
         """
         Initialize OpenRouter Embedder.
 
+        Args:
+            model: OpenRouter embedding model id. Falls back to
+                OPENROUTER_EMBEDDING_MODEL env var, then DEFAULT_MODEL.
+            dimension: Output vector size. Falls back to
+                OPENROUTER_EMBEDDING_DIMENSION env var, then DEFAULT_DIMENSION.
+                Must match the chosen model's actual output size — the vector
+                store and similarity math rely on it.
+
         Raises:
-            ValueError: If OPENROUTER_API_KEY is not set
+            ValueError: If OPENROUTER_API_KEY is not set or dimension is invalid
             ImportError: If openai package is not installed
         """
         api_key = os.getenv("OPENROUTER_API_KEY")
@@ -40,10 +64,25 @@ class OpenRouterEmbedder:
             base_url="https://openrouter.ai/api/v1",
             api_key=api_key,
         )
-        self.model = "google/gemini-embedding-001"
-        self.dimension = 3072
+        self.model = model or os.getenv("OPENROUTER_EMBEDDING_MODEL") or DEFAULT_MODEL
 
-        logger.info(f"OpenRouter Embedder initialized with model: {self.model}")
+        dim_value = dimension if dimension is not None else os.getenv("OPENROUTER_EMBEDDING_DIMENSION")
+        if dim_value is None:
+            self.dimension = DEFAULT_DIMENSION
+        else:
+            try:
+                self.dimension = int(dim_value)
+            except (TypeError, ValueError) as e:
+                raise ValueError(
+                    f"OPENROUTER_EMBEDDING_DIMENSION must be an integer, got {dim_value!r}"
+                ) from e
+            if self.dimension <= 0:
+                raise ValueError(f"Embedding dimension must be positive, got {self.dimension}")
+
+        logger.info(
+            f"OpenRouter Embedder initialized with model: {self.model} "
+            f"(dimension={self.dimension})"
+        )
 
     def encode_query(self, query: str, task: str = "search result") -> np.ndarray:
         """
@@ -54,7 +93,7 @@ class OpenRouterEmbedder:
             task: Task type for prompt template
 
         Returns:
-            Numpy array of embeddings (3072 dimensions)
+            Numpy array of embeddings (``self.dimension`` elements).
         """
         # Apply query prompt template
         text = f"task: {task} | query: {query}"
@@ -93,7 +132,7 @@ class OpenRouterEmbedder:
             titles: Optional list of document titles
 
         Returns:
-            Numpy array of embeddings (N x 3072 dimensions)
+            Numpy array of embeddings (N x ``self.dimension``).
         """
         if not documents:
             return np.array([])
@@ -138,8 +177,8 @@ class OpenRouterEmbedder:
         Compute cosine similarity between query and documents.
 
         Args:
-            query_embedding: Query embedding (3072,)
-            document_embeddings: Document embeddings (N x 3072)
+            query_embedding: Query embedding (``self.dimension``,)
+            document_embeddings: Document embeddings (N x ``self.dimension``)
 
         Returns:
             Similarity scores (N,)
