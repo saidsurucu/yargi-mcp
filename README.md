@@ -181,20 +181,40 @@ Yargı MCP'yi Gemini CLI ile kullanmak için:
 
 ---
 <details>
-<summary>🧠 <strong>Semantik Arama (Opsiyonel - OpenRouter API)</strong></summary>
+<summary>🧠 <strong>Semantik Arama (Opsiyonel)</strong></summary>
 
-Yargı MCP, **semantik arama** özelliği ile kararları anlamsal olarak sıralayabilir. Bu özellik opsiyoneldir ve `OPENROUTER_API_KEY` ayarlandığında otomatik olarak etkinleşir.
+Yargı MCP, **semantik arama** özelliği ile kararları anlamsal olarak sıralayabilir. Opsiyoneldir; iki yoldan biri yapılandırıldığında otomatik etkinleşir:
+
+- **Yerel** (önerilen, ücretsiz): kendi makinenizdeki OpenAI-uyumlu embedding sunucusu (HuggingFace TEI, llama.cpp, Ollama, vLLM, LM Studio…)
+- **Hosted**: OpenRouter API anahtarı
 
 ### Semantik Arama Nasıl Çalışır?
 1. `initial_keyword` ile Bedesten API'den 100 karar çekilir
 2. `query` ile bu kararlar embedding modeli kullanılarak anlamsal olarak sıralanır
 3. En alakalı kararlar döndürülür
 
-### OpenRouter API Anahtarı Alma
-1. [OpenRouter](https://openrouter.ai/) sitesine gidin
-2. Hesap oluşturun ve API anahtarı alın (ücretsiz kredi ile başlayabilirsiniz)
+### Önerilen Türkçe Kurulumu (Yerel — `multilingual-e5-large`)
 
-### Claude Desktop için Yapılandırma
+`intfloat/multilingual-e5-large` Türkçe için kıyas ettiğimiz açık kaynak modeller arasında en iyilerinden. HuggingFace'in **Text Embeddings Inference (TEI)** sunucusuyla tek komutta ayağa kalkar ve OpenAI-uyumlu API sunar:
+
+```bash
+docker run -p 8080:80 ghcr.io/huggingface/text-embeddings-inference:latest \
+    --model-id intfloat/multilingual-e5-large
+```
+
+Sonra Yargı MCP'ye şu env vars'ları geçirin:
+
+```bash
+EMBEDDING_PROVIDER=local
+LOCAL_EMBEDDING_BASE_URL=http://localhost:8080/v1
+LOCAL_EMBEDDING_MODEL=intfloat/multilingual-e5-large
+LOCAL_EMBEDDING_DIMENSION=1024
+EMBEDDING_PROMPT_STYLE=e5
+```
+
+> ⚠️ **Önemli:** `EMBEDDING_PROMPT_STYLE=e5` şart — e5 modelleri `query:` / `passage:` öneki bekleyecek şekilde eğitilmiştir; yanlış önek sessizce kaliteyi düşürür.
+
+#### Claude Desktop örneği (yerel TEI)
 ```json
 {
   "mcpServers": {
@@ -202,35 +222,60 @@ Yargı MCP, **semantik arama** özelliği ile kararları anlamsal olarak sırala
       "command": "uvx",
       "args": ["yargi-mcp"],
       "env": {
-        "OPENROUTER_API_KEY": "sk-or-v1-xxx..."
+        "EMBEDDING_PROVIDER": "local",
+        "LOCAL_EMBEDDING_BASE_URL": "http://localhost:8080/v1",
+        "LOCAL_EMBEDDING_MODEL": "intfloat/multilingual-e5-large",
+        "LOCAL_EMBEDDING_DIMENSION": "1024",
+        "EMBEDDING_PROMPT_STYLE": "e5"
       }
     }
   }
 }
 ```
 
-### 5ire için Yapılandırma
-Tool ayarlarında **Environment Variables** alanına ekleyin:
+### Alternatif 1: Ollama (yerel, daha hafif kurulum)
+
+```bash
+ollama serve
+ollama pull nomic-embed-text   # 768 dim, İngilizce ağırlıklı
 ```
+
+```bash
+EMBEDDING_PROVIDER=local
+LOCAL_EMBEDDING_BASE_URL=http://localhost:11434/v1
+LOCAL_EMBEDDING_MODEL=nomic-embed-text
+LOCAL_EMBEDDING_DIMENSION=768
+EMBEDDING_PROMPT_STYLE=raw
+```
+
+> Ollama kütüphanesinde `multilingual-e5-large` doğrudan yok; Türkçe için TEI yolu daha doğru sonuç verir.
+
+### Alternatif 2: OpenRouter (hosted)
+
+```bash
 OPENROUTER_API_KEY=sk-or-v1-xxx...
+# İsteğe bağlı — varsayılan google/gemini-embedding-001 (3072 dim, ÜCRETLİ)
+# OPENROUTER_EMBEDDING_MODEL=...
+# OPENROUTER_EMBEDDING_DIMENSION=...
+# EMBEDDING_PROMPT_STYLE=gemini   # varsayılan
 ```
 
-### Gemini CLI için Yapılandırma
-```json
-{
-  "mcpServers": {
-    "yargi_mcp": {
-      "command": "uvx",
-      "args": ["yargi-mcp"],
-      "env": {
-        "OPENROUTER_API_KEY": "sk-or-v1-xxx..."
-      }
-    }
-  }
-}
-```
+API anahtarınızı [openrouter.ai/keys](https://openrouter.ai/keys) adresinden alın. Varsayılan model `google/gemini-embedding-001` artık ücretli — ücretsiz bir model seçerseniz `OPENROUTER_EMBEDDING_MODEL`, `OPENROUTER_EMBEDDING_DIMENSION` ve uygun `EMBEDDING_PROMPT_STYLE` değerlerini birlikte ayarlayın.
 
-> 💡 **Not:** `OPENROUTER_API_KEY` ayarlanmazsa semantik arama aracı görünmez, diğer 24 araç normal şekilde çalışmaya devam eder.
+### Yapılandırma Referansı
+
+| Env Var | Açıklama | Örnek |
+|---|---|---|
+| `EMBEDDING_PROVIDER` | `local` ise yerel sunucu, boş ise OpenRouter | `local` |
+| `EMBEDDING_PROMPT_STYLE` | `gemini` / `e5` / `raw` — modelin beklediği önek | `e5` |
+| `LOCAL_EMBEDDING_BASE_URL` | Yerel sunucunun OpenAI-uyumlu URL'i | `http://localhost:8080/v1` |
+| `LOCAL_EMBEDDING_MODEL` | Model adı | `intfloat/multilingual-e5-large` |
+| `LOCAL_EMBEDDING_DIMENSION` | Modelin çıktı boyutu (mutlaka eşleşmeli) | `1024` |
+| `OPENROUTER_API_KEY` | OpenRouter anahtarı (sadece hosted için) | `sk-or-v1-…` |
+| `OPENROUTER_EMBEDDING_MODEL` | OpenRouter model id'si | `google/gemini-embedding-001` |
+| `OPENROUTER_EMBEDDING_DIMENSION` | OpenRouter modelinin çıktı boyutu | `3072` |
+
+> 💡 **Not:** Hiçbir embedding sağlayıcı yapılandırılmazsa semantik arama aracı görünmez, diğer 24 araç normal şekilde çalışır.
 
 </details>
 

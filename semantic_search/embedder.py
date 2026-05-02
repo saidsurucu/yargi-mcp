@@ -14,12 +14,49 @@ DEFAULT_DIMENSION = 3072
 
 # Local provider defaults — Ollama with nomic-embed-text out of the box.
 # Override via LOCAL_EMBEDDING_BASE_URL / LOCAL_EMBEDDING_MODEL /
-# LOCAL_EMBEDDING_DIMENSION when using a different server or model
-# (e.g. llama.cpp's server, vLLM, LM Studio, or a different Ollama model
-# such as bge-m3 — better for Turkish — at 1024 dimensions).
+# LOCAL_EMBEDDING_DIMENSION when using a different server or model.
+# For Turkish, intfloat/multilingual-e5-large (1024 dims, prompt_style=e5)
+# served via HuggingFace TEI is the recommended setup — see README.
 LOCAL_DEFAULT_BASE_URL = "http://localhost:11434/v1"
 LOCAL_DEFAULT_MODEL = "nomic-embed-text"
 LOCAL_DEFAULT_DIMENSION = 768
+
+# Prompt-template styles. Embedding models are trained with specific
+# prefixes — using the wrong style silently degrades retrieval quality.
+#   - "gemini": "task: {task} | query: {text}" / "title: {title} | text: {text}"
+#               (matches google/gemini-embedding-001, the OpenRouter default)
+#   - "e5":     "query: {text}" / "passage: {text}"
+#               (matches intfloat/multilingual-e5-* models — best for Turkish)
+#   - "raw":    no prefix; pass text through as-is
+PROMPT_STYLES = ("gemini", "e5", "raw")
+DEFAULT_PROMPT_STYLE = "gemini"
+
+
+def _format_query(prompt_style: str, query: str, task: str) -> str:
+    if prompt_style == "e5":
+        return f"query: {query}"
+    if prompt_style == "raw":
+        return query
+    # gemini (default)
+    return f"task: {task} | query: {query}"
+
+
+def _format_document(prompt_style: str, doc: str, title: str) -> str:
+    if prompt_style == "e5":
+        return f"passage: {doc}"
+    if prompt_style == "raw":
+        return doc
+    # gemini (default)
+    return f"title: {title} | text: {doc}"
+
+
+def _resolve_prompt_style(explicit: Optional[str], default: str) -> str:
+    style = (explicit or os.getenv("EMBEDDING_PROMPT_STYLE") or default).strip().lower()
+    if style not in PROMPT_STYLES:
+        raise ValueError(
+            f"Unknown EMBEDDING_PROMPT_STYLE {style!r}; expected one of {PROMPT_STYLES}"
+        )
+    return style
 
 
 def is_openrouter_available() -> bool:
@@ -66,19 +103,21 @@ class _BaseOpenAICompatibleEmbedder:
     client = None
     model: str = ""
     dimension: int = 0
+    prompt_style: str = DEFAULT_PROMPT_STYLE
 
     def encode_query(self, query: str, task: str = "search result") -> np.ndarray:
         """
-        Encode a search query.
+        Encode a search query. Prefix is selected by ``self.prompt_style``.
 
         Args:
             query: The search query text
-            task: Task type for prompt template
+            task: Task hint used by the gemini-style prefix; ignored for
+                e5/raw styles.
 
         Returns:
             Numpy array of embeddings (``self.dimension`` elements).
         """
-        text = f"task: {task} | query: {query}"
+        text = _format_query(self.prompt_style, query, task)
 
         try:
             response = self.client.embeddings.create(
@@ -119,7 +158,7 @@ class _BaseOpenAICompatibleEmbedder:
         texts = []
         for i, doc in enumerate(documents):
             title = titles[i] if titles and i < len(titles) else "none"
-            texts.append(f"title: {title} | text: {doc}")
+            texts.append(_format_document(self.prompt_style, doc, title))
 
         try:
             response = self.client.embeddings.create(
@@ -186,7 +225,12 @@ class OpenRouterEmbedder(_BaseOpenAICompatibleEmbedder):
         "X-Title": "Yargi MCP Server",
     }
 
-    def __init__(self, model: Optional[str] = None, dimension: Optional[int] = None):
+    def __init__(
+        self,
+        model: Optional[str] = None,
+        dimension: Optional[int] = None,
+        prompt_style: Optional[str] = None,
+    ):
         api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
             raise ValueError("OPENROUTER_API_KEY environment variable is not set")
@@ -206,10 +250,14 @@ class OpenRouterEmbedder(_BaseOpenAICompatibleEmbedder):
             "OPENROUTER_EMBEDDING_DIMENSION",
             DEFAULT_DIMENSION,
         )
+        # Default to gemini-style prefix for OpenRouter — matches the default
+        # google/gemini-embedding-001 model. Override via constructor or
+        # EMBEDDING_PROMPT_STYLE env var when picking a different model.
+        self.prompt_style = _resolve_prompt_style(prompt_style, "gemini")
 
         logger.info(
             f"OpenRouter Embedder initialized with model: {self.model} "
-            f"(dimension={self.dimension})"
+            f"(dimension={self.dimension}, prompt_style={self.prompt_style})"
         )
 
 
@@ -240,6 +288,7 @@ class LocalEmbedder(_BaseOpenAICompatibleEmbedder):
         model: Optional[str] = None,
         dimension: Optional[int] = None,
         api_key: Optional[str] = None,
+        prompt_style: Optional[str] = None,
     ):
         try:
             from openai import OpenAI
@@ -266,10 +315,15 @@ class LocalEmbedder(_BaseOpenAICompatibleEmbedder):
             "LOCAL_EMBEDDING_DIMENSION",
             LOCAL_DEFAULT_DIMENSION,
         )
+        # Default to e5 prefix for local — the recommended Turkish setup
+        # (multilingual-e5-large). Override via EMBEDDING_PROMPT_STYLE when
+        # using a different model family (e.g. nomic, bge).
+        self.prompt_style = _resolve_prompt_style(prompt_style, "e5")
 
         logger.info(
             f"Local Embedder initialized: model={self.model} "
-            f"base_url={self.base_url} dimension={self.dimension}"
+            f"base_url={self.base_url} dimension={self.dimension} "
+            f"prompt_style={self.prompt_style}"
         )
 
 
