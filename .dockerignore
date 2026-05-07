@@ -181,6 +181,3 @@ site
 
 # Production logs
 **/logs/*.log.*
-**/Dockerfile
-**/Dockerfile
-fly.toml
