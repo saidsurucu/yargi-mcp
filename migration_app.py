@@ -4,8 +4,11 @@ Migration stub for the deprecated Yargı MCP endpoint.
 Exposes a single tool that informs the MCP client the server has moved
 and the user must update their configuration.
 
+Entrypoint variable `app` is a FastMCP instance so it works with
+Dokploy's FastMCP build pipeline (`fastmcp inspect`, `fastmcp run`).
+
 Run with:
-    uvicorn migration_app:app --host 0.0.0.0 --port 8000
+    fastmcp run migration_app.py:app --transport http --port 8000
 """
 
 from starlette.responses import JSONResponse
@@ -13,7 +16,7 @@ from fastmcp import FastMCP
 
 NEW_URL = "https://yargimcp.surucu.dev/mcp"
 
-mcp = FastMCP(
+app = FastMCP(
     name="Yargı MCP (taşındı / moved)",
     instructions=(
         f"Bu Yargı MCP endpoint'i kullanımdan kaldırıldı. "
@@ -23,7 +26,7 @@ mcp = FastMCP(
 )
 
 
-@mcp.tool(
+@app.tool(
     description=(
         "DEPRECATED ENDPOINT — Yargı MCP sunucusu yeni adrese taşındı. "
         "Bu endpoint'teki eski araçlar (Yargıtay, Danıştay, Anayasa Mahkemesi, "
@@ -48,10 +51,7 @@ def migration_notice() -> dict:
     }
 
 
-@mcp.custom_route("/health", methods=["GET"])
+@app.custom_route("/health", methods=["GET"])
 async def health(request):
     """Health check endpoint for monitoring services."""
     return JSONResponse({"status": "deprecated", "new_url": NEW_URL})
-
-
-app = mcp.http_app()
