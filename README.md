@@ -1,5 +1,13 @@
 # Yargı MCP: Türk Hukuk Kaynakları için MCP Sunucusu
 
+> ## 🚨 SUNUCU YENİ ADRESE TAŞINDI
+>
+> **Yeni Remote MCP adresi:** `https://yargimcp.surucu.dev/mcp`
+>
+> **Eski adres** (`https://yargimcp.fastmcp.app/mcp`) **artık kullanım dışıdır** — yalnızca taşındığını bildiren bir uyarı tool'u döner.
+>
+> **Yapmanız gereken:** MCP istemcinizdeki (Claude Desktop, 5ire, Google Antigravity, ChatGPT vb.) sunucu URL'sini yukarıdaki yeni adresle güncelleyin.
+
 ## Word'den UDF'ye profesyonel dönüşüm için yeni uygulamam [udfcevir.com](https://udfcevir.com) adresinde! 
 
 [![Star History Chart](https://api.star-history.com/svg?repos=saidsurucu/yargi-mcp&type=Date)](https://www.star-history.com/#saidsurucu/yargi-mcp&Date)
@@ -12,7 +20,9 @@ Bu proje, çeşitli Türk hukuk kaynaklarına (Yargıtay, Danıştay, Emsal Kara
 
 ### ✅ Kurulum Gerektirmez! Hemen Kullan!
 
-🔗 **Remote MCP Adresi:** `https://yargimcp.fastmcp.app/mcp`
+🔗 **Remote MCP Adresi:** `https://yargimcp.surucu.dev/mcp`
+
+> ⚠️ **Eski adres** `https://yargimcp.fastmcp.app/mcp` **artık kullanım dışıdır** — yalnızca taşındığını bildiren bir uyarı tool'u döner. Lütfen yukarıdaki yeni adresi kullanın.
 
 ### Claude Desktop ile Kullanım (Ücretli abonelik gerekir)
 
@@ -20,7 +30,7 @@ Bu proje, çeşitli Türk hukuk kaynaklarına (Yargıtay, Danıştay, Emsal Kara
 2. **Settings → Connectors → Add Custom Connector**
 3. **Bilgileri girin:**
    - **Name:** `Yargı MCP`
-   - **URL:** `https://yargimcp.fastmcp.app/mcp`
+   - **URL:** `https://yargimcp.surucu.dev/mcp`
 4. **Add** butonuna tıklayın
 5. **Hemen kullanmaya başlayın!** 🎉
 
@@ -36,7 +46,7 @@ Bu proje, çeşitli Türk hukuk kaynaklarına (Yargıtay, Danıştay, Emsal Kara
 {
   "mcpServers": {
     "yargi-mcp": {
-      "serverUrl": "https://yargimcp.fastmcp.app/mcp/",
+      "serverUrl": "https://yargimcp.surucu.dev/mcp/",
       "headers": {
         "Content-Type": "application/json"
       }
