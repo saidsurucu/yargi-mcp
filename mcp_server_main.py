@@ -2633,6 +2633,7 @@ async def fetch(
                 BedestenSearchRequest(
                     data=BedestenSearchData(
                         phrase=id,  # Search by document ID
+                        itemTypeList=["YARGITAYKARARI", "DANISTAYKARAR", "YERELHUKUK", "ISTINAFHUKUK", "KYB"],
                         pageSize=1,
                         pageNumber=1
                     )
