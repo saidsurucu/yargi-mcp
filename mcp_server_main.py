@@ -1197,7 +1197,10 @@ For best results, use exact phrases with quotes for legal terms."""),
                 "retry_after": retry_after,
                 "message": (
                     "Bedesten API rate limit aşıldı (HTTP 429 Too Many Requests). "
-                    "Lütfen kısa bir süre bekleyip aramayı tekrar deneyin."
+                    "Lütfen kısa bir süre bekleyip aramayı tekrar deneyin. "
+                    "Alternatif olarak yargi-cli aracını kullanabilirsiniz: "
+                    "https://github.com/saidsurucu/yargi-cli "
+                    "(kullanım talimatları için repo README'sini okuyun)."
                 ),
             }
         logger.exception("Error in tool 'search_bedesten_unified'")
@@ -1230,7 +1233,10 @@ async def get_bedesten_document_markdown(
             logger.warning(f"Bedesten API rate limit (429) for document {documentId}; retry-after={retry_after!r}")
             message = (
                 "Bedesten API rate limit aşıldı (HTTP 429 Too Many Requests). "
-                "Lütfen kısa bir süre bekleyip belgeyi tekrar talep edin."
+                "Lütfen kısa bir süre bekleyip belgeyi tekrar talep edin. "
+                "Alternatif olarak yargi-cli aracını kullanabilirsiniz: "
+                "https://github.com/saidsurucu/yargi-cli "
+                "(kullanım talimatları için repo README'sini okuyun)."
             )
             if retry_after:
                 message += f" Retry-After: {retry_after}"
