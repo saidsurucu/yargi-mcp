@@ -1160,7 +1160,7 @@ For best results, use exact phrases with quotes for legal terms."""),
     
     try:
         response = await bedesten_client_instance.search_documents(search_request)
-        
+
         if response.data is None:
             return {
                 "decisions": [],
@@ -1170,11 +1170,11 @@ For best results, use exact phrases with quotes for legal terms."""),
                 "searched_courts": court_types,
                 "error": "No data returned from Bedesten API"
             }
-        
+
         # Add null safety checks for response.data fields
         emsal_karar_list = response.data.emsalKararList if hasattr(response.data, 'emsalKararList') and response.data.emsalKararList is not None else []
         total_records = response.data.total if hasattr(response.data, 'total') and response.data.total is not None else 0
-        
+
         return {
             "decisions": [d.model_dump() for d in emsal_karar_list],
             "total_records": total_records,
@@ -1182,6 +1182,26 @@ For best results, use exact phrases with quotes for legal terms."""),
             "page_size": pageSize,
             "searched_courts": court_types
         }
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 429:
+            retry_after = e.response.headers.get("Retry-After", "")
+            logger.warning(f"Bedesten API rate limit (429) for search; retry-after={retry_after!r}")
+            return {
+                "decisions": [],
+                "total_records": 0,
+                "requested_page": pageNumber,
+                "page_size": pageSize,
+                "searched_courts": court_types,
+                "error": "rate_limit_exceeded",
+                "status_code": 429,
+                "retry_after": retry_after,
+                "message": (
+                    "Bedesten API rate limit aşıldı (HTTP 429 Too Many Requests). "
+                    "Lütfen kısa bir süre bekleyip aramayı tekrar deneyin."
+                ),
+            }
+        logger.exception("Error in tool 'search_bedesten_unified'")
+        raise
     except Exception:
         logger.exception("Error in tool 'search_bedesten_unified'")
         raise
@@ -1204,8 +1224,26 @@ async def get_bedesten_document_markdown(
     
     try:
         return await bedesten_client_instance.get_document_as_markdown(documentId)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 429:
+            retry_after = e.response.headers.get("Retry-After", "")
+            logger.warning(f"Bedesten API rate limit (429) for document {documentId}; retry-after={retry_after!r}")
+            message = (
+                "Bedesten API rate limit aşıldı (HTTP 429 Too Many Requests). "
+                "Lütfen kısa bir süre bekleyip belgeyi tekrar talep edin."
+            )
+            if retry_after:
+                message += f" Retry-After: {retry_after}"
+            return BedestenDocumentMarkdown(
+                documentId=documentId,
+                markdown_content=f"ERROR (rate_limit_exceeded, HTTP 429): {message}",
+                source_url=f"https://mevzuat.adalet.gov.tr/ictihat/{documentId}",
+                mime_type=None,
+            )
+        logger.exception("Error in tool 'get_bedesten_document_markdown'")
+        raise
     except Exception:
-        logger.exception("Error in tool 'get_kyb_bedesten_document_markdown'")
+        logger.exception("Error in tool 'get_bedesten_document_markdown'")
         raise
 
 
