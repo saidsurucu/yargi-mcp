@@ -473,7 +473,7 @@ doc8 = await get_kvkk_document_markdown(decision_url="https://www.kvkk.gov.tr/Ic
 
 | API | Rate Limit | Notes |
 |-----|------------|-------|
-| Bedesten Unified | Unknown | Ministry of Justice API - no documented limits |
+| Bedesten Unified | ~10 req / 30s window per source IP (measured 2026-05-08); 11th req → HTTP 429 with `Retry-After: 30`. Client uses an internal token bucket (default 1 token, refill 1/3.5s) plus 429 back-pressure (whole bucket pauses for the Retry-After window). Override via `BEDESTEN_RATE_CAPACITY` / `BEDESTEN_RATE_REFILL_S`. |
 | Yargıtay Primary | Unknown | Official government API |
 | Danıştay | Unknown | Official government API |
 | Anayasa Mahkemesi | Unknown | Constitutional Court API |
