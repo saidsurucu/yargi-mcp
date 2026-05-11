@@ -1,5 +1,6 @@
 # kvkk_mcp_module/client.py
 
+import asyncio
 import httpx
 from bs4 import BeautifulSoup
 from typing import List, Optional, Dict, Any
@@ -291,7 +292,7 @@ class KvkkApiClient:
             # Convert HTML content to Markdown
             full_markdown_content = None
             if extracted_data["html_content"]:
-                full_markdown_content = self._convert_html_to_markdown(extracted_data["html_content"])
+                full_markdown_content = await asyncio.to_thread(self._convert_html_to_markdown, extracted_data["html_content"])
             
             if not full_markdown_content:
                 return KvkkDocumentMarkdown(

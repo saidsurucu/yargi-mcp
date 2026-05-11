@@ -258,7 +258,7 @@ def create_app():
 
 # --- Module Imports ---
 from yargitay_mcp_module.client import YargitayOfficialApiClient
-from bedesten_mcp_module.client import BedestenApiClient
+from bedesten_mcp_module.client import BedestenApiClient, BedestenRateLimited
 from bedesten_mcp_module.models import (
     BedestenSearchRequest, BedestenSearchData,
     BedestenDocumentMarkdown, BedestenCourtTypeEnum
@@ -1182,6 +1182,26 @@ For best results, use exact phrases with quotes for legal terms."""),
             "page_size": pageSize,
             "searched_courts": court_types
         }
+    except BedestenRateLimited as e:
+        retry_after = f"{e.retry_after:.1f}"
+        logger.warning(f"Bedesten local rate-limit bucket full for search; retry-after={retry_after}s")
+        return {
+            "decisions": [],
+            "total_records": 0,
+            "requested_page": pageNumber,
+            "page_size": pageSize,
+            "searched_courts": court_types,
+            "error": "rate_limit_exceeded",
+            "status_code": 429,
+            "retry_after": retry_after,
+            "message": (
+                "Bedesten istemci tarafı eşzamanlılık sınırına ulaşıldı "
+                "(yerel token-bucket dolu). Lütfen kısa bir süre bekleyip "
+                "aramayı tekrar deneyin. Alternatif olarak yargi-cli aracını "
+                "kullanabilirsiniz: https://github.com/saidsurucu/yargi-cli "
+                "(kullanım talimatları için repo README'sini okuyun)."
+            ),
+        }
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 429:
             retry_after = e.response.headers.get("Retry-After", "")
@@ -1227,6 +1247,23 @@ async def get_bedesten_document_markdown(
     
     try:
         return await bedesten_client_instance.get_document_as_markdown(documentId)
+    except BedestenRateLimited as e:
+        retry_after = f"{e.retry_after:.1f}"
+        logger.warning(f"Bedesten local rate-limit bucket full for document {documentId}; retry-after={retry_after}s")
+        message = (
+            "Bedesten istemci tarafı eşzamanlılık sınırına ulaşıldı "
+            "(yerel token-bucket dolu). Lütfen kısa bir süre bekleyip "
+            "belgeyi tekrar talep edin. Alternatif olarak yargi-cli aracını "
+            "kullanabilirsiniz: https://github.com/saidsurucu/yargi-cli "
+            "(kullanım talimatları için repo README'sini okuyun). "
+            f"Retry-After: {retry_after}"
+        )
+        return BedestenDocumentMarkdown(
+            documentId=documentId,
+            markdown_content=f"ERROR (rate_limit_exceeded, HTTP 429): {message}",
+            source_url=f"https://mevzuat.adalet.gov.tr/ictihat/{documentId}",
+            mime_type=None,
+        )
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 429:
             retry_after = e.response.headers.get("Retry-After", "")

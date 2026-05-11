@@ -1,5 +1,6 @@
 # bddk_mcp_module/client.py
 
+import asyncio
 import httpx
 from typing import List, Optional, Dict, Any
 import logging
@@ -210,14 +211,19 @@ class BddkApiClient:
             
             # Convert to Markdown based on content type
             if "pdf" in content_type:
-                # Handle PDF documents
+                # Handle PDF documents. markitdown is sync; offload to thread
+                # so PDF parsing doesn't block the event-loop / other requests.
                 pdf_stream = io.BytesIO(response.content)
-                result = self.markitdown.convert_stream(pdf_stream, file_extension=".pdf")
+                result = await asyncio.to_thread(
+                    self.markitdown.convert_stream, pdf_stream, file_extension=".pdf"
+                )
                 markdown_content = result.text_content
             else:
-                # Handle HTML documents
+                # Handle HTML documents (sync conversion offloaded to thread)
                 html_stream = io.BytesIO(response.content)
-                result = self.markitdown.convert_stream(html_stream, file_extension=".html")
+                result = await asyncio.to_thread(
+                    self.markitdown.convert_stream, html_stream, file_extension=".html"
+                )
                 markdown_content = result.text_content
             
             # Clean up the markdown content

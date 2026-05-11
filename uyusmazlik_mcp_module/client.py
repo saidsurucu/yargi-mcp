@@ -1,8 +1,9 @@
 # uyusmazlik_mcp_module/client.py
 
-import httpx 
+import asyncio
+import httpx
 from bs4 import BeautifulSoup
-from typing import Dict, Any, List, Optional, Union, Tuple 
+from typing import Dict, Any, List, Optional, Union, Tuple
 import logging
 import html
 import re
@@ -232,7 +233,7 @@ class UyusmazlikApiClient:
                 logger.warning(f"UyusmazlikApiClient: Received empty or non-string HTML from URL {document_url}.")
                 return UyusmazlikDocumentMarkdown(source_url=document_url, markdown_content=None)
 
-            markdown_content = self._convert_html_to_markdown_uyusmazlik(html_content_from_api)
+            markdown_content = await asyncio.to_thread(self._convert_html_to_markdown_uyusmazlik, html_content_from_api)
             return UyusmazlikDocumentMarkdown(source_url=document_url, markdown_content=markdown_content)
         except httpx.RequestError as e:
             logger.error(f"UyusmazlikApiClient (httpx for docs): HTTP error fetching Uyuşmazlık document from {document_url}: {e}")

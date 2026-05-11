@@ -1,5 +1,6 @@
 # sigorta_tahkim_mcp_module/client.py
 
+import asyncio
 import httpx
 from typing import Optional
 import logging
@@ -202,7 +203,11 @@ class SigortaTahkimApiClient:
         response.raise_for_status()
 
         pdf_stream = io.BytesIO(response.content)
-        result = self.markitdown.convert_stream(pdf_stream, file_extension=".pdf")
+        # markitdown is sync; offload to thread so PDF parsing doesn't block
+        # the event-loop / other in-flight MCP requests.
+        result = await asyncio.to_thread(
+            self.markitdown.convert_stream, pdf_stream, file_extension=".pdf"
+        )
         return result.text_content.strip(), pdf_url
 
     def _split_into_decisions(self, markdown_content: str) -> list[tuple[str, str]]:

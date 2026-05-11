@@ -1,7 +1,8 @@
 # danistay_mcp_module/client.py
 
+import asyncio
 import httpx
-from bs4 import BeautifulSoup 
+from bs4 import BeautifulSoup
 from typing import Dict, Any, List, Optional
 import logging
 import html
@@ -170,7 +171,7 @@ class DanistayApiClient:
                     source_url=source_url
                 )
 
-            markdown_content = self._convert_html_to_markdown_danistay(html_content_from_api)
+            markdown_content = await asyncio.to_thread(self._convert_html_to_markdown_danistay, html_content_from_api)
 
             return DanistayDocumentMarkdown(
                 id=id,

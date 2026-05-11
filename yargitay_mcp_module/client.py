@@ -1,5 +1,6 @@
 # yargitay_mcp_module/client.py
 
+import asyncio
 import httpx
 from bs4 import BeautifulSoup # Still needed for pre-processing HTML before markitdown
 from typing import Dict, Any, List, Optional
@@ -159,7 +160,7 @@ class YargitayOfficialApiClient:
                 logger.error(f"YargitayOfficialApiClient: 'data' field in API response is not a string or not found (ID: {id}).")
                 raise ValueError("Expected HTML content not found in API response's 'data' field.")
 
-            markdown_content = self._convert_html_to_markdown(html_content_from_api)
+            markdown_content = await asyncio.to_thread(self._convert_html_to_markdown, html_content_from_api)
 
             return YargitayDocumentMarkdown(
                 id=id,

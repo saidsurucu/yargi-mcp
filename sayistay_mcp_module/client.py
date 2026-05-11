@@ -1,5 +1,6 @@
 # sayistay_mcp_module/client.py
 
+import asyncio
 import httpx
 import re
 from bs4 import BeautifulSoup
@@ -657,7 +658,7 @@ class SayistayApiClient:
                 )
             
             # Convert HTML to Markdown using existing method
-            markdown_content = self._convert_html_to_markdown(html_content)
+            markdown_content = await asyncio.to_thread(self._convert_html_to_markdown, html_content)
             
             if markdown_content and "Error converting HTML content" not in markdown_content:
                 logger.info(f"Successfully retrieved and converted document {decision_id} to Markdown")

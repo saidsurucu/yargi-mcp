@@ -1,5 +1,6 @@
 # rekabet_mcp_module/client.py
 
+import asyncio
 import httpx
 from bs4 import BeautifulSoup
 from typing import List, Optional, Tuple, Dict, Any
@@ -353,7 +354,7 @@ class RekabetKurumuApiClient:
                     total_pdf_pages = total_pdf_pages_from_extraction 
 
                     if single_page_pdf_bytes:
-                        markdown_for_requested_page = self._convert_pdf_bytes_to_markdown(single_page_pdf_bytes, str(pdf_url_to_report or full_landing_page_url))
+                        markdown_for_requested_page = await asyncio.to_thread(self._convert_pdf_bytes_to_markdown, single_page_pdf_bytes, str(pdf_url_to_report or full_landing_page_url))
                         if not markdown_for_requested_page:
                             error_message = (error_message or "") + f"; Could not convert page {page_number} of PDF to Markdown."
                     elif total_pdf_pages > 0 : 

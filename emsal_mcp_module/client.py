@@ -1,5 +1,6 @@
 # emsal_mcp_module/client.py
 
+import asyncio
 import httpx
 # from bs4 import BeautifulSoup # Uncomment if needed for advanced HTML pre-processing
 from typing import Dict, Any, List, Optional
@@ -153,7 +154,7 @@ class EmsalApiClient:
                 logger.warning(f"EmsalApiClient: Received empty or non-string HTML in 'data' field for Emsal ID {id}.")
                 return EmsalDocumentMarkdown(id=id, markdown_content=None, source_url=source_url)
 
-            markdown_content = self._clean_html_and_convert_to_markdown_emsal(html_content_from_api)
+            markdown_content = await asyncio.to_thread(self._clean_html_and_convert_to_markdown_emsal, html_content_from_api)
 
             return EmsalDocumentMarkdown(
                 id=id,

@@ -21,6 +21,19 @@ from .enums import get_full_birim_adi
 logger = logging.getLogger(__name__)
 
 
+class BedestenRateLimited(Exception):
+    """Raised when the local rate-limit bucket would block longer than allowed.
+
+    Carries the suggested retry-after (seconds) so callers can surface a
+    structured 429-style response to the MCP client instead of silently
+    blocking the event-loop slot for the full bucket-pause window.
+    """
+
+    def __init__(self, retry_after: float) -> None:
+        self.retry_after = retry_after
+        super().__init__(f"local bucket would block {retry_after:.1f}s")
+
+
 class _TokenBucket:
     """Asyncio token bucket with explicit back-pressure.
 
@@ -40,7 +53,12 @@ class _TokenBucket:
         self._not_before = 0.0
         self._lock = asyncio.Lock()
 
-    async def acquire(self) -> None:
+    async def acquire(self, max_wait: Optional[float] = None) -> None:
+        """Acquire one token. If ``max_wait`` is set and the next wait would
+        exceed it, raise :class:`BedestenRateLimited` immediately instead of
+        sleeping — keeps a single rate-limited request from holding the
+        worker-slot for the full bucket-pause window (up to ~30s on 429)."""
+        deadline = (time.monotonic() + max_wait) if max_wait is not None else None
         while True:
             async with self._lock:
                 now = time.monotonic()
@@ -56,6 +74,10 @@ class _TokenBucket:
                         self._tokens -= 1.0
                         return
                     wait_s = (1.0 - self._tokens) / self.refill_per_s
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if wait_s > remaining:
+                    raise BedestenRateLimited(retry_after=wait_s)
             await asyncio.sleep(wait_s)
 
     def penalize_until(self, monotonic_deadline: float) -> None:
@@ -78,8 +100,11 @@ class BedestenApiClient:
     # 3.5s spacing (no burst, ~14% safety margin). Override via env:
     #   BEDESTEN_RATE_CAPACITY (default 1)
     #   BEDESTEN_RATE_REFILL_S (default 3.5; seconds per token)
+    #   BEDESTEN_RATE_MAX_WAIT_S (default 8.0; max seconds to wait in the
+    #     local bucket before returning a structured 429 to the caller)
     _DEFAULT_CAPACITY = int(os.getenv("BEDESTEN_RATE_CAPACITY", "1"))
     _DEFAULT_REFILL_S = float(os.getenv("BEDESTEN_RATE_REFILL_S", "3.5"))
+    _DEFAULT_MAX_WAIT_S = float(os.getenv("BEDESTEN_RATE_MAX_WAIT_S", "8.0"))
 
     def __init__(self, request_timeout: float = 60.0):
         self.http_client = httpx.AsyncClient(
@@ -137,7 +162,7 @@ class BedestenApiClient:
             if not request_dict["data"]["birimAdi"]:  # Remove if empty string
                 del request_dict["data"]["birimAdi"]
             
-            await self._bucket.acquire()
+            await self._bucket.acquire(max_wait=self._DEFAULT_MAX_WAIT_S)
             response = await self.http_client.post(
                 self.SEARCH_ENDPOINT,
                 json=request_dict
@@ -171,7 +196,7 @@ class BedestenApiClient:
             )
             
             # Get document
-            await self._bucket.acquire()
+            await self._bucket.acquire(max_wait=self._DEFAULT_MAX_WAIT_S)
             response = await self.http_client.post(
                 self.DOCUMENT_ENDPOINT,
                 json=doc_request.model_dump()
@@ -202,12 +227,20 @@ class BedestenApiClient:
             
             logger.info(f"BedestenApiClient: Document mime type: {mime_type}")
             
-            # Convert to markdown based on mime type
+            # Convert to markdown based on mime type. markitdown is sync and
+            # PDF parsing in particular can block the event-loop for seconds,
+            # which on a single-worker uvicorn deployment stalls every other
+            # in-flight MCP request and new TLS handshakes. Offload to a
+            # thread so the event-loop stays responsive.
             if mime_type == "text/html":
                 html_content = content_bytes.decode('utf-8')
-                markdown_content = self._convert_html_to_markdown(html_content)
+                markdown_content = await asyncio.to_thread(
+                    self._convert_html_to_markdown, html_content
+                )
             elif mime_type == "application/pdf":
-                markdown_content = self._convert_pdf_to_markdown(content_bytes)
+                markdown_content = await asyncio.to_thread(
+                    self._convert_pdf_to_markdown, content_bytes
+                )
             else:
                 logger.warning(f"Unsupported mime type: {mime_type}")
                 markdown_content = f"Unsupported content type: {mime_type}. Unable to convert to markdown."

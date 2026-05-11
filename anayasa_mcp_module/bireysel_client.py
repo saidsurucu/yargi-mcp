@@ -1,6 +1,7 @@
 # anayasa_mcp_module/bireysel_client.py
 # This client is for Bireysel Başvuru: https://kararlarbilgibankasi.anayasa.gov.tr
 
+import asyncio
 import httpx
 from bs4 import BeautifulSoup, Tag
 from typing import Dict, Any, List, Optional, Tuple
@@ -302,7 +303,7 @@ class AnayasaBireyselBasvuruApiClient:
                             elif "Karar Tarihi" in key and not karar_tarihi_from_page: karar_tarihi_from_page = value
                             elif "Resmi Gazete Tarih / Sayı" in key: resmi_gazete_info_from_page = value
             
-            full_markdown_content = self._convert_html_to_markdown_bireysel(html_content_from_api)
+            full_markdown_content = await asyncio.to_thread(self._convert_html_to_markdown_bireysel, html_content_from_api)
 
             if not full_markdown_content:
                 return AnayasaBireyselBasvuruDocumentMarkdown(

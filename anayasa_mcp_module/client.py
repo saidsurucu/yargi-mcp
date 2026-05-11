@@ -1,6 +1,7 @@
 # anayasa_mcp_module/client.py
 # This client is for Norm Denetimi: https://normkararlarbilgibankasi.anayasa.gov.tr
 
+import asyncio
 import httpx
 from bs4 import BeautifulSoup
 from typing import Dict, Any, List, Optional, Tuple
@@ -309,7 +310,7 @@ class AnayasaMahkemesiApiClient:
                     official_gazette_from_page = rg_text_content.replace("Resmî Gazete tarih ve sayısı:", "").replace("Resmi Gazete tarih/sayı:", "").strip()
 
 
-            full_markdown_content = self._convert_html_to_markdown_norm_denetimi(html_content_from_api)
+            full_markdown_content = await asyncio.to_thread(self._convert_html_to_markdown_norm_denetimi, html_content_from_api)
 
             if not full_markdown_content:
                 return AnayasaDocumentMarkdown(

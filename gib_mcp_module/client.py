@@ -1,5 +1,6 @@
 # gib_mcp_module/client.py
 
+import asyncio
 import httpx
 import io
 import logging
@@ -302,7 +303,7 @@ class GibApiClient:
 
         item = content[0] if isinstance(content[0], dict) else {}
         description_html = item.get("description") or ""
-        markdown_body = self._convert_html_to_markdown(description_html) or ""
+        markdown_body = (await asyncio.to_thread(self._convert_html_to_markdown, description_html)) or ""
         header_block = self._build_header_block(item)
 
         if header_block and markdown_body:

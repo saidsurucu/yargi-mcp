@@ -1,5 +1,6 @@
 # kik_mcp_module/client_v2.py
 
+import asyncio
 import httpx
 import logging
 import uuid
@@ -439,7 +440,9 @@ class KikV2ApiClient:
                 html_bytes = html_content.encode('utf-8')
                 html_stream = BytesIO(html_bytes)
                 
-                result = md.convert_stream(html_stream, file_extension=".html")
+                # markitdown is sync; offload to thread so HTML parsing doesn't
+                # block the event-loop / other in-flight MCP requests.
+                result = await asyncio.to_thread(md.convert_stream, html_stream, file_extension=".html")
                 markdown_content = result.text_content
                 
                 return KikV2DocumentMarkdown(
