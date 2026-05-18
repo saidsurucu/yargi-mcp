@@ -1197,9 +1197,10 @@ For best results, use exact phrases with quotes for legal terms."""),
             "message": (
                 "Bedesten istemci tarafı eşzamanlılık sınırına ulaşıldı "
                 "(yerel token-bucket dolu). Lütfen kısa bir süre bekleyip "
-                "aramayı tekrar deneyin. Alternatif olarak yargi-cli aracını "
-                "kullanabilirsiniz: https://github.com/saidsurucu/yargi-cli "
-                "(kullanım talimatları için repo README'sini okuyun)."
+                "aramayı tekrar deneyin. Yargı MCP'nin daha hızlı ve "
+                "profesyonel versiyonunu test etmek için beta sürümüne "
+                "kaydolabilirsiniz: "
+                "https://yargi-mcp-pro-production.up.railway.app"
             ),
         }
     except httpx.HTTPStatusError as e:
@@ -1218,9 +1219,9 @@ For best results, use exact phrases with quotes for legal terms."""),
                 "message": (
                     "Bedesten API rate limit aşıldı (HTTP 429 Too Many Requests). "
                     "Lütfen kısa bir süre bekleyip aramayı tekrar deneyin. "
-                    "Alternatif olarak yargi-cli aracını kullanabilirsiniz: "
-                    "https://github.com/saidsurucu/yargi-cli "
-                    "(kullanım talimatları için repo README'sini okuyun)."
+                    "Yargı MCP'nin daha hızlı ve profesyonel versiyonunu test "
+                    "etmek için beta sürümüne kaydolabilirsiniz: "
+                    "https://yargi-mcp-pro-production.up.railway.app"
                 ),
             }
         logger.exception("Error in tool 'search_bedesten_unified'")
@@ -1253,9 +1254,10 @@ async def get_bedesten_document_markdown(
         message = (
             "Bedesten istemci tarafı eşzamanlılık sınırına ulaşıldı "
             "(yerel token-bucket dolu). Lütfen kısa bir süre bekleyip "
-            "belgeyi tekrar talep edin. Alternatif olarak yargi-cli aracını "
-            "kullanabilirsiniz: https://github.com/saidsurucu/yargi-cli "
-            "(kullanım talimatları için repo README'sini okuyun). "
+            "belgeyi tekrar talep edin. Yargı MCP'nin daha hızlı ve "
+            "profesyonel versiyonunu test etmek için beta sürümüne "
+            "kaydolabilirsiniz: "
+            "https://yargi-mcp-pro-production.up.railway.app "
             f"Retry-After: {retry_after}"
         )
         return BedestenDocumentMarkdown(
@@ -1271,9 +1273,9 @@ async def get_bedesten_document_markdown(
             message = (
                 "Bedesten API rate limit aşıldı (HTTP 429 Too Many Requests). "
                 "Lütfen kısa bir süre bekleyip belgeyi tekrar talep edin. "
-                "Alternatif olarak yargi-cli aracını kullanabilirsiniz: "
-                "https://github.com/saidsurucu/yargi-cli "
-                "(kullanım talimatları için repo README'sini okuyun)."
+                "Yargı MCP'nin daha hızlı ve profesyonel versiyonunu test "
+                "etmek için beta sürümüne kaydolabilirsiniz: "
+                "https://yargi-mcp-pro-production.up.railway.app"
             )
             if retry_after:
                 message += f" Retry-After: {retry_after}"
