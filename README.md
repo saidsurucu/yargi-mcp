@@ -57,6 +57,21 @@ Bu proje, çeşitli Türk hukuk kaynaklarına (Yargıtay, Danıştay, Emsal Kara
 
 > 💡 **İpucu:** Remote MCP sayesinde Python, uv veya herhangi bir kurulum yapmadan doğrudan Claude Desktop üzerinden Türk hukuk kaynaklarına erişebilirsiniz!
 
+### Remote MCP Sorun Giderme
+
+`https://yargimcp.surucu.dev/mcp` bir web sayfası değil, Streamable HTTP MCP uç noktasıdır. Tarayıcıda açınca veya düz `curl` ile GET isteği atınca `406 Not Acceptable` ve `Client must accept text/event-stream` benzeri bir yanıt görmek normaldir; bu, sunucunun kapalı olduğu anlamına gelmez. MCP istemcisi `Accept: application/json, text/event-stream` başlığıyla JSON-RPC isteği göndermelidir.
+
+Hızlı sağlık kontrolü için tarayıcıda şu adresleri açabilirsiniz:
+
+- `https://yargimcp.surucu.dev/health` — servis sağlık durumu
+
+Claude.ai veya başka bir istemci "araç yok" gibi davranırsa:
+
+1. Connector'ı kaldırıp yeniden ekleyin.
+2. URL olarak önce `https://yargimcp.surucu.dev/mcp` deneyin; istemciniz yönlendirmeleri takip etmiyorsa `https://yargimcp.surucu.dev/mcp/` deneyin.
+3. Eski `https://yargimcp.fastmcp.app/mcp` adresinin istemci ayarlarında veya önbellekte kalmadığından emin olun.
+4. İstemcinin remote/Streamable HTTP MCP desteklediğini ve `text/event-stream` kabul ettiğini kontrol edin.
+
 ---
 
 ![örnek](./ornek.png)
