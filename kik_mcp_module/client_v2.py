@@ -1,6 +1,7 @@
 # kik_mcp_module/client_v2.py
 
 import asyncio
+import base64
 import httpx
 import logging
 import uuid
@@ -49,6 +50,12 @@ class KikV2ApiClient:
         236, 193, 164, 43, 12, 135, 121, 170, 4, 244, 123, 219, 82, 158, 124, 174,
         174, 228, 219, 174, 208, 104, 174, 120, 32, 76, 250, 4, 143, 159, 211, 176
     ])
+
+    # AES-192-CBC key (environment.r8fact) used by the Angular HTTP interceptor to sign every
+    # request. The server decrypts X-Custom-Request-Ts and rejects stale timestamps with
+    # HTTP 401 "İstek zaman aşımına uğradı.", so these headers MUST be generated per-request
+    # with the current timestamp (see _generate_security_headers).
+    REQUEST_SIGNING_KEY = b"Qm2LtXR0aByP69vZNKef4wMJ"  # UTF-8 bytes, 24 chars -> AES-192
 
     @staticmethod
     def encrypt_document_id(numeric_id: str) -> str:
@@ -128,21 +135,43 @@ class KikV2ApiClient:
         # Generate security headers (these might need to be updated based on API requirements)
         self.security_headers = self._generate_security_headers()
     
+    def _sign_request_value(self, plaintext: str, iv: bytes) -> str:
+        """AES-192-CBC encrypt a value with the request signing key, return base64 ciphertext."""
+        cipher = Cipher(
+            algorithms.AES(self.REQUEST_SIGNING_KEY),
+            modes.CBC(iv),
+            backend=default_backend()
+        )
+        encryptor = cipher.encryptor()
+        data = plaintext.encode("utf-8")
+        block_size = 16
+        padding_len = block_size - (len(data) % block_size)
+        padded = data + bytes([padding_len] * padding_len)
+        ciphertext = encryptor.update(padded) + encryptor.finalize()
+        return base64.b64encode(ciphertext).decode("ascii")
+
     def _generate_security_headers(self) -> dict:
         """
-        Generate the custom security headers required by KIK v2 API.
-        These headers appear to be for request validation/encryption.
+        Generate the custom security headers required by the KIK v2 API.
+
+        Mirrors the Angular HTTP interceptor on ekapv2.kik.gov.tr: a random GUID and a
+        current-timestamp (epoch milliseconds) are AES-192-CBC encrypted with environment.r8fact
+        using a fresh random IV. The IV is sent as -Siv, the encrypted timestamp as -Ts, and the
+        encrypted GUID as -R8id. The server validates the decrypted timestamp's freshness, so these
+        MUST be regenerated on every request; stale values yield HTTP 401 "İstek zaman aşımına uğradı.".
         """
-        # Generate a random GUID for each session
+        if not HAS_CRYPTOGRAPHY:
+            raise ImportError("cryptography library required for KIK v2 request signing")
+
         request_guid = str(uuid.uuid4())
-        
-        # These are example values - in a real implementation, these might need
-        # to be calculated based on the request content or session
+        iv = os.urandom(16)
+        timestamp_ms = str(int(datetime.now().timestamp() * 1000))
+
         return {
             "X-Custom-Request-Guid": request_guid,
-            "X-Custom-Request-R8id": "hwnOjsN8qdgtDw70x3sKkxab0rj2bQ8Uph4+C+oU+9AMmQqRN3eMOEEeet748DOf",
-            "X-Custom-Request-Siv": "p2IQRTitF8z7I39nBjdAqA==",
-            "X-Custom-Request-Ts": "1vB3Wwrt8YQ5U6t3XAzZ+Q=="
+            "X-Custom-Request-R8id": self._sign_request_value(request_guid, iv),
+            "X-Custom-Request-Siv": base64.b64encode(iv).decode("ascii"),
+            "X-Custom-Request-Ts": self._sign_request_value(timestamp_ms, iv),
         }
     
     def _build_search_payload(self, 
