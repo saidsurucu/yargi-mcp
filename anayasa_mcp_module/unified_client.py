@@ -2,8 +2,8 @@
 # Unified client for both Norm Denetimi and Bireysel Başvuru
 
 import logging
-from typing import Optional
-from urllib.parse import urlparse
+from typing import Optional, Tuple
+from urllib.parse import urlparse, urlunparse
 
 from .models import (
     AnayasaUnifiedSearchRequest,
@@ -17,6 +17,51 @@ from .client import AnayasaMahkemesiApiClient
 from .bireysel_client import AnayasaBireyselBasvuruApiClient
 
 logger = logging.getLogger(__name__)
+
+# Canonical hosts per decision type. Norm Denetimi (/ND/) documents live on the
+# "norm" subdomain; Bireysel Başvuru (/BB/) documents on the plain subdomain.
+# Callers (or upstream search links) sometimes supply the wrong host for a given
+# path, which makes the AYM server return 404. We re-key the host off the path.
+_NORM_HOST = "normkararlarbilgibankasi.anayasa.gov.tr"
+_BIREYSEL_HOST = "kararlarbilgibankasi.anayasa.gov.tr"
+
+
+def normalize_anayasa_document_url(document_url: str) -> Tuple[Optional[str], str]:
+    """Detect the AYM decision type from the URL path and force the correct host.
+
+    Detection is path-based (``/ND/`` vs ``/BB/``) because the path is
+    unambiguous, whereas the supplied host may be wrong. Query params and
+    fragment are preserved (they are harmless for document fetches).
+
+    Returns ``(decision_type, normalized_url)`` where ``decision_type`` is
+    ``"norm_denetimi"``, ``"bireysel_basvuru"``, or ``None`` if it cannot be
+    determined (URL returned unchanged in that case).
+    """
+    parsed = urlparse(document_url)
+    path = parsed.path or ""
+
+    if "/ND/" in path:
+        decision_type, host = "norm_denetimi", _NORM_HOST
+    elif "/BB/" in path:
+        decision_type, host = "bireysel_basvuru", _BIREYSEL_HOST
+    else:
+        # Fall back to host-based detection when the path is uninformative.
+        if "normkararlarbilgibankasi" in parsed.netloc:
+            return "norm_denetimi", document_url
+        if "kararlarbilgibankasi" in parsed.netloc:
+            return "bireysel_basvuru", document_url
+        return None, document_url
+
+    normalized = urlunparse((
+        parsed.scheme or "https",
+        host,
+        parsed.path,
+        parsed.params,
+        parsed.query,
+        parsed.fragment,
+    ))
+    return decision_type, normalized
+
 
 class AnayasaUnifiedClient:
     """Unified client that handles both Norm Denetimi and Bireysel Başvuru searches."""
@@ -80,13 +125,19 @@ class AnayasaUnifiedClient:
     async def get_document_unified(self, document_url: str, page_number: int = 1) -> AnayasaUnifiedDocumentMarkdown:
         """Unified document retrieval that auto-detects the appropriate client."""
         
-        # Auto-detect decision type based on URL
-        parsed_url = urlparse(document_url)
-        
-        if "normkararlarbilgibankasi" in parsed_url.netloc or "/ND/" in document_url:
-            # Norm Denetimi document
-            result = await self.norm_client.get_decision_document_as_markdown(document_url, page_number)
-            
+        # Auto-detect decision type from the path and force the correct host.
+        # This repairs malformed URLs (e.g. a /ND/ path on the bireysel host),
+        # which otherwise 404 against the AYM server.
+        decision_type, normalized_url = normalize_anayasa_document_url(document_url)
+        if normalized_url != document_url:
+            logger.info(
+                f"AnayasaUnifiedClient: Normalized document URL "
+                f"'{document_url}' -> '{normalized_url}'"
+            )
+
+        if decision_type == "norm_denetimi":
+            result = await self.norm_client.get_decision_document_as_markdown(normalized_url, page_number)
+
             return AnayasaUnifiedDocumentMarkdown(
                 decision_type="norm_denetimi",
                 source_url=result.source_url,
@@ -96,11 +147,10 @@ class AnayasaUnifiedClient:
                 total_pages=result.total_pages,
                 is_paginated=result.is_paginated
             )
-            
-        elif "kararlarbilgibankasi" in parsed_url.netloc or "/BB/" in document_url:
-            # Bireysel Başvuru document
-            result = await self.bireysel_client.get_decision_document_as_markdown(document_url, page_number)
-            
+
+        elif decision_type == "bireysel_basvuru":
+            result = await self.bireysel_client.get_decision_document_as_markdown(normalized_url, page_number)
+
             return AnayasaUnifiedDocumentMarkdown(
                 decision_type="bireysel_basvuru",
                 source_url=result.source_url,
@@ -110,7 +160,7 @@ class AnayasaUnifiedClient:
                 total_pages=result.total_pages,
                 is_paginated=result.is_paginated
             )
-        
+
         else:
             raise ValueError(f"Cannot determine document type from URL: {document_url}")
     
