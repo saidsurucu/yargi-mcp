@@ -1,5 +1,11 @@
 # Yargı MCP: Türk Hukuk Kaynakları için MCP Sunucusu
 
+> ## ✨ Profesyonel Sürüm Hazır: Yargı MCP Pro
+>
+> **Mevzuat ve içtihatı tek bir MCP sunucusunda birleştiren** profesyonel sürüm yayında:
+>
+> 👉 **https://yargi-mcp-pro-production.up.railway.app**
+
 > ## 🚨 SUNUCU YENİ ADRESE TAŞINDI
 >
 > **Yeni Remote MCP adresi:** `https://yargimcp.surucu.dev/mcp`
