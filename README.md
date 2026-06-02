@@ -4,7 +4,7 @@
 >
 > **Mevzuat ve içtihatı tek bir MCP sunucusunda birleştiren** profesyonel sürüm yayında:
 >
-> 👉 **https://yargi-mcp-pro-production.up.railway.app**
+> 👉 **https://yargi.betaspacestudio.com**
 
 > ## 🚨 SUNUCU YENİ ADRESE TAŞINDI
 >

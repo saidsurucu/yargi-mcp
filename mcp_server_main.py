@@ -1200,7 +1200,7 @@ For best results, use exact phrases with quotes for legal terms."""),
                 "aramayı tekrar deneyin. Yargı MCP'nin daha hızlı ve "
                 "profesyonel versiyonunu test etmek için beta sürümüne "
                 "kaydolabilirsiniz: "
-                "https://yargi-mcp-pro-production.up.railway.app"
+                "https://yargi.betaspacestudio.com"
             ),
         }
     except httpx.HTTPStatusError as e:
@@ -1221,7 +1221,7 @@ For best results, use exact phrases with quotes for legal terms."""),
                     "Lütfen kısa bir süre bekleyip aramayı tekrar deneyin. "
                     "Yargı MCP'nin daha hızlı ve profesyonel versiyonunu test "
                     "etmek için beta sürümüne kaydolabilirsiniz: "
-                    "https://yargi-mcp-pro-production.up.railway.app"
+                    "https://yargi.betaspacestudio.com"
                 ),
             }
         logger.exception("Error in tool 'search_bedesten_unified'")
@@ -1257,7 +1257,7 @@ async def get_bedesten_document_markdown(
             "belgeyi tekrar talep edin. Yargı MCP'nin daha hızlı ve "
             "profesyonel versiyonunu test etmek için beta sürümüne "
             "kaydolabilirsiniz: "
-            "https://yargi-mcp-pro-production.up.railway.app "
+            "https://yargi.betaspacestudio.com "
             f"Retry-After: {retry_after}"
         )
         return BedestenDocumentMarkdown(
@@ -1275,7 +1275,7 @@ async def get_bedesten_document_markdown(
                 "Lütfen kısa bir süre bekleyip belgeyi tekrar talep edin. "
                 "Yargı MCP'nin daha hızlı ve profesyonel versiyonunu test "
                 "etmek için beta sürümüne kaydolabilirsiniz: "
-                "https://yargi-mcp-pro-production.up.railway.app"
+                "https://yargi.betaspacestudio.com"
             )
             if retry_after:
                 message += f" Retry-After: {retry_after}"
