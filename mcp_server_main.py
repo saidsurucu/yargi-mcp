@@ -818,7 +818,10 @@ async def get_uyusmazlik_document_markdown_from_url(
 
 # --- Unified MCP Tools for Anayasa Mahkemesi ---
 @app.tool(
-    description="Use this when searching Turkish Constitutional Court decisions. Supports both norm control (legislation review) and individual applications (rights violations).",
+    description=(
+        "Use this when searching Turkish Constitutional Court decision records. Supports norm control decisions "
+        "and individual application decisions. Norm control filters include reviewed norm metadata; results are court decisions."
+    ),
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1095,7 +1098,11 @@ async def get_rekabet_kurumu_document(
 
 # --- MCP Tools for Bedesten (Unified Search Across All Courts) ---
 @app.tool(
-    description="Use this when searching across multiple Turkish courts in a single query. Supports Yargıtay, Danıştay, Local Courts, Appeals Courts, and KYB.",
+    description=(
+        "Use this for Turkish court decision records from Yargıtay, Danıştay, Local Courts, Appeals Courts, and KYB via Bedesten. "
+        "Prefer narrow court_types over all courts. pageSize is intentionally fixed to 10 results per page. "
+        "Bedesten is upstream rate-limited; avoid parallel repeated calls and wait retry_after seconds after 429 responses."
+    ),
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -1119,7 +1126,7 @@ For best results, use exact phrases with quotes for legal terms."""),
         description="Court types: YARGITAYKARARI, DANISTAYKARAR, YERELHUKUK, ISTINAFHUKUK, KYB"
     ),
     # pageSize: int = Field(10, ge=1, le=10, description="Results per page (1-10)"),
-    pageNumber: int = Field(1, ge=1, description="Page number"),
+    pageNumber: int = Field(1, ge=1, description="Page number. Each page returns 10 results; pageSize is fixed by the server."),
     birimAdi: BirimAdiEnum = Field("ALL", description="""
         Chamber filter (optional). Abbreviated values with Turkish names:
         • Yargıtay: H1-H23 (1-23. Hukuk Dairesi), C1-C23 (1-23. Ceza Dairesi), HGK (Hukuk Genel Kurulu), CGK (Ceza Genel Kurulu), BGK (Büyük Genel Kurulu), HBK (Hukuk Daireleri Başkanlar Kurulu), CBK (Ceza Daireleri Başkanlar Kurulu)
@@ -1231,7 +1238,10 @@ For best results, use exact phrases with quotes for legal terms."""),
         raise
 
 @app.tool(
-    description="Use this when retrieving full text of any Bedesten-supported court decision. Returns clean Markdown format.",
+    description=(
+        "Use this when retrieving full text of a Bedesten search result by documentId. "
+        "Counts against the same Bedesten upstream rate limit as search; after 429, wait retry_after seconds before retrying."
+    ),
     annotations={
         "readOnlyHint": True,
         "idempotentHint": True
@@ -2187,7 +2197,11 @@ async def get_bddk_document_markdown(
 
 # --- MCP Tools for GİB (Gelir İdaresi Başkanlığı / Revenue Administration) Özelgeler ---
 @app.tool(
-    description="Search Turkish GİB özelgeler (Revenue Administration tax rulings) - 18k+ rulings on VAT, income tax, corporate tax, stamp duty interpretations. Supports keyword, date range, and law number filtering.",
+    description=(
+        "Search Turkish GİB özelge records (Revenue Administration tax rulings) - 18k+ rulings on VAT, "
+        "income tax, corporate tax, stamp duty interpretations. kanunNo filters the related law number; "
+        "returned documents are özelge/tax ruling records."
+    ),
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -2197,7 +2211,7 @@ async def get_bddk_document_markdown(
 async def search_gib_ozelge(
     keywords: str = Field("", description="Turkish keywords searched in title, kanunNo and description (e.g., 'KDV oranı', 'kurumlar vergisi istisna')"),
     ozelgeNo: str = Field("", description="Exact özelge reference number (e.g., 'E-40247694-130-15524')"),
-    kanunNo: str = Field("", description="Law number filter, e.g. '3065' for KDV, '193' for Gelir Vergisi"),
+    kanunNo: str = Field("", description="Related law number filter for özelge records, e.g. '3065' for KDV, '193' for Gelir Vergisi"),
     ozelgeStartDate: str = Field("", description="Start date YYYY-MM-DD (e.g., '2024-01-01') or full ISO 8601"),
     ozelgeEndDate: str = Field("", description="End date YYYY-MM-DD (e.g., '2024-12-31') or full ISO 8601"),
     page: int = Field(1, ge=1, description="Page number (1-indexed)"),
@@ -2429,54 +2443,42 @@ async def search_within_sigorta_tahkim_issue(
 
 # --- ChatGPT Deep Research Compatible Tools ---
 
-def get_preview_text(markdown_content: str, skip_chars: int = 100, preview_chars: int = 200) -> str:
-    """
-    Extract a preview of document text by skipping headers and showing meaningful content.
-    
-    Args:
-        markdown_content: Full document content in markdown format
-        skip_chars: Number of characters to skip from the beginning (default: 100)
-        preview_chars: Number of characters to show in preview (default: 200)
-    
-    Returns:
-        Preview text suitable for ChatGPT Deep Research
-    """
-    if not markdown_content:
-        return ""
-    
-    # Remove common markdown artifacts and clean up
-    cleaned_content = markdown_content.strip()
-    
-    # Skip the first N characters (usually headers, metadata)
-    if len(cleaned_content) > skip_chars:
-        content_start = cleaned_content[skip_chars:]
-    else:
-        content_start = cleaned_content
-    
-    # Get the next N characters for preview
-    if len(content_start) > preview_chars:
-        preview = content_start[:preview_chars]
-    else:
-        preview = content_start
-    
-    # Clean up the preview - remove incomplete sentences at the end
-    preview = preview.strip()
-    
-    # If preview ends mid-sentence, try to end at last complete sentence
-    if preview and not preview.endswith('.'):
-        last_period = preview.rfind('.')
-        if last_period > 50:  # Only if there's a reasonable sentence
-            preview = preview[:last_period + 1]
-    
-    # Add ellipsis if content was truncated
-    if len(content_start) > preview_chars:
-        preview += "..."
-    
-    return preview.strip()
+def build_bedesten_title(decision: Any, court_name: str) -> str:
+    """Build a compact title from Bedesten search metadata without fetching the document."""
+    title_parts = [court_name]
+    if getattr(decision, "birimAdi", None):
+        title_parts.append(str(decision.birimAdi))
+    if getattr(decision, "esasNo", None):
+        title_parts.append(f"Esas: {decision.esasNo}")
+    if getattr(decision, "kararNo", None):
+        title_parts.append(f"Karar: {decision.kararNo}")
+    if getattr(decision, "kararTarihiStr", None):
+        title_parts.append(f"Tarih: {decision.kararTarihiStr}")
+    return " - ".join(title_parts) if title_parts else f"{court_name} - Document {decision.documentId}"
+
+
+def build_bedesten_metadata_preview(decision: Any, court_name: str) -> str:
+    """Return Deep Research preview text using only search-result metadata."""
+    preview_parts = [f"Kaynak: {court_name}"]
+    if getattr(decision, "birimAdi", None):
+        preview_parts.append(f"Daire/Kurul: {decision.birimAdi}")
+    if getattr(decision, "esasNo", None):
+        preview_parts.append(f"Esas No: {decision.esasNo}")
+    if getattr(decision, "kararNo", None):
+        preview_parts.append(f"Karar No: {decision.kararNo}")
+    if getattr(decision, "kararTarihiStr", None):
+        preview_parts.append(f"Karar Tarihi: {decision.kararTarihiStr}")
+    preview_parts.append("Tam metin için fetch aracını bu sonucun id değeriyle çağırın.")
+    return ". ".join(preview_parts)
 
 
 @app.tool(
-    description="Only for ChatGPT Deep Research. Use this when searching across all Turkish legal databases in a single query. Returns results in ChatGPT Deep Research compatible format (id, title, text, url). Supports: +term (must have), -term (exclude), \"exact phrase\", term1 OR term2. Use Turkish keywords for best results.",
+    description=(
+        "Only for ChatGPT Deep Research. Searches Bedesten-supported Turkish court databases and returns "
+        "OpenAI Deep Research compatible results (id, title, text, url). For regular MCP use, prefer "
+        "search_bedesten_unified. This tool does not fetch document bodies during search so one query stays "
+        "within Bedesten upstream rate limits; call fetch only for selected result IDs."
+    ),
     annotations={
         "readOnlyHint": True,
         "openWorldHint": True,
@@ -2506,21 +2508,21 @@ async def search(
     try:
         # Search all court types via unified Bedesten API
         court_types = [
-            ("YARGITAYKARARI", "Yargıtay", "yargitay_bedesten"),
-            ("DANISTAYKARAR", "Danıştay", "danistay_bedesten"), 
-            ("YERELHUKUK", "Yerel Hukuk Mahkemesi", "yerel_hukuk_bedesten"),
-            ("ISTINAFHUKUK", "İstinaf Hukuk Mahkemesi", "istinaf_hukuk_bedesten"),
-            ("KYB", "Kanun Yararına Bozma", "kyb_bedesten")
+            ("YARGITAYKARARI", "Yargıtay"),
+            ("DANISTAYKARAR", "Danıştay"),
+            ("YERELHUKUK", "Yerel Hukuk Mahkemesi"),
+            ("ISTINAFHUKUK", "İstinaf Hukuk Mahkemesi"),
+            ("KYB", "Kanun Yararına Bozma")
         ]
         
-        for item_type, court_name, id_prefix in court_types:
+        for item_type, court_name in court_types:
             try:
                 search_results = await bedesten_client_instance.search_documents(
                     BedestenSearchRequest(
                         data=BedestenSearchData(
                             phrase=query,  # Use query as-is to support both regular and exact phrase searches
                             itemTypeList=[item_type],
-                            pageSize=10,
+                            pageSize=5,
                             pageNumber=1
                         )
                     )
@@ -2531,49 +2533,15 @@ async def search(
                     logger.warning(f"No data returned from Bedesten API for {court_name}")
                     continue
                 
-                # Add results from this court type (limit to top 5 per court)
+                # Add results from metadata only. Fetching every document preview
+                # would turn one Deep Research search into ~30 Bedesten requests.
                 for decision in search_results.data.emsalKararList[:5]:
-                    # For ChatGPT Deep Research, fetch document content for preview
-                    try:
-                        # Fetch document content for preview
-                        doc = await bedesten_client_instance.get_document_as_markdown(decision.documentId)
-                        
-                        # Generate preview text (skip first 100 chars, show next 200)
-                        preview_text = get_preview_text(doc.markdown_content, skip_chars=100, preview_chars=200)
-                        
-                        # Build title from metadata
-                        title_parts = []
-                        if decision.birimAdi:
-                            title_parts.append(decision.birimAdi)
-                        if decision.esasNo:
-                            title_parts.append(f"Esas: {decision.esasNo}")
-                        if decision.kararNo:
-                            title_parts.append(f"Karar: {decision.kararNo}")
-                        if decision.kararTarihiStr:
-                            title_parts.append(f"Tarih: {decision.kararTarihiStr}")
-                        
-                        if title_parts:
-                            title = " - ".join(title_parts)
-                        else:
-                            title = f"{court_name} - Document {decision.documentId}"
-                        
-                        # Add to results in OpenAI format
-                        results.append({
-                            "id": decision.documentId,
-                            "title": title,
-                            "text": preview_text,
-                            "url": f"https://mevzuat.adalet.gov.tr/ictihat/{decision.documentId}"
-                        })
-                        
-                    except Exception as e:
-                        logger.warning(f"Could not fetch preview for document {decision.documentId}: {e}")
-                        # Add minimal result without preview
-                        results.append({
-                            "id": decision.documentId,
-                            "title": f"{court_name} - Document {decision.documentId}",
-                            "text": "Document preview not available",
-                            "url": f"https://mevzuat.adalet.gov.tr/ictihat/{decision.documentId}"
-                        })
+                    results.append({
+                        "id": decision.documentId,
+                        "title": build_bedesten_title(decision, court_name),
+                        "text": build_bedesten_metadata_preview(decision, court_name),
+                        "url": f"https://mevzuat.adalet.gov.tr/ictihat/{decision.documentId}"
+                    })
                     
                 if search_results.data:
                     logger.info(f"Found {len(search_results.data.emsalKararList)} results from {court_name}")
@@ -2592,7 +2560,7 @@ async def search(
         # Danıştay Official API - use search_danistay_by_keyword instead  
         # Constitutional Court - use search_anayasa_norm_denetimi_decisions instead
         # Competition Authority - use search_rekabet_kurumu_decisions instead
-        # Public Procurement Authority - use search_kik_decisions instead
+        # Public Procurement Authority - use search_kik_v2_decisions instead
         # Court of Accounts - use search_sayistay_* tools instead
         # UYAP Emsal - use search_emsal_detailed_decisions instead
         # Jurisdictional Disputes Court - use search_uyusmazlik_decisions instead
@@ -2629,7 +2597,11 @@ async def search(
         raise
 
 @app.tool(
-    description="Only for ChatGPT Deep Research. Use this when retrieving a Turkish legal document by ID. Returns full document in ChatGPT Deep Research compatible format (id, title, text, url, metadata).",
+    description=(
+        "Only for ChatGPT Deep Research. Retrieves one Turkish legal document by numeric Bedesten ID. "
+        "For regular MCP use, prefer get_bedesten_document_markdown. This performs one Bedesten document request "
+        "and avoids an extra metadata lookup to respect upstream rate limits."
+    ),
     annotations={
         "readOnlyHint": True,
         "openWorldHint": False,  # Retrieves specific documents, not exploring
@@ -2664,41 +2636,13 @@ async def fetch(
         # Use the numeric ID directly with Bedesten API
         doc = await bedesten_client_instance.get_document_as_markdown(id)
         
-        # Try to get additional metadata by searching for this specific document
         title = f"Turkish Legal Document {id}"
-        try:
-            # Quick search to get metadata for better title
-            search_results = await bedesten_client_instance.search_documents(
-                BedestenSearchRequest(
-                    data=BedestenSearchData(
-                        phrase=id,  # Search by document ID
-                        itemTypeList=["YARGITAYKARARI", "DANISTAYKARAR", "YERELHUKUK", "ISTINAFHUKUK", "KYB"],
-                        pageSize=1,
-                        pageNumber=1
-                    )
-                )
-            )
-            
-            if search_results.data and search_results.data.emsalKararList:
-                decision = search_results.data.emsalKararList[0]
-                if decision.documentId == id:
-                    # Build a proper title from metadata
-                    title_parts = []
-                    if decision.birimAdi:
-                        title_parts.append(decision.birimAdi)
-                    if decision.esasNo:
-                        title_parts.append(f"Esas: {decision.esasNo}")
-                    if decision.kararNo:
-                        title_parts.append(f"Karar: {decision.kararNo}")
-                    if decision.kararTarihiStr:
-                        title_parts.append(f"Tarih: {decision.kararTarihiStr}")
-                    
-                    if title_parts:
-                        title = " - ".join(title_parts)
-                    else:
-                        title = f"Turkish Legal Decision {id}"
-        except Exception as e:
-            logger.warning(f"Could not fetch metadata for document {id}: {e}")
+        if doc.markdown_content:
+            for line in doc.markdown_content.splitlines():
+                cleaned_line = line.strip().lstrip("#").strip()
+                if cleaned_line:
+                    title = cleaned_line[:160]
+                    break
         
         return {
             "id": id,
@@ -2711,7 +2655,8 @@ async def fetch(
                 "source_url": doc.source_url,
                 "mime_type": doc.mime_type,
                 "api_source": "Bedesten Unified API",
-                "chatgpt_deep_research": True
+                "chatgpt_deep_research": True,
+                "rate_limit_optimized": True
             }
         }
         
