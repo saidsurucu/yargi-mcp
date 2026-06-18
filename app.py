@@ -23,7 +23,7 @@ async def health_check(request):
     return JSONResponse({
         "status": "healthy",
         "service": "Yargı MCP Server",
-        "version": "0.2.0",
+        "version": "0.2.1",
     })
 
 

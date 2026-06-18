@@ -40,28 +40,47 @@ Bu proje, çeşitli Türk hukuk kaynaklarına (Yargıtay, Danıştay, Emsal Kara
 4. **Add** butonuna tıklayın
 5. **Hemen kullanmaya başlayın!** 🎉
 
-### Google Antigravity ile Kullanım
+### Google Antigravity ile Kullanım (Lokal `uv` Kurulumu — Kopyala-Yapıştır)
 
-1. **Agent session** açın ve editörün yan panelindeki **"…"** dropdown menüsüne tıklayın
-2. **MCP Servers** seçeneğini seçin - MCP Store açılacak
-3. Üstteki **Manage MCP Servers** butonuna tıklayın
-4. **View raw config** seçeneğine tıklayın
-5. `mcp_config.json` dosyasına aşağıdaki yapılandırmayı ekleyin:
+> **Ön Gereksinimler:** Bilgisayarınızda **Python**, **`uv`** ([kurulum](https://docs.astral.sh/uv/getting-started/installation/)) ve **Node.js** ([indir](https://nodejs.org/en/download)) kurulu olmalı. (Node.js yalnızca aşağıdaki kurulum komutunu çalıştırmak için gerekir; MCP'yi `uvx` çalıştırır.)
 
-```json
-{
-  "mcpServers": {
-    "yargi-mcp": {
-      "serverUrl": "https://yargimcp.surucu.dev/mcp/",
-      "headers": {
-        "Content-Type": "application/json"
-      }
-    }
-  }
-}
+Aşağıdaki **bloğun tamamını** terminale yapıştırın. Komut, Antigravity'nin okuduğu `~/.gemini/config/mcp_config.json` dosyasını sizin yerinize oluşturur/günceller (varsa diğer sunucularınız korunur):
+
+**macOS / Linux** (Terminal):
+
+```bash
+node - <<'YARGI'
+const fs=require("fs"),os=require("os"),path=require("path");
+const dir=path.join(os.homedir(),".gemini","config"),file=path.join(dir,"mcp_config.json");
+fs.mkdirSync(dir,{recursive:true});
+let cfg={};try{cfg=JSON.parse(fs.readFileSync(file,"utf8"))}catch{}
+if(typeof cfg!=="object"||cfg===null||Array.isArray(cfg))cfg={};
+if(typeof cfg.mcpServers!=="object"||cfg.mcpServers===null)cfg.mcpServers={};
+cfg.mcpServers["yargi-mcp"]={command:"uvx",args:["yargi-mcp"]};
+fs.writeFileSync(file,JSON.stringify(cfg,null,2)+"\n");
+console.log("yargi-mcp eklendi -> "+file);
+YARGI
 ```
 
-> 💡 **İpucu:** Remote MCP sayesinde Python, uv veya herhangi bir kurulum yapmadan doğrudan Claude Desktop üzerinden Türk hukuk kaynaklarına erişebilirsiniz!
+**Windows** (PowerShell):
+
+```powershell
+@'
+const fs=require("fs"),os=require("os"),path=require("path");
+const dir=path.join(os.homedir(),".gemini","config"),file=path.join(dir,"mcp_config.json");
+fs.mkdirSync(dir,{recursive:true});
+let cfg={};try{cfg=JSON.parse(fs.readFileSync(file,"utf8"))}catch{}
+if(typeof cfg!=="object"||cfg===null||Array.isArray(cfg))cfg={};
+if(typeof cfg.mcpServers!=="object"||cfg.mcpServers===null)cfg.mcpServers={};
+cfg.mcpServers["yargi-mcp"]={command:"uvx",args:["yargi-mcp"]};
+fs.writeFileSync(file,JSON.stringify(cfg,null,2)+"\n");
+console.log("yargi-mcp eklendi -> "+file);
+'@ | node -
+```
+
+Komut `yargi-mcp eklendi -> ...` çıktısını verdiğinde kurulum tamamlanmıştır. Antigravity'yi (açıksa kapatıp) yeniden başlatın; `yargi-mcp` araçları otomatik yüklenir.
+
+> 💡 **İpucu:** Lokal kurulumda hukuk kaynaklarına erişim doğrudan bilgisayarınızda `uvx yargi-mcp` ile çalışır; uzaktan sunucuya ihtiyaç duymaz.
 
 ### Remote MCP Sorun Giderme
 
