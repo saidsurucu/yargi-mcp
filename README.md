@@ -161,26 +161,64 @@ Bu bölüm, Yargı MCP aracını 5ire gibi Claude Desktop dışındaki MCP istem
 
 ---
 <details>
-<summary>⚙️ <strong>Claude Desktop Manuel Kurulumu</strong></summary>
+<summary>⚙️ <strong>Claude Desktop Lokal Kurulumu (Kopyala-Yapıştır)</strong></summary>
 
-1.  **Ön Gereksinimler:** Python, `uv`, (Windows için) Microsoft Visual C++ Redistributable'ın sisteminizde kurulu olduğundan emin olun. Detaylı bilgi için yukarıdaki "5ire için Kurulum" bölümündeki ilgili adımlara bakabilirsiniz.
-2.  Claude Desktop **Settings -> Developer -> Edit Config**.
-3.  Açılan `claude_desktop_config.json` dosyasına `mcpServers` altına ekleyin:
+> **Ön Gereksinimler:** Bilgisayarınızda **Python**, **`uv`** ([kurulum](https://docs.astral.sh/uv/getting-started/installation/)), **Node.js** ([indir](https://nodejs.org/en/download)) ve (Windows için) Microsoft Visual C++ Redistributable kurulu olmalı. (Node.js yalnızca aşağıdaki kurulum komutunu çalıştırmak için gerekir; MCP'yi `uvx` çalıştırır.)
 
-    ```json
-    {
-      "mcpServers": {
-        // ... (varsa diğer sunucularınız) ...
-        "Yargı MCP": {
-          "command": "uvx",
-          "args": [
-            "yargi-mcp"
-          ]
-        }
-      }
+Aşağıdaki **bloğun tamamını** terminale yapıştırın. Komut, Claude Desktop'ın `claude_desktop_config.json` dosyasını sizin yerinize oluşturur/günceller (varsa diğer sunucularınız korunur):
+
+**macOS / Linux** (Terminal):
+
+```bash
+node - <<'YARGI'
+const fs=require("fs"),os=require("os"),path=require("path");
+const dir=process.platform==="darwin"
+  ? path.join(os.homedir(),"Library","Application Support","Claude")
+  : path.join(os.homedir(),".config","Claude");
+const file=path.join(dir,"claude_desktop_config.json");
+fs.mkdirSync(dir,{recursive:true});
+let cfg={};try{cfg=JSON.parse(fs.readFileSync(file,"utf8"))}catch{}
+if(typeof cfg!=="object"||cfg===null||Array.isArray(cfg))cfg={};
+if(typeof cfg.mcpServers!=="object"||cfg.mcpServers===null)cfg.mcpServers={};
+cfg.mcpServers["yargi-mcp"]={command:"uvx",args:["yargi-mcp"]};
+fs.writeFileSync(file,JSON.stringify(cfg,null,2)+"\n");
+console.log("yargi-mcp eklendi -> "+file);
+YARGI
+```
+
+**Windows** (PowerShell):
+
+```powershell
+@'
+const fs=require("fs"),os=require("os"),path=require("path");
+const dir=path.join(process.env.APPDATA||path.join(os.homedir(),"AppData","Roaming"),"Claude");
+const file=path.join(dir,"claude_desktop_config.json");
+fs.mkdirSync(dir,{recursive:true});
+let cfg={};try{cfg=JSON.parse(fs.readFileSync(file,"utf8"))}catch{}
+if(typeof cfg!=="object"||cfg===null||Array.isArray(cfg))cfg={};
+if(typeof cfg.mcpServers!=="object"||cfg.mcpServers===null)cfg.mcpServers={};
+cfg.mcpServers["yargi-mcp"]={command:"uvx",args:["yargi-mcp"]};
+fs.writeFileSync(file,JSON.stringify(cfg,null,2)+"\n");
+console.log("yargi-mcp eklendi -> "+file);
+'@ | node -
+```
+
+Komut `yargi-mcp eklendi -> ...` çıktısını verdiğinde kurulum tamamlanmıştır. **Claude Desktop'ı tamamen kapatıp yeniden başlatın**; `yargi-mcp` araçları otomatik yüklenir.
+
+---
+
+**Manuel alternatif:** Claude Desktop **Settings → Developer → Edit Config** menüsünden `claude_desktop_config.json` dosyasını açıp `mcpServers` altına ekleyebilirsiniz:
+
+```json
+{
+  "mcpServers": {
+    "yargi-mcp": {
+      "command": "uvx",
+      "args": ["yargi-mcp"]
     }
-    ```
-4.  Claude Desktop'ı kapatıp yeniden başlatın.
+  }
+}
+```
 
 </details>
 
