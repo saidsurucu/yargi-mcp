@@ -1,86 +1,41 @@
 # uyusmazlik_mcp_module/models.py
 
 from pydantic import BaseModel, Field, HttpUrl
-from typing import List, Optional
-from enum import Enum
+from typing import List, Optional, Literal
 
-# Enum definitions for user-friendly input based on the provided HTML form
-class UyusmazlikBolumEnum(str, Enum):
-    """User-friendly names for 'BolumId'."""
-    TUMU = "ALL" # Represents "...Seçiniz..." or all
-    CEZA_BOLUMU = "Ceza Bölümü"
-    GENEL_KURUL_KARARLARI = "Genel Kurul Kararları"
-    HUKUK_BOLUMU = "Hukuk Bölümü"
+# The Uyuşmazlık Mahkemesi search site was rebuilt as an ASP.NET WebForms app.
+# It now offers only a single free-text search with a scope selector; the old
+# Bölüm / Uyuşmazlık Türü / Karar Sonucu / Esas-Karar year filters no longer exist.
 
-class UyusmazlikTuruEnum(str, Enum):
-    """User-friendly names for 'UyusmazlikId'."""
-    TUMU = "ALL" # Represents "...Seçiniz..." or all
-    GOREV_UYUSMAZLIGI = "Görev Uyuşmazlığı"
-    HUKUM_UYUSMAZLIGI = "Hüküm Uyuşmazlığı"
+UyusmazlikSearchScope = Literal["All", "EsasNo", "KararNo"]
 
-class UyusmazlikKararSonucuEnum(str, Enum): # Based on checkbox text in the form
-    """User-friendly names for 'KararSonucuList' items."""
-    HUKUM_UYUSMAZLIGI_OLMADIGINA_DAIR = "Hüküm Uyuşmazlığı Olmadığına Dair"
-    HUKUM_UYUSMAZLIGI_OLDUGUNA_DAIR = "Hüküm Uyuşmazlığı Olduğuna Dair"
-    # Add other "Karar Sonucu" options from the form's checkboxes as Enum members
-    # Example: GOREVLI_YARGI_YERI_ADLI = "Görevli Yargı Yeri Belirlenmesine Dair (Adli Yargı)"
-    # The client will map these enum values (which are strings) to their respective IDs.
 
-class UyusmazlikSearchRequest(BaseModel): # This is the model the MCP tool will accept
-    """Model for Uyuşmazlık Mahkemesi search request using user-friendly terms."""
-    icerik: Optional[str] = Field("", description="Search text")
-    
-    bolum: Optional[UyusmazlikBolumEnum] = Field(
-        UyusmazlikBolumEnum.TUMU, 
-        description="Department"
+class UyusmazlikSearchRequest(BaseModel):
+    """Model for the Uyuşmazlık Mahkemesi search request."""
+    icerik: str = Field("", description="Search text (txtSearch).")
+    search_scope: UyusmazlikSearchScope = Field(
+        "All",
+        description="Search scope: 'All' (full text), 'EsasNo' (by case number), 'KararNo' (by decision number).",
     )
-    uyusmazlik_turu: Optional[UyusmazlikTuruEnum] = Field(
-        UyusmazlikTuruEnum.TUMU, 
-        description="Dispute type"
-    )
-    
-    # User provides a list of user-friendly names for Karar Sonucu
-    karar_sonuclari: Optional[List[UyusmazlikKararSonucuEnum]] = Field( # Changed to list of Enums
-        default_factory=list, 
-        description="Decision types"
-    )
-    
-    esas_yil: Optional[str] = Field("", description="Case year")
-    esas_sayisi: Optional[str] = Field("", description="Case no")
-    karar_yil: Optional[str] = Field("", description="Decision year")
-    karar_sayisi: Optional[str] = Field("", description="Decision no")
-    kanun_no: Optional[str] = Field("", description="Law no")
-    
-    karar_date_begin: Optional[str] = Field("", description="Start date (DD.MM.YYYY)")
-    karar_date_end: Optional[str] = Field("", description="End date (DD.MM.YYYY)")
-    
-    resmi_gazete_sayi: Optional[str] = Field("", description="Gazette no")
-    resmi_gazete_date: Optional[str] = Field("", description="Gazette date (DD.MM.YYYY)")
-    
-    # Detailed text search fields from the "icerikDetail" section of the form
-    tumce: Optional[str] = Field("", description="Exact phrase")
-    wild_card: Optional[str] = Field("", description="Wildcard search")
-    hepsi: Optional[str] = Field("", description="All words")
-    herhangi_birisi: Optional[str] = Field("", description="Any word")
-    not_hepsi: Optional[str] = Field("", description="Exclude words")
+    case_sensitive: bool = Field(False, description="Whether the search is case sensitive (chkCaseSensitive).")
+    page_number: int = Field(1, ge=1, description="Result page number (GridView pager).")
+
 
 class UyusmazlikApiDecisionEntry(BaseModel):
-    """Model for an individual decision entry parsed from Uyuşmazlık API's HTML search response."""
-    karar_sayisi: Optional[str] = Field(None)
-    esas_sayisi: Optional[str] = Field(None)
-    bolum: Optional[str] = Field(None)
-    uyusmazlik_konusu: Optional[str] = Field(None)
-    karar_sonucu: Optional[str] = Field(None)
-    popover_content: Optional[str] = Field(None, description="Summary")
-    document_url: HttpUrl # Full URL to the decision document HTML page
-    pdf_url: Optional[HttpUrl] = Field(None, description="PDF URL")
+    """A single decision row parsed from the Uyuşmazlık GridView results."""
+    esas_sayisi: Optional[str] = Field(None, description="Case number (Esas No).")
+    karar_sayisi: Optional[str] = Field(None, description="Decision number (Karar No).")
+    karar_tarihi: Optional[str] = Field(None, description="Decision date (DD/MM/YYYY).")
+    document_url: HttpUrl = Field(..., description="Full URL to the decision PDF document.")
 
-class UyusmazlikSearchResponse(BaseModel): # This is what the MCP tool will return
-    """Response model for Uyuşmazlık Mahkemesi search results for the MCP tool."""
+
+class UyusmazlikSearchResponse(BaseModel):
+    """Response model for Uyuşmazlık Mahkemesi search results."""
     decisions: List[UyusmazlikApiDecisionEntry]
-    total_records_found: Optional[int] = Field(None, description="Total number of records found for the query, if available.")
+    total_records_found: Optional[int] = Field(None, description="Total number of records found, if reported.")
+
 
 class UyusmazlikDocumentMarkdown(BaseModel):
-    """Model for an Uyuşmazlık decision document, containing only Markdown content."""
-    source_url: HttpUrl # The URL from which the content was fetched
-    markdown_content: Optional[str] = Field(None, description="The decision content converted to Markdown.")
+    """Model for an Uyuşmazlık decision document, containing Markdown content."""
+    source_url: HttpUrl
+    markdown_content: Optional[str] = Field(None, description="The decision PDF content converted to Markdown.")
