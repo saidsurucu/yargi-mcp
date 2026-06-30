@@ -285,7 +285,7 @@ from emsal_mcp_module.models import (
 )
 from uyusmazlik_mcp_module.client import UyusmazlikApiClient
 from uyusmazlik_mcp_module.models import (
-    UyusmazlikSearchRequest, UyusmazlikBolumEnum, UyusmazlikTuruEnum, UyusmazlikKararSonucuEnum
+    UyusmazlikSearchRequest
 )
 from anayasa_mcp_module.client import AnayasaMahkemesiApiClient
 from anayasa_mcp_module.bireysel_client import AnayasaBireyselBasvuruApiClient
@@ -696,65 +696,24 @@ async def get_emsal_document_markdown(id: str) -> Dict[str, Any]:
     }
 )
 async def search_uyusmazlik_decisions(
-    icerik: str = Field("", description="Keyword or content for main text search."),
-    bolum: Literal["ALL", "Ceza Bölümü", "Genel Kurul Kararları", "Hukuk Bölümü"] = Field("ALL", description="Select the department (Bölüm). Use 'ALL' for all departments."),
-    uyusmazlik_turu: Literal["ALL", "Görev Uyuşmazlığı", "Hüküm Uyuşmazlığı"] = Field("ALL", description="Select the type of dispute. Use 'ALL' for all types."),
-    karar_sonuclari: List[Literal["Hüküm Uyuşmazlığı Olmadığına Dair", "Hüküm Uyuşmazlığı Olduğuna Dair"]] = Field(default_factory=list, description="List of desired 'Karar Sonucu' types."),
-    esas_yil: str = Field("", description="Case year ('Esas Yılı')."),
-    esas_sayisi: str = Field("", description="Case number ('Esas Sayısı')."),
-    karar_yil: str = Field("", description="Decision year ('Karar Yılı')."),
-    karar_sayisi: str = Field("", description="Decision number ('Karar Sayısı')."),
-    kanun_no: str = Field("", description="Relevant Law Number."),
-    karar_date_begin: str = Field("", description="Decision start date (DD.MM.YYYY)."),
-    karar_date_end: str = Field("", description="Decision end date (DD.MM.YYYY)."),
-    resmi_gazete_sayi: str = Field("", description="Official Gazette number."),
-    resmi_gazete_date: str = Field("", description="Official Gazette date (DD.MM.YYYY)."),
-    tumce: str = Field("", description="Exact phrase search."),
-    wild_card: str = Field("", description="Search for phrase and its inflections."),
-    hepsi: str = Field("", description="Search for texts containing all specified words."),
-    herhangi_birisi: str = Field("", description="Search for texts containing any of the specified words."),
-    not_hepsi: str = Field("", description="Exclude texts containing these specified words.")
+    icerik: str = Field("", description="Search text. Searches full decision text, or matches a case/decision number depending on search_scope."),
+    search_scope: Literal["All", "EsasNo", "KararNo"] = Field("All", description="Search scope: 'All' (full text), 'EsasNo' (by case number), 'KararNo' (by decision number)."),
+    case_sensitive: bool = Field(False, description="Whether the search is case sensitive."),
+    page_number: int = Field(1, ge=1, description="Result page number.")
 ) -> Dict[str, Any]:
-    """Search Court of Jurisdictional Disputes decisions."""
-    
-    # Convert string literals to enums
-    # Map "ALL" to TUMU for backward compatibility
-    if bolum == "ALL":
-        bolum_enum = UyusmazlikBolumEnum.TUMU
-    else:
-        bolum_enum = UyusmazlikBolumEnum(bolum) if bolum else UyusmazlikBolumEnum.TUMU
-    
-    if uyusmazlik_turu == "ALL":
-        uyusmazlik_turu_enum = UyusmazlikTuruEnum.TUMU
-    else:
-        uyusmazlik_turu_enum = UyusmazlikTuruEnum(uyusmazlik_turu) if uyusmazlik_turu else UyusmazlikTuruEnum.TUMU
-    karar_sonuclari_enums = [UyusmazlikKararSonucuEnum(ks) for ks in karar_sonuclari]
-    
+    """Search Court of Jurisdictional Disputes (Uyuşmazlık Mahkemesi) decisions."""
+
     search_params = UyusmazlikSearchRequest(
         icerik=icerik,
-        bolum=bolum_enum,
-        uyusmazlik_turu=uyusmazlik_turu_enum,
-        karar_sonuclari=karar_sonuclari_enums,
-        esas_yil=esas_yil,
-        esas_sayisi=esas_sayisi,
-        karar_yil=karar_yil,
-        karar_sayisi=karar_sayisi,
-        kanun_no=kanun_no,
-        karar_date_begin=karar_date_begin,
-        karar_date_end=karar_date_end,
-        resmi_gazete_sayi=resmi_gazete_sayi,
-        resmi_gazete_date=resmi_gazete_date,
-        tumce=tumce,
-        wild_card=wild_card,
-        hepsi=hepsi,
-        herhangi_birisi=herhangi_birisi,
-        not_hepsi=not_hepsi
+        search_scope=search_scope,
+        case_sensitive=case_sensitive,
+        page_number=page_number,
     )
-    
+
     logger.info("Tool 'search_uyusmazlik_decisions' called.")
     try:
         result = await uyusmazlik_client_instance.search_decisions(search_params)
-        return result.model_dump()
+        return result.model_dump(mode="json")
     except Exception:
         logger.exception("Error in tool 'search_uyusmazlik_decisions'.")
         raise
@@ -830,47 +789,23 @@ async def get_uyusmazlik_document_markdown_from_url(
 )
 async def search_anayasa_unified(
     decision_type: Literal["norm_denetimi", "bireysel_basvuru"] = Field(..., description="Decision type: norm_denetimi (norm control) or bireysel_basvuru (individual applications)"),
-    keywords: List[str] = Field(default_factory=list, description="Keywords to search for (common parameter)"),
+    keywords: List[str] = Field(default_factory=list, description="Keywords for full-text search (joined into a single query)"),
     page_to_fetch: int = Field(1, ge=1, le=100, description="Page number to fetch (1-100)"),
-    # results_per_page: int = Field(10, ge=1, le=100, description="Results per page (1-100)"),
-    
-    # Norm Denetimi specific parameters (ignored for bireysel_basvuru)
-    keywords_all: List[str] = Field(default_factory=list, description="All keywords must be present (norm_denetimi only)"),
-    keywords_any: List[str] = Field(default_factory=list, description="Any of these keywords (norm_denetimi only)"),
-    decision_type_norm: Literal["ALL", "1", "2", "3"] = Field("ALL", description="Decision type for norm denetimi"),
-    application_date_start: str = Field("", description="Application start date (norm_denetimi only)"),
-    application_date_end: str = Field("", description="Application end date (norm_denetimi only)"),
-    
-    # Bireysel Başvuru specific parameters (ignored for norm_denetimi)
-    decision_start_date: str = Field("", description="Decision start date (bireysel_basvuru only)"),
-    decision_end_date: str = Field("", description="Decision end date (bireysel_basvuru only)"),
-    norm_type: Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "0"] = Field("ALL", description="Norm type (bireysel_basvuru only)"),
-    subject_category: str = Field("", description="Subject category (bireysel_basvuru only)")
+    results_per_page: int = Field(10, ge=1, le=100, description="Results per page (1-100)")
 ) -> str:
     logger.info(f"Tool 'search_anayasa_unified' called for decision_type: {decision_type}")
-    
-    results_per_page = 10  # Default value
-    
+
     try:
         request = AnayasaUnifiedSearchRequest(
             decision_type=decision_type,
             keywords=keywords,
             page_to_fetch=page_to_fetch,
             results_per_page=results_per_page,
-            keywords_all=keywords_all,
-            keywords_any=keywords_any,
-            decision_type_norm=decision_type_norm,
-            application_date_start=application_date_start,
-            application_date_end=application_date_end,
-            decision_start_date=decision_start_date,
-            decision_end_date=decision_end_date,
-            norm_type=norm_type,
-            subject_category=subject_category
         )
-        
+
         result = await anayasa_unified_client_instance.search_unified(request)
         return json.dumps(result.model_dump(), ensure_ascii=False, indent=2)
-        
+
     except Exception:
         logger.exception("Error in tool 'search_anayasa_unified'.")
         raise

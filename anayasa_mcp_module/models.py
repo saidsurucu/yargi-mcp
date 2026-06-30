@@ -140,9 +140,10 @@ class AnayasaDocumentMarkdown(BaseModel):
 # --- Models for Anayasa Mahkemesi - Bireysel Başvuru Karar Raporu ---
 
 class AnayasaBireyselReportSearchRequest(BaseModel):
-    """Model for Anayasa Mahkemesi (Bireysel Başvuru) 'Karar Arama Raporu' search request."""
-    keywords: Optional[List[str]] = Field(default_factory=list, description="Keywords for AND logic (KelimeAra[]).")
+    """Model for Anayasa Mahkemesi (Bireysel Başvuru) search request."""
+    keywords: Optional[List[str]] = Field(default_factory=list, description="Keywords joined into the full-text query.")
     page_to_fetch: int = Field(1, ge=1, description="Page number to fetch for the report (page). Default is 1.")
+    results_per_page: int = Field(10, ge=1, le=100, description="Results per page.")
 
 class AnayasaBireyselReportDecisionDetail(BaseModel):
     """Details of a specific right/claim within a Bireysel Başvuru decision summary in a report."""
@@ -191,26 +192,19 @@ class AnayasaBireyselBasvuruDocumentMarkdown(BaseModel):
 
 # --- Unified Models ---
 class AnayasaUnifiedSearchRequest(BaseModel):
-    """Unified search request for both Norm Denetimi and Bireysel Başvuru."""
+    """Unified search request for both Norm Denetimi and Bireysel Başvuru.
+
+    The KBB API only exposes a single free-text "query" field plus pagination,
+    so the keyword lists below are flattened into that query.
+    """
     decision_type: Literal["norm_denetimi", "bireysel_basvuru"] = Field(..., description="Decision type: norm_denetimi or bireysel_basvuru")
-    
+
     # Common parameters
-    keywords: List[str] = Field(default_factory=list, description="Keywords to search for")
+    keywords: List[str] = Field(default_factory=list, description="Keywords to search for (joined into a single full-text query)")
+    keywords_all: List[str] = Field(default_factory=list, description="Additional keywords to include in the query")
+    keywords_any: List[str] = Field(default_factory=list, description="Additional alternative keywords to include in the query")
     page_to_fetch: int = Field(1, ge=1, le=100, description="Page number to fetch (1-100)")
     results_per_page: int = Field(10, ge=1, le=100, description="Results per page (1-100)")
-    
-    # Norm Denetimi specific parameters (ignored for bireysel_basvuru)
-    keywords_all: List[str] = Field(default_factory=list, description="All keywords must be present (norm_denetimi only)")
-    keywords_any: List[str] = Field(default_factory=list, description="Any of these keywords (norm_denetimi only)")
-    decision_type_norm: Literal["ALL", "1", "2", "3"] = Field("ALL", description="Decision type for norm denetimi")
-    application_date_start: str = Field("", description="Application start date (norm_denetimi only)")
-    application_date_end: str = Field("", description="Application end date (norm_denetimi only)")
-    
-    # Bireysel Başvuru specific parameters (ignored for norm_denetimi)
-    decision_start_date: str = Field("", description="Decision start date (bireysel_basvuru only)")
-    decision_end_date: str = Field("", description="Decision end date (bireysel_basvuru only)")
-    norm_type: Literal["ALL", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "0"] = Field("ALL", description="Norm type (bireysel_basvuru only)")
-    subject_category: str = Field("", description="Subject category (bireysel_basvuru only)")
 
 class AnayasaUnifiedSearchResult(BaseModel):
     """Unified search result containing decisions from either system."""
