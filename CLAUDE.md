@@ -993,9 +993,10 @@ curl -s -X POST http://127.0.0.1:8000/mcp/ \
     "jsonrpc": "2.0",
     "method": "tools/call",
     "params": {
-      "name": "search_anayasa_norm_denetimi_decisions",
+      "name": "search_anayasa_unified",
       "arguments": {
-        "keywords_all": ["eğitim hakkı"],
+        "decision_type": "norm_denetimi",
+        "keywords": ["eğitim hakkı"],
         "results_per_page": 3
       }
     },
@@ -2103,6 +2104,21 @@ build-backend = "setuptools.build_meta"
 - **After**: 2 unified tools with decision type parameter
 - **Benefits**: Single interface, auto-detection, simplified usage
 - **Tools**: search_anayasa_unified + get_anayasa_document_unified
+
+#### ✅ AYM & Uyuşmazlık API Rewrites (Completed - Jun 30, 2026)
+- **Issue**: Both sites were rebuilt; their old endpoints now return HTTP 404, breaking `search_anayasa_unified`, `get_anayasa_document_unified`, `search_uyusmazlik_decisions`, and `get_uyusmazlik_document_markdown_from_url`.
+- **AYM (Anayasa Mahkemesi)** — migrated to a single-page app (`/kbb/`) backed by a **JSON API** shared by both hosts:
+  - Endpoint: `POST /api/core/public/search`
+  - List: `{kararTipi, query, page, size}` → `{total, page, data:[...], page_size}` (page is 1-indexed)
+  - Document: `{kararTipi, id, page:1, size:1}` → `data[0].icerik` (full decision HTML)
+  - `kararTipi`: `NormDenetimi`, `BireyselBasvuru` (others: SiyasiParti, YasamaDokunulmazligi, YuceDivan, Tumu)
+  - Old `/Ara` (HTML scrape) and `/ND/`, `/BB/` document pages are **gone**.
+  - New shared low-level client: `anayasa_mcp_module/api_client.py`. Document URLs are SPA links carrying `?type=<kararTipi>&id=<base64url("kbb:"+uuid)>`.
+- **Uyuşmazlık Mahkemesi** — migrated to **ASP.NET WebForms**:
+  - Flow: GET `/` → scrape `__VIEWSTATE`/`__VIEWSTATEGENERATOR`/`__EVENTVALIDATION`; POST `/` with `txtSearch`, `rblSearchScope` (`All`/`EsasNo`/`KararNo`), optional `chkCaseSensitive`, `btnSearch=Ara`; results in `<table id="GridView1">`; pager via `__doPostBack('GridView1','Page$N')`.
+  - Documents are PDFs at `/Uploads/{EsasNo}.pdf` (slash → dash), converted with MarkItDown.
+  - The old `/Arama/Search` AJAX endpoint and the rich Bölüm/Uyuşmazlık Türü/Esas-Karar/Karar Sonucu filters are **gone**; the tool now exposes `icerik`, `search_scope`, `case_sensitive`, `page_number`.
+- **Verification**: All four tools verified live via FastMCP client (search + document retrieval for AYM norm/bireysel and Uyuşmazlık).
 
 #### 🔄 Sayıştay Module (Available, Active)
 - **Module**: `sayistay_mcp_module/` - Complete implementation  
